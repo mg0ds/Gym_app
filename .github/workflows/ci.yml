@@ -20,11 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: JDK 17
+      - name: JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          # SDK 36 w Robolectric wymaga Javy 21; AGP 9 potrzebuje min. 17.
+          java-version: '21'
 
       - name: Android SDK
         uses: android-actions/setup-android@v3

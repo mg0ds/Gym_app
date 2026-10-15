@@ -8,9 +8,10 @@ Stan: **M0 ukończony** (fundament projektu). Kolejny krok to katalog ćwiczeń 
 
 ## Wymagania
 
-* **JDK 17** (AGP 9 wymaga co najmniej 17),
+* **JDK 21** — AGP 9 wymaga min. 17, ale sandbox Robolectric dla SDK 36 wymaga Javy 21
+  (Android Studio wnosi własne JDK 21, więc zwykle nic nie trzeba instalować),
 * Android Studio (dowolna wersja obsługująca AGP 9) lub samo Android SDK,
-* **Android SDK Platform 36** + Build Tools 36.0.0.
+* **Android SDK Platform 36** + Build Tools 36.x.
 
 ## Budowanie i testy
 

@@ -666,7 +666,8 @@ M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release
   z DataStore, teksty PL (domyślne) + EN,
 * nawigacja Compose z dwoma ekranami (start, ustawienia) — kolejne dochodzą
   wraz z katalogiem ćwiczeń i planami,
-* CI (GitHub Actions): `lintDebug`, `testDebugUnitTest`, `assembleDebug`,
+* CI (GitHub Actions): `lintDebug`, `testDebugUnitTest`, `assembleDebug` na JDK 21
+  (sandbox Robolectric dla SDK 36 wymaga Javy 21, choć AGP wystarcza 17),
 * testy JVM: DAO Room (Robolectric), DataStore, model.
 
 Świadome odroczenia z M0:
