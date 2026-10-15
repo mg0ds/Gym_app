@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.DatabaseMigrations
 import com.gymtracker.data.db.daos.AppMetaDao
+import com.gymtracker.data.db.daos.ExerciseDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,4 +26,7 @@ object DatabaseModule {
 
     @Provides
     fun provideAppMetaDao(database: AppDatabase): AppMetaDao = database.appMetaDao()
+
+    @Provides
+    fun provideExerciseDao(database: AppDatabase): ExerciseDao = database.exerciseDao()
 }

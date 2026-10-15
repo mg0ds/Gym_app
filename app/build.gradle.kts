@@ -4,9 +4,30 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose)
+    alias(libs.plugins.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+}
+
+// ---------------------------------------------------------------------------
+// Dane startowe (seed) trzymamy w jednym miejscu w repo: `data/seed/`.
+// W czasie budowania kopiujemy je do assetów, dzięki czemu nie ma drugiej,
+// ręcznie synchronizowanej kopii tych plików w `app/src/main/assets/`.
+// W apce czytamy je jako `assets/seed/<plik>`.
+// ---------------------------------------------------------------------------
+val syncSeedAssets = tasks.register<Sync>("syncSeedAssets") {
+    description = "Kopiuje data/seed/ do assetów aplikacji (assets/seed/)."
+    // Zawartość data/seed/ ląduje pod `seed/`, więc w apce czytamy `assets/seed/<plik>`.
+    from(rootProject.layout.projectDirectory.dir("data/seed")) { into("seed") }
+    into(layout.buildDirectory.dir("generated/seedAssets"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        // Variant API sam pilnuje kolejności: assety są scalane po tym zadaniu.
+        variant.sources.assets?.addGeneratedSourceDirectory(syncSeedAssets) { it.destinationDirectory }
+    }
 }
 
 android {
@@ -76,6 +97,7 @@ dependencies {
     implementation(libs.compose.graphics)
     implementation(libs.compose.preview)
     implementation(libs.compose.material3)
+    implementation(libs.compose.icons)
     debugImplementation(libs.compose.tooling)
 
     implementation(libs.hilt.android)
@@ -87,6 +109,8 @@ dependencies {
     ksp(libs.room.compiler)
 
     implementation(libs.datastore.preferences)
+
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
