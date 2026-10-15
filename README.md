@@ -24,6 +24,10 @@ Stan: **M0 ukończony** (fundament projektu). Kolejny krok to katalog ćwiczeń 
 Wszystkie trzy kroki uruchamia CI na GitHub Actions dla każdego pusha i PR-a
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
+Po **pierwszym lokalnym** buildzie warto zacommitować wyeksportowane schematy bazy
+(`app/schemas/com.gymtracker.data.db.AppDatabase/1.json`) — Room używa ich do testów
+migracji i auto-migracji, a w CI powstają tylko na czas budowania.
+
 ## Zawartość repozytorium
 
 | Ścieżka | Co to |
