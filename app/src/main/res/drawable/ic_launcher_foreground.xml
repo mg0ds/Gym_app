@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikona startowa: sztanga. minSdk 26 => wystarczy adaptive icon, bez plików PNG. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- gryf -->
+    <path
+        android:fillColor="#E3F1F8"
+        android:pathData="M36,51h36v6h-36z" />
+    <!-- talerze bliżej środka -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M30,40h6v28h-6z" />
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M72,40h6v28h-6z" />
+    <!-- talerze zewnętrzne -->
+    <path
+        android:fillColor="#29B6F6"
+        android:pathData="M24,44h6v20h-6z" />
+    <path
+        android:fillColor="#29B6F6"
+        android:pathData="M78,44h6v20h-6z" />
+</vector>

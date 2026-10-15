@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GymTracker</string>
+
+    <!-- Ekran startowy -->
+    <string name="home_title">Today</string>
+    <string name="home_subtitle">Your plan and today\'s workout</string>
+    <string name="home_ready_title">App foundation is ready</string>
+    <string name="home_ready_body">Project, theme, dependency injection, local database and CI all work. Next step: the exercise catalogue.</string>
+    <string name="home_version">Version %1$s</string>
+    <string name="home_open_settings">Open settings</string>
+
+    <!-- Ustawienia -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme_mode">Theme</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+
+    <!-- Dostępność -->
+    <string name="cd_back">Back</string>
+</resources>

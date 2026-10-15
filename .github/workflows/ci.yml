@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Budowa i testy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # compileSdk 36; AGP dociąga brakujące komponenty sam (licencje są akceptowane).
+          packages: 'platforms;android-36 build-tools;36.1.0'
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint, testy jednostkowe, build
+        run: ./gradlew --no-daemon --stacktrace lintDebug testDebugUnitTest assembleDebug
+
+      - name: Raporty (przy błędzie)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raporty
+          if-no-files-found: ignore
+          path: |
+            app/build/reports/tests/**
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml

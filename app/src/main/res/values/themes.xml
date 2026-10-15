@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Motyw systemowy dla Activity. Właściwe kolory rysuje Compose (Material 3). -->
+    <style name="Theme.GymTracker" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/background_light</item>
+    </style>
+</resources>

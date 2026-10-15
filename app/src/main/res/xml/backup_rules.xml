@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kopie zapasowe (Android 11 i starsze): cała pamięć aplikacji poza cache. -->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
+    <include domain="file" path="." />
+    <exclude domain="file" path="cache/" />
+</full-backup-content>

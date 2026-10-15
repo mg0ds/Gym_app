@@ -78,8 +78,8 @@ treningowy z `data/seed/` (patrz §7).
 | YouTube | Intent / Custom Tabs + miniatura z `img.youtube.com` | **YouTube Android Player API jest przestarzałe i wycofywane** — nie używamy. |
 | Timer | `ForegroundService` + `startedAt` (epoch) + `SystemClock.elapsedRealtime()` | Monotoniczny licznik odporny na zmianę czasu w systemie. |
 | WorkManager | autozapis/dokończenie sesji, przypomnienia | — |
-| Testy | JUnit5, Turbine, Room in-memory, Compose UI Test, Robolectric | — |
-| CI | GitHub Actions: lint (ktlint/detekt), build, testy, assembleRelease | — |
+| Testy | JUnit4 + Truth, Turbine, Room in-memory, Compose UI Test, Robolectric | — |
+| CI | GitHub Actions: lint, testy jednostkowe, build (docelowo też detekt i assembleRelease) | — |
 | Dane startowe | JSON w `data/seed/` → `assets/seed/` | Import jednorazowy, offline. |
 
 > **Decyzja: natywny Kotlin, nie Flutter/React Native.** Powody: timer w tle
@@ -643,6 +643,39 @@ wersji 1.0 w Google Play (testy zamknięte od M6, produkcja po M9).
 
 **Kolejność ma znaczenie:** M3 (kalendarz) zależy od M2 (plany), M6 zależy od M4/M5.
 M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release.
+
+### 8.1 Stan realizacji
+
+**M0 ✔ (fundament)** — w repo działa:
+
+* szkielet Gradle `:app` (Kotlin + Compose + Hilt + Room + DataStore); wszystkie
+  wersje w `gradle/libs.versions.toml`, wrapper Gradle 9.8.1,
+* **AGP 9.4.1 z wbudowanym Kotlinem** — plugin `org.jetbrains.kotlin.android` nie
+  jest już potrzebny ani dozwolony; realną wersję Kotlina (2.3.21) wnosi plugin
+  Compose (`org.jetbrains.kotlin.plugin.compose`), a KSP 2.3.12 od wersji 2.3.0
+  ma własne numerowanie, niezależne od Kotlina,
+* `compileSdk`/`targetSdk` = 36, `minSdk` = 26. **Uwaga przy aktualizacjach:**
+  wydania androidx z drugiej połowy 2026 (compose 1.12.x, core-ktx 1.19.x,
+  lifecycle 2.11.x, navigation 2.10.x, hilt-navigation-compose 1.4.x) wymagają
+  `compileSdk 37` (Android 17) — dlatego M0 stoi na ostatnich wersjach
+  wspierających 36 (`minCompileSdk <= 36`), a podniesienie progu to osobny,
+  świadomy krok (`compileSdk = 37` + `compileSdkMinor`),
+* Room w wersji 1 z eksportem schematów do `app/schemas/` i zasadami migracji
+  opisanymi w `DatabaseMigrations` (bez `fallbackToDestructiveMigration`),
+* motyw Material 3 (dynamiczne kolory od Androida 12) sterowany ustawieniem
+  z DataStore, teksty PL (domyślne) + EN,
+* nawigacja Compose z dwoma ekranami (start, ustawienia) — kolejne dochodzą
+  wraz z katalogiem ćwiczeń i planami,
+* CI (GitHub Actions): `lintDebug`, `testDebugUnitTest`, `assembleDebug`,
+* testy JVM: DAO Room (Robolectric), DataStore, model.
+
+Świadome odroczenia z M0:
+
+* `detekt`/`ktlint` w CI — najpierw stabilny build, narzędzia stylu dochodzą
+  razem z M9 (szlify), gdy kod urośnie,
+* `assembleRelease` w CI — podpis i R8 są zakresem M9,
+* wersje bibliotek z PL/pytań zależności — aktualizacja wtedy, gdy dana
+  biblioteka wchodzi do użytku (Vico w M6, Coil/Media3 w M7).
 
 ---
 

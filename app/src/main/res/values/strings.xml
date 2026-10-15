@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GymTracker</string>
+
+    <!-- Ekran startowy -->
+    <string name="home_title">Dziś</string>
+    <string name="home_subtitle">Twój plan i dzisiejszy trening</string>
+    <string name="home_ready_title">Baza aplikacji gotowa</string>
+    <string name="home_ready_body">Projekt, motyw, wstrzykiwanie zależności, baza lokalna i CI działają. Kolejny krok: katalog ćwiczeń.</string>
+    <string name="home_version">Wersja %1$s</string>
+    <string name="home_open_settings">Otwórz ustawienia</string>
+
+    <!-- Ustawienia -->
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_section_appearance">Wygląd</string>
+    <string name="settings_theme_mode">Motyw</string>
+    <string name="settings_theme_system">Zgodny z systemem</string>
+    <string name="settings_theme_light">Jasny</string>
+    <string name="settings_theme_dark">Ciemny</string>
+
+    <!-- Dostępność -->
+    <string name="cd_back">Wstecz</string>
+</resources>

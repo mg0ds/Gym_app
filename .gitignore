@@ -1,15 +1,23 @@
+# Python / narzędzia lokalne
 .venv/
 __pycache__/
 *.pyc
 
-# Android (gdy powstanie :app)
+# Android / Gradle
 .gradle/
 build/
+.kotlin/
 local.properties
+captures/
+.cxx/
+*.hprof
+
+# Artefakty
 *.apk
 *.aab
 *.keystore
 *.jks
+app/release/
 
 # IDE / system
 .idea/
