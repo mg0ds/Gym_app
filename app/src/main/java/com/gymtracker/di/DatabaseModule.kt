@@ -6,6 +6,8 @@ import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.DatabaseMigrations
 import com.gymtracker.data.db.daos.AppMetaDao
 import com.gymtracker.data.db.daos.ExerciseDao
+import com.gymtracker.data.db.daos.PlanDao
+import com.gymtracker.data.db.daos.SessionDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,4 +31,10 @@ object DatabaseModule {
 
     @Provides
     fun provideExerciseDao(database: AppDatabase): ExerciseDao = database.exerciseDao()
+
+    @Provides
+    fun providePlanDao(database: AppDatabase): PlanDao = database.planDao()
+
+    @Provides
+    fun provideSessionDao(database: AppDatabase): SessionDao = database.sessionDao()
 }

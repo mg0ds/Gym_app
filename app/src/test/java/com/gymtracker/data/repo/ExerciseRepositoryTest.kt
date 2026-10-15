@@ -5,6 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.entities.ExerciseEntity
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.PlanDayDraft
+import com.gymtracker.domain.model.PlanDraft
+import com.gymtracker.domain.model.PlanExerciseDraft
 import com.gymtracker.domain.time.TimeProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -29,6 +32,8 @@ class ExerciseRepositoryTest {
 
     private lateinit var database: AppDatabase
     private lateinit var repository: ExerciseRepositoryImpl
+    private lateinit var planRepository: PlanRepositoryImpl
+    private lateinit var sessionRepository: SessionRepositoryImpl
 
     private var now = 1_000L
 
@@ -38,9 +43,23 @@ class ExerciseRepositoryTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).build()
+        val timeProvider = TimeProvider { now }
         repository = ExerciseRepositoryImpl(
             exerciseDao = database.exerciseDao(),
-            timeProvider = TimeProvider { now },
+            planDao = database.planDao(),
+            sessionDao = database.sessionDao(),
+            timeProvider = timeProvider,
+        )
+        planRepository = PlanRepositoryImpl(
+            planDao = database.planDao(),
+            database = database,
+            timeProvider = timeProvider,
+        )
+        sessionRepository = SessionRepositoryImpl(
+            sessionDao = database.sessionDao(),
+            planDao = database.planDao(),
+            database = database,
+            timeProvider = timeProvider,
         )
     }
 
@@ -191,5 +210,43 @@ class ExerciseRepositoryTest {
         repository.deleteExercise(id)
 
         assertNull(repository.observeExercise(id).first())
+    }
+
+    @Test
+    fun `nieuzywane cwiczenie nie ma uzyc`() = runTest {
+        val id = repository.addExercise(ExerciseDraft(name = "Pompki"))
+
+        val usage = repository.observeUsage(id).first()
+
+        assertFalse(usage.isUsed)
+        assertEquals(0, usage.planPositions)
+        assertEquals(0, usage.sessionPositions)
+    }
+
+    @Test
+    fun `uzycie liczy pozycje w planach i w treningach`() = runTest {
+        val exerciseId = repository.addExercise(ExerciseDraft(name = "Pompki"))
+        val otherId = repository.addExercise(ExerciseDraft(name = "Plank"))
+
+        // Ćwiczenie w planie: dwa dni po jednej pozycji.
+        val planId = planRepository.createPlan(PlanDraft(name = "Plan"))
+        val dayA = planRepository.addDay(planId, PlanDayDraft(name = "Dzień A"))
+        val dayB = planRepository.addDay(planId, PlanDayDraft(name = "Dzień B"))
+        planRepository.addExercise(dayA, PlanExerciseDraft(exerciseId = exerciseId))
+        planRepository.addExercise(dayB, PlanExerciseDraft(exerciseId = exerciseId))
+        // Inne ćwiczenie w tym samym dniu nie może się wliczać.
+        planRepository.addExercise(dayA, PlanExerciseDraft(exerciseId = otherId))
+
+        // Historia: zakończony trening z dnia A.
+        val sessionId = requireNotNull(sessionRepository.startFromPlanDay(dayA))
+        sessionRepository.finishSession(sessionId)
+
+        val usage = repository.observeUsage(exerciseId).first()
+
+        assertTrue(usage.isUsed)
+        assertEquals(2, usage.planPositions)
+        assertEquals(1, usage.sessionPositions)
+        // Ćwiczenie z jednym dniem ma dokładnie jedną pozycję w planie.
+        assertEquals(1, repository.observeUsage(otherId).first().planPositions)
     }
 }

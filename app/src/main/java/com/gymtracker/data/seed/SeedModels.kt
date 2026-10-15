@@ -39,11 +39,14 @@ internal data class SeedExercise(
     val nameInProgram: String? = null,
 )
 
-/** Ścieżki w assetach - jedno miejsce, z którego korzysta import. */
+/** Ścieżki i klucze, z których korzysta import - jedno miejsce dla całości. */
 internal object SeedFiles {
     const val EXERCISES = "seed/exercises.json"
     const val PROGRAMS_DIR = "seed/programs"
 
     /** Klucz w `app_meta` z wersją zaimportowanego katalogu ćwiczeń. */
     const val META_EXERCISES_VERSION = "exercises_seed_version"
+
+    /** Klucz w `app_meta` z wersją zaimportowanych planów. */
+    const val META_PROGRAMS_VERSION = "programs_seed_version"
 }

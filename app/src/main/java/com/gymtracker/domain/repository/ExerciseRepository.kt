@@ -2,6 +2,7 @@ package com.gymtracker.domain.repository
 
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.ExerciseUsage
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -27,6 +28,15 @@ interface ExerciseRepository {
     fun observeMuscleGroups(): Flow<List<String>>
 
     fun observeActiveCount(): Flow<Int>
+
+    /**
+     * Gdzie ćwiczenie jest używane (plany, historyczne treningi).
+     *
+     * Obserwujemy na żywo, bo liczba zmienia się także poza tym ekranem: gdy
+     * użytkownik w międzyczasie usunie ćwiczenie z planu, ostrzeżenie przy
+     * usuwaniu ma zniknąć, a nie straszyć nieaktualnym stanem.
+     */
+    fun observeUsage(id: Long): Flow<ExerciseUsage>
 
     suspend fun getExercise(id: Long): Exercise?
 

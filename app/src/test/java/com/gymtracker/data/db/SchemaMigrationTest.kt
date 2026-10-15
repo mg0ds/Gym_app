@@ -4,11 +4,16 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.gymtracker.data.db.entities.ExerciseEntity
+import com.gymtracker.data.db.entities.PlanDayEntity
+import com.gymtracker.data.db.entities.PlanEntity
+import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.search.ExerciseSearchQuery
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,7 +46,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 2 zachowuje dane i dodaje dzialajacy katalog cwiczen`() = runTest {
+    fun `migracja 1 do 3 zachowuje dane i dodaje katalog oraz plany`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -52,8 +57,8 @@ class SchemaMigrationTest {
             // Dane z wersji 1 są nietknięte.
             assertEquals("1", database.appMetaDao().get("catalog_version"))
 
-            // Katalog ćwiczeń działa (przy otwarciu Room zweryfikował schemat v2).
-            database.exerciseDao().insert(
+            // Katalog ćwiczeń działa (przy otwarciu Room zweryfikował schemat v3).
+            val exerciseId = database.exerciseDao().insert(
                 ExerciseEntity(
                     name = "Wyciskanie sztangą leżąc",
                     muscleGroup = "Chest",
@@ -72,6 +77,36 @@ class SchemaMigrationTest {
                 .first()
 
             assertEquals(listOf("Wyciskanie sztangą leżąc"), found.map { it.name })
+
+            // Tabele planów z migracji 2→3 przyjmują dane i wiążą je kluczami.
+            val planId = database.planDao().insertPlan(
+                PlanEntity(
+                    name = "Mój plan",
+                    createdAtEpochMs = 2_000L,
+                    updatedAtEpochMs = 2_000L,
+                ),
+            )
+            val dayId = database.planDao().insertDay(
+                PlanDayEntity(planId = planId, name = "Dzień A", position = 1, dayOfWeek = 0),
+            )
+            database.planDao().insertDayExercise(
+                PlanExerciseEntity(
+                    planDayId = dayId,
+                    exerciseId = exerciseId,
+                    position = 1,
+                    targetSets = 5,
+                    targetRepsMin = 5,
+                    targetRepsMax = 5,
+                ),
+            )
+
+            val day = requireNotNull(database.planDao().getDay(dayId))
+            assertEquals(planId, day.planId)
+
+            // Kaskada: usunięcie planu zabiera dni i ćwiczenia dni.
+            database.planDao().deletePlan(planId)
+            assertNull(database.planDao().getDay(dayId))
+            assertTrue(database.planDao().getDayExercises(dayId).isEmpty())
         } finally {
             database.close()
         }

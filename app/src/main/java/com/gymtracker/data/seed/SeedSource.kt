@@ -13,6 +13,9 @@ import kotlinx.coroutines.withContext
  */
 interface SeedSource {
     suspend fun readText(assetPath: String): String
+
+    /** Nazwy plików w katalogu assetów (posortowane); pusty, gdy katalogu nie ma. */
+    suspend fun list(assetDir: String): List<String>
 }
 
 @Singleton
@@ -22,5 +25,9 @@ class AssetSeedSource @Inject constructor(
 
     override suspend fun readText(assetPath: String): String = withContext(Dispatchers.IO) {
         context.assets.open(assetPath).bufferedReader().use { reader -> reader.readText() }
+    }
+
+    override suspend fun list(assetDir: String): List<String> = withContext(Dispatchers.IO) {
+        context.assets.list(assetDir)?.toList()?.sorted().orEmpty()
     }
 }

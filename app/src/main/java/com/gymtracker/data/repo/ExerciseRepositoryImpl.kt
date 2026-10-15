@@ -1,19 +1,25 @@
 package com.gymtracker.data.repo
 
 import com.gymtracker.data.db.daos.ExerciseDao
+import com.gymtracker.data.db.daos.PlanDao
+import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.search.ExerciseSearchQuery
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.ExerciseUsage
 import com.gymtracker.domain.repository.ExerciseRepository
 import com.gymtracker.domain.time.TimeProvider
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 @Singleton
 class ExerciseRepositoryImpl @Inject constructor(
     private val exerciseDao: ExerciseDao,
+    private val planDao: PlanDao,
+    private val sessionDao: SessionDao,
     private val timeProvider: TimeProvider,
 ) : ExerciseRepository {
 
@@ -35,6 +41,16 @@ class ExerciseRepositoryImpl @Inject constructor(
     override fun observeMuscleGroups(): Flow<List<String>> = exerciseDao.observeMuscleGroups()
 
     override fun observeActiveCount(): Flow<Int> = exerciseDao.observeActiveCount()
+
+    override fun observeUsage(id: Long): Flow<ExerciseUsage> = combine(
+        planDao.observeExerciseUsage(id),
+        sessionDao.observeExerciseUsage(id),
+    ) { planPositions, sessionPositions ->
+        ExerciseUsage(
+            planPositions = planPositions,
+            sessionPositions = sessionPositions,
+        )
+    }
 
     override suspend fun getExercise(id: Long): Exercise? = exerciseDao.getById(id)?.toDomain()
 

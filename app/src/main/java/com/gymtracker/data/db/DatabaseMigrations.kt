@@ -86,5 +86,122 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    /**
+     * M2: plany treningowe i sesje.
+     *
+     * Dodaje `plans`, `plan_days`, `plan_day_exercises` (plan + dni + ćwiczenia dni)
+     * oraz `sessions` i `session_exercises` (rozpoczęty trening). Klucze obce
+     * kasują kaskadowo to, co należy do planu, ale **nie** historię treningów
+     * (`sessions.plan_id` / `plan_day_id` są `SET NULL`).
+     */
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `plans` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`external_id` TEXT, " +
+                    "`name` TEXT NOT NULL, " +
+                    "`description` TEXT, " +
+                    "`source_url` TEXT, " +
+                    "`author` TEXT, " +
+                    "`is_active` INTEGER NOT NULL, " +
+                    "`is_archived` INTEGER NOT NULL, " +
+                    "`created_at` INTEGER NOT NULL, " +
+                    "`updated_at` INTEGER NOT NULL)",
+            )
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `idx_plans_ext` ON `plans` (`external_id`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `plan_days` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`plan_id` INTEGER NOT NULL, " +
+                    "`name` TEXT NOT NULL, " +
+                    "`day_of_week` INTEGER, " +
+                    "`position` INTEGER NOT NULL, " +
+                    "`note` TEXT, " +
+                    "FOREIGN KEY(`plan_id`) REFERENCES `plans`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `idx_plan_days_position` " +
+                    "ON `plan_days` (`plan_id`, `position`)",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `plan_day_exercises` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`plan_day_id` INTEGER NOT NULL, " +
+                    "`exercise_id` INTEGER NOT NULL, " +
+                    "`position` INTEGER NOT NULL, " +
+                    "`target_sets` INTEGER, " +
+                    "`target_reps_min` INTEGER, " +
+                    "`target_reps_max` INTEGER, " +
+                    "`target_reps_unit` TEXT NOT NULL, " +
+                    "`target_weight_kg` REAL, " +
+                    "`rest_seconds` INTEGER, " +
+                    "`superset_group` INTEGER, " +
+                    "`alternative_group` TEXT, " +
+                    "`is_default_choice` INTEGER NOT NULL, " +
+                    "`note` TEXT, " +
+                    "FOREIGN KEY(`plan_day_id`) REFERENCES `plan_days`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                    "FOREIGN KEY(`exercise_id`) REFERENCES `exercises`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_pde_day` " +
+                    "ON `plan_day_exercises` (`plan_day_id`, `position`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_pde_exercise` " +
+                    "ON `plan_day_exercises` (`exercise_id`)",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `sessions` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`plan_id` INTEGER, " +
+                    "`plan_day_id` INTEGER, " +
+                    "`name` TEXT NOT NULL, " +
+                    "`started_at` INTEGER NOT NULL, " +
+                    "`finished_at` INTEGER, " +
+                    "`status` TEXT NOT NULL, " +
+                    "`note` TEXT, " +
+                    "FOREIGN KEY(`plan_id`) REFERENCES `plans`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL , " +
+                    "FOREIGN KEY(`plan_day_id`) REFERENCES `plan_days`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL )",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `idx_sessions_plan` ON `sessions` (`plan_id`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `idx_sessions_day` ON `sessions` (`plan_day_id`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `idx_sessions_status` ON `sessions` (`status`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `session_exercises` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`session_id` INTEGER NOT NULL, " +
+                    "`exercise_id` INTEGER NOT NULL, " +
+                    "`position` INTEGER NOT NULL, " +
+                    "`target_sets` INTEGER, " +
+                    "`target_reps_min` INTEGER, " +
+                    "`target_reps_max` INTEGER, " +
+                    "`target_reps_unit` TEXT NOT NULL, " +
+                    "`rest_seconds` INTEGER, " +
+                    "`superset_group` INTEGER, " +
+                    "`alternative_group` TEXT, " +
+                    "`is_default_choice` INTEGER NOT NULL, " +
+                    "`note` TEXT, " +
+                    "FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                    "FOREIGN KEY(`exercise_id`) REFERENCES `exercises`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_session_exercises_pos` " +
+                    "ON `session_exercises` (`session_id`, `position`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_session_exercises_exercise` " +
+                    "ON `session_exercises` (`exercise_id`)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

@@ -1,9 +1,13 @@
 package com.gymtracker.di
 
 import com.gymtracker.data.repo.ExerciseRepositoryImpl
+import com.gymtracker.data.repo.PlanRepositoryImpl
+import com.gymtracker.data.repo.SessionRepositoryImpl
 import com.gymtracker.data.seed.AssetSeedSource
 import com.gymtracker.data.seed.SeedSource
 import com.gymtracker.domain.repository.ExerciseRepository
+import com.gymtracker.domain.repository.PlanRepository
+import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.domain.time.SystemTimeProvider
 import com.gymtracker.domain.time.TimeProvider
 import dagger.Binds
@@ -19,6 +23,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindExerciseRepository(impl: ExerciseRepositoryImpl): ExerciseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlanRepository(impl: PlanRepositoryImpl): PlanRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionRepository(impl: SessionRepositoryImpl): SessionRepository
 
     @Binds
     @Singleton
