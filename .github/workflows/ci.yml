@@ -28,7 +28,7 @@ jobs:
           java-version: '21'
 
       - name: Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           # compileSdk 36; AGP dociąga brakujące komponenty sam (licencje są akceptowane).
           packages: 'platforms;android-36 build-tools;36.1.0'
