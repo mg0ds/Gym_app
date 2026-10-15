@@ -9,13 +9,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,16 +35,17 @@ import com.gymtracker.ui.theme.GymTrackerTheme
 
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val seedImportState by viewModel.seedImportState.collectAsStateWithLifecycle()
 
     SettingsContent(
         themeMode = themeMode,
+        seedImportState = seedImportState,
         onThemeModeChange = viewModel::setThemeMode,
-        onBack = onBack,
+        onImportSeedData = viewModel::importSeedData,
         modifier = modifier,
     )
 }
@@ -51,35 +54,26 @@ fun SettingsScreen(
 @Composable
 internal fun SettingsContent(
     themeMode: ThemeMode,
+    seedImportState: SeedImportState,
     onThemeModeChange: (ThemeMode) -> Unit,
-    onBack: () -> Unit,
+    onImportSeedData: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(text = stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text(text = stringResource(R.string.cd_back))
-                    }
-                },
-            )
+            TopAppBar(title = { Text(text = stringResource(R.string.settings_title)) })
         },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.settings_section_appearance),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            SectionTitle(text = stringResource(R.string.settings_section_appearance))
 
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -94,8 +88,59 @@ internal fun SettingsContent(
                     )
                 }
             }
+
+            SectionTitle(text = stringResource(R.string.settings_section_data))
+
+            Text(
+                text = stringResource(R.string.settings_import_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = onImportSeedData,
+                enabled = seedImportState != SeedImportState.Running,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.settings_import_action))
+            }
+
+            SeedImportStatus(state = seedImportState)
         }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
+}
+
+@Composable
+private fun SeedImportStatus(state: SeedImportState) {
+    val text = when (state) {
+        SeedImportState.Idle -> null
+        SeedImportState.Running -> stringResource(R.string.settings_import_running)
+        SeedImportState.Failed -> stringResource(R.string.settings_import_failed)
+        is SeedImportState.Done -> stringResource(
+            R.string.settings_import_done,
+            state.imported,
+            state.skipped,
+        )
+    } ?: return
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (state is SeedImportState.Failed) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
 }
 
 @Composable
@@ -131,8 +176,9 @@ private fun SettingsContentPreview() {
     GymTrackerTheme(dynamicColor = false) {
         SettingsContent(
             themeMode = ThemeMode.SYSTEM,
+            seedImportState = SeedImportState.Idle,
             onThemeModeChange = {},
-            onBack = {},
+            onImportSeedData = {},
         )
     }
 }

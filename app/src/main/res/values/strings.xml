@@ -2,13 +2,85 @@
 <resources>
     <string name="app_name">GymTracker</string>
 
+    <!-- Nawigacja -->
+    <string name="nav_today">Dziś</string>
+    <string name="nav_exercises">Ćwiczenia</string>
+    <string name="nav_settings">Ustawienia</string>
+
     <!-- Ekran startowy -->
     <string name="home_title">Dziś</string>
     <string name="home_subtitle">Twój plan i dzisiejszy trening</string>
-    <string name="home_ready_title">Baza aplikacji gotowa</string>
-    <string name="home_ready_body">Projekt, motyw, wstrzykiwanie zależności, baza lokalna i CI działają. Kolejny krok: katalog ćwiczeń.</string>
+    <string name="home_ready_title">Katalog ćwiczeń gotowy</string>
+    <string name="home_ready_body">Dodawanie własnych ćwiczeń, wyszukiwanie (także bez polskich znaków) i ulubione działają. Kolejny krok: plany treningowe i kalendarz.</string>
     <string name="home_version">Wersja %1$s</string>
+    <string name="home_open_exercises">Otwórz katalog ćwiczeń</string>
     <string name="home_open_settings">Otwórz ustawienia</string>
+
+    <!-- Wspólne -->
+    <string name="action_save">Zapisz</string>
+    <string name="action_cancel">Anuluj</string>
+    <string name="action_delete">Usuń</string>
+    <string name="action_edit">Edytuj</string>
+    <string name="value_other">Inne</string>
+
+    <!-- Katalog ćwiczeń -->
+    <string name="exercises_title">Ćwiczenia</string>
+    <string name="exercises_add">Dodaj ćwiczenie</string>
+    <string name="exercises_search_hint">Szukaj ćwiczenia</string>
+    <string name="exercises_clear_search">Wyczyść szukanie</string>
+    <string name="exercises_filter_all">Wszystkie</string>
+    <string name="exercises_filter_favourites">Ulubione</string>
+    <string name="exercises_empty_title">Katalog jest pusty</string>
+    <string name="exercises_empty_body">Dodaj pierwsze ćwiczenie przyciskiem +. Możesz też wczytać katalog startowy w ustawieniach.</string>
+    <string name="exercises_no_results_title">Brak wyników</string>
+    <string name="exercises_no_results_body">Nic nie pasuje do „%1$s”. Spróbuj innej nazwy, partii mięśniowej albo dodaj własne ćwiczenie.</string>
+
+    <!-- Szczegóły ćwiczenia -->
+    <string name="exercise_detail_title">Ćwiczenie</string>
+    <string name="exercise_not_found">Nie znaleziono tego ćwiczenia</string>
+    <string name="exercise_section_details">Informacje</string>
+    <string name="exercise_section_defaults">Domyślne parametry</string>
+    <string name="exercise_section_media">Film i źródło</string>
+    <string name="exercise_section_notes">Komentarz</string>
+    <string name="exercise_label_muscle_group">Partia mięśniowa</string>
+    <string name="exercise_label_muscle_group_secondary">Mięśnie dodatkowe</string>
+    <string name="exercise_label_equipment">Sprzęt</string>
+    <string name="exercise_label_mechanics">Charakter</string>
+    <string name="exercise_label_level">Poziom</string>
+    <string name="exercise_label_name_in_program">Nazwa w planie</string>
+    <string name="exercise_label_sets">Serie</string>
+    <string name="exercise_label_reps">Powtórzenia</string>
+    <string name="exercise_label_rest">Przerwa</string>
+    <string name="exercise_value_not_set">Nie ustawiono</string>
+    <string name="exercise_value_rest_seconds">%1$d s</string>
+    <string name="exercise_value_reps_range">%1$d–%2$d</string>
+    <string name="exercise_value_reps_single">%1$d</string>
+    <string name="exercise_open_video">Otwórz film</string>
+    <string name="exercise_open_source">Zobacz źródło</string>
+    <string name="exercise_favourite_add">Dodaj do ulubionych</string>
+    <string name="exercise_favourite_remove">Usuń z ulubionych</string>
+    <string name="exercise_delete_title">Usunąć ćwiczenie?</string>
+    <string name="exercise_delete_message">„%1$s” zniknie z katalogu razem ze swoimi ustawieniami. Tej operacji nie można cofnąć.</string>
+
+    <!-- Formularz ćwiczenia -->
+    <string name="exercise_new_title">Nowe ćwiczenie</string>
+    <string name="exercise_edit_title">Edycja ćwiczenia</string>
+    <string name="exercise_field_name">Nazwa</string>
+    <string name="exercise_field_name_required">Podaj nazwę ćwiczenia</string>
+    <string name="exercise_field_muscle_group">Partia mięśniowa</string>
+    <string name="exercise_field_equipment">Sprzęt</string>
+    <string name="exercise_field_mechanics">Charakter</string>
+    <string name="exercise_field_level">Poziom</string>
+    <string name="exercise_field_secondary">Mięśnie dodatkowe</string>
+    <string name="exercise_field_youtube">Link do filmu (YouTube)</string>
+    <string name="exercise_field_youtube_recognized">Rozpoznano film YouTube</string>
+    <string name="exercise_field_youtube_other">Zapiszemy to jako zwykły link</string>
+    <string name="exercise_field_defaults">Domyślne serie i przerwa</string>
+    <string name="exercise_field_sets">Serie</string>
+    <string name="exercise_field_reps_min">Powt. od</string>
+    <string name="exercise_field_reps_max">Powt. do</string>
+    <string name="exercise_field_rest">Przerwa (sekundy)</string>
+    <string name="exercise_field_notes">Komentarz</string>
 
     <!-- Ustawienia -->
     <string name="settings_title">Ustawienia</string>
@@ -17,6 +89,46 @@
     <string name="settings_theme_system">Zgodny z systemem</string>
     <string name="settings_theme_light">Jasny</string>
     <string name="settings_theme_dark">Ciemny</string>
+    <string name="settings_section_data">Dane</string>
+    <string name="settings_import_description">Wczytuje brakujące ćwiczenia z katalogu startowego. Twoich zmian i własnych ćwiczeń nie nadpisuje.</string>
+    <string name="settings_import_action">Wczytaj katalog startowy</string>
+    <string name="settings_import_running">Wczytywanie…</string>
+    <string name="settings_import_done">Gotowe: dodano %1$d, pominięto %2$d.</string>
+    <string name="settings_import_failed">Nie udało się wczytać danych startowych.</string>
+
+    <!-- Słownik katalogu: partie mięśniowe -->
+    <string name="muscle_chest">Klatka piersiowa</string>
+    <string name="muscle_lats">Najszersze grzbietu</string>
+    <string name="muscle_upper_back">Górna część grzbietu</string>
+    <string name="muscle_lower_back">Dolna część grzbietu</string>
+    <string name="muscle_traps">Kaptur</string>
+    <string name="muscle_shoulders">Barki</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_triceps">Triceps</string>
+    <string name="muscle_forearms">Przedramiona</string>
+    <string name="muscle_abs">Brzuch</string>
+    <string name="muscle_glutes">Pośladki</string>
+    <string name="muscle_quads">Czworogłowe uda</string>
+    <string name="muscle_hamstrings">Dwugłowe uda</string>
+    <string name="muscle_calves">Łydki</string>
+    <string name="muscle_cardio">Cardio</string>
+
+    <!-- Słownik katalogu: sprzęt -->
+    <string name="equipment_barbell">Sztanga</string>
+    <string name="equipment_dumbbell">Hantle</string>
+    <string name="equipment_ez_bar">Sztanga łamana</string>
+    <string name="equipment_cable">Wyciąg</string>
+    <string name="equipment_machine">Maszyna</string>
+    <string name="equipment_bodyweight">Masa ciała</string>
+    <string name="equipment_kettlebell">Kettlebell</string>
+    <string name="equipment_bands">Gumy oporowe</string>
+
+    <!-- Słownik katalogu: charakter i poziom -->
+    <string name="mechanics_compound">Złożone</string>
+    <string name="mechanics_isolation">Izolowane</string>
+    <string name="level_beginner">Początkujący</string>
+    <string name="level_intermediate">Średniozaawansowany</string>
+    <string name="level_advanced">Zaawansowany</string>
 
     <!-- Dostępność -->
     <string name="cd_back">Wstecz</string>

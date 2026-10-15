@@ -9,6 +9,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -22,12 +23,13 @@ import com.gymtracker.R
 import com.gymtracker.ui.theme.GymTrackerTheme
 
 /**
- * Ekran startowy. W M0 pokazuje tylko stan fundamentu - w M1 (katalog ćwiczeń)
- * i M3 (kalendarz) wypełni się treścią dnia.
+ * Ekran startowy. Katalog ćwiczeń jest gotowy - ten ekran wypełni się treścią
+ * dnia, gdy dojdzie kalendarz i plany treningowe (M2/M3).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onOpenExercises: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -70,6 +72,13 @@ fun HomeScreen(
             }
 
             Button(
+                onClick = onOpenExercises,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.home_open_exercises))
+            }
+
+            OutlinedButton(
                 onClick = onOpenSettings,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -83,6 +92,6 @@ fun HomeScreen(
 @Composable
 private fun HomeScreenPreview() {
     GymTrackerTheme(dynamicColor = false) {
-        HomeScreen(onOpenSettings = {})
+        HomeScreen(onOpenExercises = {}, onOpenSettings = {})
     }
 }
