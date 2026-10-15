@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose)
@@ -89,4 +92,17 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+// Testy na JVM (Robolectric).
+tasks.withType<Test>().configureEach {
+    // Robolectric dla nowych SDK sięga po wewnętrzne API Javy (jdk.internal.access),
+    // którego JDK 17+ nie odsłania domyślnie. Bez tego każdy test z Androidem wywala
+    // się na "Failed to interact with raw FileDescriptor internals".
+    jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+
+    testLogging {
+        events("failed")
+        exceptionFormat = TestExceptionFormat.FULL
+    }
 }
