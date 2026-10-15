@@ -38,10 +38,26 @@ brew install --cask android-platform-tools          # adb, fastboot
 brew install openjdk@21                             # JDK 21 (formuła — bez sudo)
 
 export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
-yes | sdkmanager --licenses
-sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.1.0" \
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+
+yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses
+sdkmanager --sdk_root="$ANDROID_HOME" "cmdline-tools;latest" "platform-tools" \
+           "platforms;android-36" "build-tools;36.1.0" \
            "emulator" "system-images;android-36;google_apis;arm64-v8a"
 ```
+
+> Uwaga: `sdkmanager`/`avdmanager` z Homebrew celują we **własny** katalog SDK, nie w ten
+> z `ANDROID_HOME`. Dlatego instalujemy `cmdline-tools` w naszym SDK i w `PATH` stawiamy
+> `$ANDROID_HOME/cmdline-tools/latest/bin` przed `/opt/homebrew/bin`. Oba te narzędzia
+> przyjmują też `--sdk_root="$ANDROID_HOME"`.
+>
+> Wygodny skrót do `~/.zshrc` (JDK 21 zgodny z CI + narzędzia Androida):
+>
+> ```bash
+> export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+> export ANDROID_HOME="$HOME/Library/Android/sdk"
+> export PATH="/opt/homebrew/opt/openjdk@21/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+> ```
 
 `local.properties` (ignorowany przez git) musi wskazywać SDK:
 
