@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Android (gdy powstanie :app)
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# IDE / system
+.idea/
+.DS_Store

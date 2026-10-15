@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-15",
+  "program": {
+    "id": "muscle-strength-full-body-workout-routine",
+    "name": "Muscle & Strength Full Body Workout Routine",
+    "source_url": "https://www.muscleandstrength.com/workouts/muscle-strength-full-body-workout-routine",
+    "source_site": "www.muscleandstrength.com",
+    "author": "Steve Shaw",
+    "published": "2020-03-09",
+    "updated": "2021-04-01",
+    "categories": [
+      "Workouts",
+      "Muscle Building",
+      "Increase Strength",
+      "Full Body"
+    ],
+    "summary": {
+      "main_goal": "Build Muscle",
+      "workout_type": "Full Body",
+      "training_level": "Beginner",
+      "program_duration": "12 weeks",
+      "days_per_week": 3,
+      "time_per_workout": "45-60 minutes",
+      "equipment_required": [
+        "Barbell",
+        "Bodyweight",
+        "Dumbbells"
+      ],
+      "target_gender": "Male & Female",
+      "recommended_supps": [
+        "Multivitamin",
+        "Pre-Workout",
+        "Creatine",
+        "Whey Protein",
+        "Casein Protein"
+      ]
+    },
+    "schedule": [
+      {
+        "day_label": "Monday",
+        "day_of_week": 0,
+        "workout_id": "muscle-strength-full-body-workout-routine-a"
+      },
+      {
+        "day_label": "Wednesday",
+        "day_of_week": 2,
+        "workout_id": "muscle-strength-full-body-workout-routine-b"
+      },
+      {
+        "day_label": "Friday",
+        "day_of_week": 4,
+        "workout_id": "muscle-strength-full-body-workout-routine-c"
+      }
+    ],
+    "key_exercises": [
+      {
+        "name": "Deadlift",
+        "exercise_id": "deadlifts"
+      },
+      {
+        "name": "Squat",
+        "exercise_id": "squat"
+      },
+      {
+        "name": "Row",
+        "exercise_id": "bent-over-barbell-row"
+      },
+      {
+        "name": "Bench Press",
+        "exercise_id": "barbell-bench-press"
+      },
+      {
+        "name": "Overhead Press",
+        "exercise_id": "military-press"
+      }
+    ],
+    "workouts": [
+      {
+        "id": "muscle-strength-full-body-workout-routine-a",
+        "name": "Workout A",
+        "order": 1,
+        "exercises": [
+          {
+            "order": 1,
+            "exercise_id": "squat",
+            "name": "Squats",
+            "sets": 5,
+            "reps_min": 5,
+            "reps_max": 5,
+            "reps_raw": "5",
+            "modifier": "Ramped"
+          },
+          {
+            "order": 2,
+            "exercise_id": "barbell-bench-press",
+            "name": "Bench Press",
+            "sets": 5,
+            "reps_min": 5,
+            "reps_max": 5,
+            "reps_raw": "5",
+            "modifier": "Ramped"
+          },
+          {
+            "order": 3,
+            "exercise_id": "bent-over-barbell-row",
+            "name": "Barbell Row",
+            "sets": 5,
+            "reps_min": 5,
+            "reps_max": 5,
+            "reps_raw": "5",
+            "modifier": "Ramped"
+          },
+          {
+            "order": 4,
+            "exercise_id": "upright-row",
+            "name": "Upright Row",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 5,
+            "exercise_id": "ez-bar-skullcrusher",
+            "name": "Skullcrushers",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 6,
+            "exercise_id": "standing-dumbbell-curl",
+            "name": "Dumbbell Curls",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 7,
+            "exercise_id": "leg-curl",
+            "name": "Leg Curls",
+            "sets": 3,
+            "reps_min": 12,
+            "reps_max": 15,
+            "reps_raw": "12-15",
+            "modifier": null
+          },
+          {
+            "order": 8,
+            "exercise_id": "abdominal-barbell-rollouts",
+            "name": "Ab Wheel Roll Out",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 15,
+            "reps_raw": "10-15",
+            "modifier": null
+          }
+        ]
+      },
+      {
+        "id": "muscle-strength-full-body-workout-routine-b",
+        "name": "Workout B",
+        "order": 2,
+        "exercises": [
+          {
+            "order": 1,
+            "exercise_id": "deadlifts",
+            "name": "Deadlifts",
+            "sets": 3,
+            "reps_min": 5,
+            "reps_max": 5,
+            "reps_raw": "5",
+            "modifier": "Ramped"
+          },
+          {
+            "order": 2,
+            "exercise_id": "romanian-deadlift",
+            "name": "Romanian Deadlift",
+            "sets": 2,
+            "reps_min": 8,
+            "reps_max": 12,
+            "reps_raw": "8-12",
+            "modifier": null
+          },
+          {
+            "order": 3,
+            "exercise_id": "seated-shoulder-press",
+            "name": "Seated Overhead Press",
+            "sets": 3,
+            "reps_min": 8,
+            "reps_max": 10,
+            "reps_raw": "8-10",
+            "modifier": null
+          },
+          {
+            "order": 4,
+            "exercise_id": "wide-grip-pull-up",
+            "name": "Pull Ups",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 15,
+            "reps_raw": "10-15",
+            "modifier": null,
+            "alternatives": [
+              {
+                "name": "Inverted Rows",
+                "exercise_id": "smith-machine-bodyweight-row"
+              }
+            ],
+            "choice_note": "Pull Ups or Inverted Rows"
+          },
+          {
+            "order": 5,
+            "exercise_id": "chest-dip",
+            "name": "Dips",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 20,
+            "reps_raw": "10-20",
+            "modifier": null
+          },
+          {
+            "order": 6,
+            "exercise_id": "barbell-shrug",
+            "name": "Barbell Shrugs",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 7,
+            "exercise_id": "seated-calf-raise",
+            "name": "Seated Calf Raise",
+            "sets": 3,
+            "reps_min": 12,
+            "reps_max": 15,
+            "reps_raw": "12-15",
+            "modifier": null
+          },
+          {
+            "order": 8,
+            "exercise_id": "hover",
+            "name": "Plank",
+            "sets": 3,
+            "reps_min": 60,
+            "reps_max": 60,
+            "reps_raw": "60 seconds",
+            "modifier": null,
+            "tracking": {
+              "reps": "time",
+              "unit": "seconds"
+            }
+          }
+        ]
+      },
+      {
+        "id": "muscle-strength-full-body-workout-routine-c",
+        "name": "Workout C",
+        "order": 3,
+        "exercises": [
+          {
+            "order": 1,
+            "exercise_id": "squat",
+            "name": "Squats",
+            "sets": 3,
+            "reps_min": 5,
+            "reps_max": 5,
+            "reps_raw": "5",
+            "modifier": "Ramped"
+          },
+          {
+            "order": 2,
+            "exercise_id": "squat",
+            "name": "Squats",
+            "sets": 1,
+            "reps_min": 20,
+            "reps_max": 20,
+            "reps_raw": "20",
+            "modifier": null
+          },
+          {
+            "order": 3,
+            "exercise_id": "incline-dumbbell-bench-press",
+            "name": "Incline Dumbbell Bench Press",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 4,
+            "exercise_id": "one-arm-dumbbell-row",
+            "name": "One Arm Dumbbell Row",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 15,
+            "reps_raw": "10-15",
+            "modifier": null
+          },
+          {
+            "order": 5,
+            "exercise_id": "seated-arnold-press",
+            "name": "Seated Arnold Press",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 15,
+            "reps_raw": "10-15",
+            "modifier": null
+          },
+          {
+            "order": 6,
+            "exercise_id": "tricep-extension",
+            "name": "Cable Tricep Extensions",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 7,
+            "exercise_id": "standing-barbell-curl",
+            "name": "Barbell Curls",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 10,
+            "reps_raw": "10",
+            "modifier": null
+          },
+          {
+            "order": 8,
+            "exercise_id": "leg-curl",
+            "name": "Leg Curls",
+            "sets": 3,
+            "reps_min": 12,
+            "reps_max": 15,
+            "reps_raw": "12-15",
+            "modifier": null
+          },
+          {
+            "order": 9,
+            "exercise_id": "abdominal-barbell-rollouts",
+            "name": "Ab Wheel Roll Out",
+            "sets": 3,
+            "reps_min": 10,
+            "reps_max": 15,
+            "reps_raw": "10-15",
+            "modifier": null
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,423 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-15",
+  "source": {
+    "site": "https://www.muscleandstrength.com",
+    "program_url": "https://www.muscleandstrength.com/workouts/muscle-strength-full-body-workout-routine"
+  },
+  "exercises": [
+    {
+      "id": "squat",
+      "name": "Barbell Back Squat",
+      "source_url": "https://www.muscleandstrength.com/exercises/squat.html",
+      "muscle_group": "Quads",
+      "muscle_group_slug": "quads",
+      "secondary_muscles": [
+        "Calves",
+        "Glutes",
+        "Hamstrings",
+        "Lower Back"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push",
+      "level": "Intermediate",
+      "youtube_id": "R2dMsNhN3DE",
+      "name_in_program": "Squats"
+    },
+    {
+      "id": "barbell-bench-press",
+      "name": "Barbell Bench Press",
+      "source_url": "https://www.muscleandstrength.com/exercises/barbell-bench-press.html",
+      "muscle_group": "Chest",
+      "muscle_group_slug": "chest",
+      "secondary_muscles": [
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push (Bilateral)",
+      "level": "Intermediate",
+      "youtube_id": "tuwHzzPdaGc",
+      "name_in_program": "Bench Press"
+    },
+    {
+      "id": "bent-over-barbell-row",
+      "name": "Bent Over Row",
+      "source_url": "https://www.muscleandstrength.com/exercises/bent-over-barbell-row.html",
+      "muscle_group": "Upper Back",
+      "muscle_group_slug": "middle-back",
+      "secondary_muscles": [
+        "Abs",
+        "Biceps",
+        "Lats",
+        "Lower Back",
+        "Shoulders"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Pull (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "paCfxhgW6bI",
+      "name_in_program": "Barbell Row"
+    },
+    {
+      "id": "upright-row",
+      "name": "Barbell Upright Row",
+      "source_url": "https://www.muscleandstrength.com/exercises/upright-row.html",
+      "muscle_group": "Traps",
+      "muscle_group_slug": "traps",
+      "secondary_muscles": [
+        "Biceps",
+        "Shoulders"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Pull",
+      "level": "Beginner",
+      "youtube_id": null,
+      "name_in_program": "Upright Row"
+    },
+    {
+      "id": "ez-bar-skullcrusher",
+      "name": "EZ Bar Skullcrusher",
+      "source_url": "https://www.muscleandstrength.com/exercises/ez-bar-skullcrusher.html",
+      "muscle_group": "Triceps",
+      "muscle_group_slug": "triceps",
+      "secondary_muscles": [],
+      "equipment": "EZ Bar",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Push (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "K6MSN4hCDM4",
+      "name_in_program": "Skullcrushers"
+    },
+    {
+      "id": "standing-dumbbell-curl",
+      "name": "Standing Dumbbell Curl",
+      "source_url": "https://www.muscleandstrength.com/exercises/standing-dumbbell-curl.html",
+      "muscle_group": "Biceps",
+      "muscle_group_slug": "biceps",
+      "secondary_muscles": [],
+      "equipment": "Dumbbell",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Pull",
+      "level": "Beginner",
+      "youtube_id": null,
+      "name_in_program": "Dumbbell Curls"
+    },
+    {
+      "id": "leg-curl",
+      "name": "Leg Curl",
+      "source_url": "https://www.muscleandstrength.com/exercises/leg-curl.html",
+      "muscle_group": "Hamstrings",
+      "muscle_group_slug": "hamstrings",
+      "secondary_muscles": [],
+      "equipment": "Machine",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Pull",
+      "level": "Beginner",
+      "youtube_id": null,
+      "name_in_program": "Leg Curls"
+    },
+    {
+      "id": "abdominal-barbell-rollouts",
+      "name": "Barbell Abdominal Rollouts",
+      "source_url": "https://www.muscleandstrength.com/exercises/abdominal-barbell-rollouts.html",
+      "muscle_group": "Abs",
+      "muscle_group_slug": "abs",
+      "secondary_muscles": [
+        "Shoulders"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "N/A",
+      "level": "Intermediate",
+      "youtube_id": null,
+      "name_in_program": "Ab Wheel Roll Out"
+    },
+    {
+      "id": "deadlifts",
+      "name": "Deadlift",
+      "source_url": "https://www.muscleandstrength.com/exercises/deadlifts.html",
+      "muscle_group": "Hamstrings",
+      "muscle_group_slug": "hamstrings",
+      "secondary_muscles": [
+        "Abs",
+        "Adductors",
+        "Calves",
+        "Forearms",
+        "Glutes",
+        "Hamstrings",
+        "Lats",
+        "Lower Back",
+        "Middle Back",
+        "Quads",
+        "Traps",
+        "Upper Back"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Hinge (Bilateral)",
+      "level": "Intermediate",
+      "youtube_id": "wjsu6ceEkAQ",
+      "name_in_program": "Deadlifts"
+    },
+    {
+      "id": "romanian-deadlift",
+      "name": "Romanian Deadlift (AKA RDL)",
+      "source_url": "https://www.muscleandstrength.com/exercises/romanian-deadlift.html",
+      "muscle_group": "Hamstrings",
+      "muscle_group_slug": "hamstrings",
+      "secondary_muscles": [
+        "Abs",
+        "Forearms",
+        "Glutes",
+        "Lats",
+        "Lower Back",
+        "Traps",
+        "Upper Back"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Hinge (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "-m45n1_x32E",
+      "name_in_program": "Romanian Deadlift"
+    },
+    {
+      "id": "seated-shoulder-press",
+      "name": "Seated Barbell Shoulder Press",
+      "source_url": "https://www.muscleandstrength.com/exercises/seated-shoulder-press.html",
+      "muscle_group": "Shoulders",
+      "muscle_group_slug": "shoulders",
+      "secondary_muscles": [
+        "Traps",
+        "Triceps"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "Gxhx7GpRb5g",
+      "name_in_program": "Seated Overhead Press"
+    },
+    {
+      "id": "wide-grip-pull-up",
+      "name": "Wide Grip Pull Up",
+      "source_url": "https://www.muscleandstrength.com/exercises/wide-grip-pull-up.html",
+      "muscle_group": "Lats",
+      "muscle_group_slug": "lats",
+      "secondary_muscles": [
+        "Abs",
+        "Biceps",
+        "Shoulders",
+        "Upper Back"
+      ],
+      "equipment": "Bodyweight",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Pull (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "5oxviYmdHCY",
+      "name_in_program": "Pull Ups"
+    },
+    {
+      "id": "smith-machine-bodyweight-row",
+      "name": "Feet Elevated Inverted Row",
+      "source_url": "https://www.muscleandstrength.com/exercises/smith-machine-bodyweight-row.html",
+      "muscle_group": "Upper Back",
+      "muscle_group_slug": "middle-back",
+      "secondary_muscles": [
+        "Biceps",
+        "Lats"
+      ],
+      "equipment": "Bodyweight",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Pull",
+      "level": "Beginner",
+      "youtube_id": null
+    },
+    {
+      "id": "chest-dip",
+      "name": "Chest Dip",
+      "source_url": "https://www.muscleandstrength.com/exercises/chest-dip.html",
+      "muscle_group": "Chest",
+      "muscle_group_slug": "chest",
+      "secondary_muscles": [
+        "Abs",
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "Bodyweight",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push (Bilateral)",
+      "level": "Intermediate",
+      "youtube_id": "FG1ENBFsdHU",
+      "name_in_program": "Dips"
+    },
+    {
+      "id": "barbell-shrug",
+      "name": "Barbell Shrug",
+      "source_url": "https://www.muscleandstrength.com/exercises/barbell-shrug.html",
+      "muscle_group": "Traps",
+      "muscle_group_slug": "traps",
+      "secondary_muscles": [
+        "Shoulders",
+        "Upper Back"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Pull (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "6hNudn7Peco",
+      "name_in_program": "Barbell Shrugs"
+    },
+    {
+      "id": "seated-calf-raise",
+      "name": "Seated Calf Raise",
+      "source_url": "https://www.muscleandstrength.com/exercises/seated-calf-raise.html",
+      "muscle_group": "Calves",
+      "muscle_group_slug": "calves",
+      "secondary_muscles": [],
+      "equipment": "Machine",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Push (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "Yh5TXz99xwY"
+    },
+    {
+      "id": "hover",
+      "name": "Plank",
+      "source_url": "https://www.muscleandstrength.com/exercises/hover.html",
+      "muscle_group": "Abs",
+      "muscle_group_slug": "abs",
+      "secondary_muscles": [
+        "Lower Back"
+      ],
+      "equipment": "Bodyweight",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Static",
+      "level": "Beginner",
+      "youtube_id": null
+    },
+    {
+      "id": "incline-dumbbell-bench-press",
+      "name": "Incline Dumbbell Bench Press",
+      "source_url": "https://www.muscleandstrength.com/exercises/incline-dumbbell-bench-press.html",
+      "muscle_group": "Chest",
+      "muscle_group_slug": "chest",
+      "secondary_muscles": [
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "Dumbbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "8nNi8jbbUPE"
+    },
+    {
+      "id": "one-arm-dumbbell-row",
+      "name": "One Arm Dumbbell Row",
+      "source_url": "https://www.muscleandstrength.com/exercises/one-arm-dumbbell-row.html",
+      "muscle_group": "Upper Back",
+      "muscle_group_slug": "middle-back",
+      "secondary_muscles": [
+        "Abs",
+        "Biceps",
+        "Lats",
+        "Shoulders"
+      ],
+      "equipment": "Dumbbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Pull (Unilateral)",
+      "level": "Beginner",
+      "youtube_id": "YZgVEy6cmaY"
+    },
+    {
+      "id": "seated-arnold-press",
+      "name": "Seated Arnold Press",
+      "source_url": "https://www.muscleandstrength.com/exercises/seated-arnold-press.html",
+      "muscle_group": "Shoulders",
+      "muscle_group_slug": "shoulders",
+      "secondary_muscles": [
+        "Traps",
+        "Triceps"
+      ],
+      "equipment": "Dumbbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push (Bilateral)",
+      "level": "Intermediate",
+      "youtube_id": "hmnZKRpYaV8"
+    },
+    {
+      "id": "tricep-extension",
+      "name": "Straight Bar Tricep Extension",
+      "source_url": "https://www.muscleandstrength.com/exercises/tricep-extension.html",
+      "muscle_group": "Triceps",
+      "muscle_group_slug": "triceps",
+      "secondary_muscles": [],
+      "equipment": "Cable",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Push (Bilateral)",
+      "level": "Beginner",
+      "youtube_id": "mpZ9VRisAyw",
+      "name_in_program": "Cable Tricep Extensions"
+    },
+    {
+      "id": "standing-barbell-curl",
+      "name": "Standing Barbell Curl",
+      "source_url": "https://www.muscleandstrength.com/exercises/standing-barbell-curl.html",
+      "muscle_group": "Biceps",
+      "muscle_group_slug": "biceps",
+      "secondary_muscles": [],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Isolation",
+      "force": "Pull",
+      "level": "Beginner",
+      "youtube_id": null,
+      "name_in_program": "Barbell Curls"
+    },
+    {
+      "id": "military-press",
+      "name": "Military Press (AKA Overhead Press)",
+      "source_url": "https://www.muscleandstrength.com/exercises/military-press.html",
+      "muscle_group": "Shoulders",
+      "muscle_group_slug": "shoulders",
+      "secondary_muscles": [
+        "Abs",
+        "Traps",
+        "Triceps"
+      ],
+      "equipment": "Barbell",
+      "exercise_type": "Strength",
+      "mechanics": "Compound",
+      "force": "Push (Bilateral)",
+      "level": "Intermediate",
+      "youtube_id": "j7ULT6dznNc"
+    }
+  ]
+}

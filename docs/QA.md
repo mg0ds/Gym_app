@@ -1,0 +1,76 @@
+# Scenariusze testów ręcznych (QA)
+
+Testy automatyczne nie złapią zachowania timera na prawdziwym telefonie z
+agresywnym zarządzaniem energią. Ten plik to lista do przeklikania przed
+każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
+
+## 1. Timer treningu
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 1.1 | Start treningu, zablokuj ekran, poczekaj 10 min | Po odblokowaniu czas = 10 min (+/- 1 s) |
+| 1.2 | Start, włącz tryb samolotowy, 5 min | Czas leci dalej (brak zależności od sieci) |
+| 1.3 | Start, zamknij aplikację z ostatnich, poczekaj 5 min, otwórz | Propozycja „Kontynuuj trening”, czas poprawny |
+| 1.4 | Start, wymuś zatrzymanie aplikacji (`Ustawienia → Aplikacje → Zatrzymaj`), otwórz | Sesja odzyskana, czas z `startedAt` |
+| 1.5 | Start, zrestartuj telefon, otwórz | Sesja odzyskana |
+| 1.6 | Start, zmień datę/godzinę w systemie do przodu o 1 h, wróć | Czas treningu nie „skacze” (licznik monotoniczny) |
+| 1.7 | Start, obróć ekran 5× | Czas ciągły, brak resetu |
+| 1.8 | Zakończ trening | `finished_at` zapisany; czas całkowity i „pod sztangą” różnią się o sumę przerw |
+| 1.9 | Tryb oszczędzania baterii włączony, 20 min treningu | Notyfikacja ongoing widoczna, czas poprawny |
+
+## 2. Timer przerwy
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 2.1 | Zaloguj serię, poczekaj do końca przerwy | Dźwięk + wibracja + notyfikacja w momencie 0 |
+| 2.2 | „+15 s” w połowie przerwy | Odliczanie wydłużone, `ended_reason='extended'` |
+| 2.3 | „Pomiń” | Przerwa zapisana jako `cancelled`, **nie wliczona** do średniej |
+| 2.4 | Zablokuj ekran na czas przerwy | Alarm odpala punktualnie (±2 s) |
+| 2.5 | Otwórz szczegóły ćwiczenia po 3 treningach | „Średnia przerwa” i „Ostatnio” zgodne z tym, co było ustawiane |
+| 2.6 | Ustaw przerwę 10 min, przerwij po 20 s | Wartość odfiltrowana ze statystyk (poza zakresem 10–900 s) |
+| 2.7 | Odrzuć uprawnienie „Alarmy i przypomnienia” | Przerwa nadal działa (z tolerancją), w Ustawieniach widoczna informacja |
+
+## 3. Kalendarz i reguły
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 3.1 | Reguła: od 01.10.2026, do 31.12.2026, co 3 dni | Poprawne daty (sprawdź na kartce: 1, 4, 7, 10… paź) |
+| 3.2 | Ta sama reguła + rotacja A/B/C | Daty naprzemiennie A, B, C, A… |
+| 3.3 | Reguła przez zmianę czasu (29.03.2026) | Dni kalendarzowe bez przeskoku/powtórzenia |
+| 3.4 | „Co ile dni” = 0 lub puste | Walidacja blokuje zapis z komunikatem |
+| 3.5 | Data do < data od | Walidacja blokuje zapis |
+| 3.6 | Dodaj wyjątek (skip) na 25.12 | Wpis znika, pozostałe bez zmian |
+| 3.7 | Edytuj regułę po 2 zrobionych treningach | Zrobione zostają w historii, przyszłe przeliczone |
+| 3.8 | Usuń plan, który miał zaplanowane daty | Daty zostają (bez planu → „Wolny trening”), brak crasha |
+| 3.9 | Reguła bezterminowa, przewiń kalendarz 12 mies. w przód | Daty dosypywane płynnie, bez zacięcia |
+
+## 4. Media i YouTube
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 4.1 | Dodaj zdjęcie z galerii | Skopiowane do `filesDir/media/...`, widoczne w szczegółach |
+| 4.2 | Dodaj film 40 MB | Odtwarza się w apce, czas trwania widoczny |
+| 4.3 | Dodaj film 200 MB | Czytelny komunikat o limicie rozmiaru |
+| 4.4 | Wklej link `youtu.be/ID`, `watch?v=ID`, `shorts/ID` | Każdy rozpoznany, ta sama miniatura i odtwarzanie |
+| 4.5 | Wklej zwykły link (nie YouTube) | Zapisany jako link, bez próby odtwarzania |
+| 4.6 | Wyłącz internet, otwórz ćwiczenie z filmem | Miniatura z cache (jeśli była), przycisk odtwarzania nie crashuje |
+| 4.7 | Usuń ćwiczenie z 3 załącznikami | Pliki usunięte z pamięci (sprawdź w menedżerze plików) |
+
+## 5. Dane i backup
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 5.1 | Pierwsze uruchomienie na czystej instalacji | Import seeda: „23 ćwiczenia, 1 plan, 3 dni” |
+| 5.2 | Zmień nazwę ćwiczenia z seeda, uruchom re-import | Nazwa użytkownika **nie** nadpisana |
+| 5.3 | Eksport ZIP → odinstaluj → zainstaluj → import | Wszystkie dane i media wracają |
+| 5.4 | Import z pliku o wyższym `schemaVersion` | Czytelny błąd, brak częściowego importu |
+| 5.5 | Wyszukaj „obwod” (bez ogonka) | Znajduje „obwód” |
+| 5.6 | Tryb samolotowy + pełne przejście apki | Wszystko działa, żadne żądanie sieciowe nie jest wymagane |
+
+## 6. Dostępność
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 6.1 | TalkBack: przejdź przez start treningu | Wszystkie przyciski mają etykiety, timer ogłaszany bez spamu |
+| 6.2 | Czcionka 200% | Brak uciętych tekstów, przyciski nadal klikalne |
+| 6.3 | Motyw ciemny + dynamiczne kolory | Wykresy czytelne, brak białych „dziur” |
