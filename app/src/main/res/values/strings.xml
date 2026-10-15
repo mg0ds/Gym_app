@@ -64,19 +64,18 @@
     <string name="exercise_favourite_add">Dodaj do ulubionych</string>
     <string name="exercise_favourite_remove">Usuń z ulubionych</string>
     <string name="exercise_delete_title">Usunąć ćwiczenie?</string>
-    <string name="exercise_delete_message">„%1$s” zniknie z katalogu razem ze swoimi ustawieniami. Tej operacji nie można cofnąć.</string>
-    <string name="exercise_delete_used">Ćwiczenie jest używane: %1$s. Usunięcie zabierze je także z tych miejsc.</string>
+    <string name="exercise_delete_message">„%1$s” zniknie z katalogu i z wyszukiwania. Tej operacji nie można cofnąć.</string>
     <plurals name="exercise_delete_used_in_plans">
-        <item quantity="one">%1$d pozycja w planie</item>
-        <item quantity="few">%1$d pozycje w planach</item>
-        <item quantity="many">%1$d pozycji w planach</item>
-        <item quantity="other">%1$d pozycji w planach</item>
+        <item quantity="one">Zostanie w planach: %1$d pozycja.</item>
+        <item quantity="few">Zostanie w planach: %1$d pozycje.</item>
+        <item quantity="many">Zostanie w planach: %1$d pozycji.</item>
+        <item quantity="other">Zostanie w planach: %1$d pozycji.</item>
     </plurals>
     <plurals name="exercise_delete_used_in_sessions">
-        <item quantity="one">%1$d wpis w treningu</item>
-        <item quantity="few">%1$d wpisy w treningach</item>
-        <item quantity="many">%1$d wpisów w treningach</item>
-        <item quantity="other">%1$d wpisów w treningach</item>
+        <item quantity="one">Zostanie w historii treningów: %1$d wpis.</item>
+        <item quantity="few">Zostanie w historii treningów: %1$d wpisy.</item>
+        <item quantity="many">Zostanie w historii treningów: %1$d wpisów.</item>
+        <item quantity="other">Zostanie w historii treningów: %1$d wpisów.</item>
     </plurals>
 
     <!-- Formularz ćwiczenia -->

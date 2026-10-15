@@ -48,6 +48,13 @@ interface ExerciseRepository {
 
     suspend fun setFavourite(id: Long, isFavourite: Boolean)
 
-    /** Usuwa ćwiczenie dodane przez użytkownika. */
-    suspend fun deleteExercise(id: Long)
+    /**
+     * Usuwa ćwiczenie z katalogu.
+     *
+     * W praktyce **archiwizuje** wiersz (`is_archived = 1`): ćwiczenie znika
+     * z listy i z wyszukiwania, ale jego pozycje w planach i historia treningów
+     * zostają czytelne. Skasowanie wiersza zabrałoby je kaskadą - a trening,
+     * którego nie da się już odtworzyć, to nie „porządek w katalogu”.
+     */
+    suspend fun archiveExercise(id: Long)
 }

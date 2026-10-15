@@ -213,6 +213,10 @@ metric_types 1─* body_entries          (karta postaci)
 11. **`UNIQUE(plan_id, position)`** — przestawianie wierszy robimy w jednej
     transakcji dwoma przebiegami: najpierw wartości ujemne (tymczasowe), potem
     docelowe. Inaczej zapis „w miejscu” łamie unikalność w połowie drogi (M2).
+12. **Wiersza ćwiczenia nie kasujemy, tylko archiwizujemy** (`is_archived = 1`).
+    Kaskady z `plan_day_exercises` i `session_exercises` są potrzebne (usunięcie
+    planu ma posprzątać po sobie), ale przy ćwiczeniu oznaczałyby utratę historii
+    treningów — dlatego „usuń z katalogu” to zmiana flagi (M2, szczegóły §6.11).
 
 ### 4.3 Migracje
 
@@ -541,10 +545,14 @@ zakresy 1M/3M/6M/1R/wszystko, zoom/pan, „empty state” gdy brak danych.
 * Re-import po aktualizacji seeda: dopisuje nowe ćwiczenia i nowe plany, **nie
   rusza** istniejących rekordów, planów użytkownika ani historii. `INSERT OR IGNORE`
   dotyczy wyłącznie wierszy z `external_id` — plany tworzone ręcznie mają go `NULL`,
-  więc są nietykalne. Pozycje usunięte ze źródła **nie** są archiwizowane
-  (`is_archived` zostaje 0): przy jednym źródle wersjonowanym w repo nie ma na razie
-  czego „wygaszać”, a dokładanie stanu, którego nikt nie czyta, to koszt bez zysku.
-  Wracamy do tego razem z importem plików z urządzenia (M9).
+  więc są nietykalne.
+* **Archiwizacja to droga usunięcia, nie re-importu** (§6.11). Ćwiczenie usunięte
+  z katalogu zostaje w bazie z `is_archived = 1`, więc wiersz dalej zajmuje
+  `external_id` i import go **nie przywróci** — to była decyzja użytkownika.
+  Odwrotnie, pozycje usunięte z samego pliku źródłowego nie są oznaczane: przy
+  jednym źródle wersjonowanym w repo nie ma czego „wygaszać”, a dokładanie stanu,
+  którego nikt nie czyta, to koszt bez zysku. Wracamy do tego razem z importem
+  plików z urządzenia (M9).
 * Dodatkowo w Ustawieniach: „wczytaj plik JSON z pamięci urządzenia”
   (ten sam format, walidacja + ręczne potwierdzenie) — M9.
 
@@ -599,6 +607,34 @@ aktywny tylko jeden trening: nowy start zamyka poprzedni jako `cancelled`.
 Ekran treningu w M2 celowo **nie loguje serii** — to zakres M4 (wtedy dochodzi
 `ForegroundService`, licznik przerw i wpisy w `set_logs`). M2 dowozi to, co było
 kryterium: mogę zbudować własną kombinację dni i **rozpocząć z niej** trening.
+
+### 6.11 Usuwanie ćwiczenia = archiwizacja (M2)
+
+„Usuń” w karcie ćwiczenia **nie kasuje wiersza** — ustawia `is_archived = 1`.
+Powód jest konkretny: `plan_day_exercises.exercise_id` i `session_exercises.exercise_id`
+mają `ON DELETE CASCADE`, więc skasowanie wiersza zabrałoby ze sobą pozycje w planach
+i **wpisy w historii treningów**. Trening, którego nie da się już odtworzyć, to nie
+„porządek w katalogu”.
+
+Co to znaczy w praktyce:
+
+* `is_archived = 0` jest warunkiem w każdym zapytaniu katalogu (`observeExercises`,
+  partie mięśniowe, licznik, `observeById`/`getById`) — zarchiwizowanego ćwiczenia
+  nie ma na liście, w wyszukiwaniu FTS ani pod jego adresem, więc nie da się go
+  otworzyć ani edytować (a `updateExercise` jest wtedy pustym przebiegiem),
+* plany i treningi **nadal** pokazują tę pozycję z nazwą (wiersze JOIN zostają),
+  więc stary trening czyta się tak samo,
+* ponowny import seeda go nie przywróci: wiersz dalej zajmuje `external_id`,
+  a `INSERT OR IGNORE` nie nadpisuje zmian użytkownika,
+* import planu używa `getActiveByExternalId`, więc plan nie dostanie wiersza
+  wskazującego zarchiwizowane ćwiczenie — brak trafia do `missingExercises`,
+* potwierdzenie usunięcia pokazuje, ile pozycji zostaje („Zostanie w planach:
+  4 pozycje.”, „Zostanie w historii treningów: 1 wpis.”) — to spokojna
+  informacja, nie straszenie.
+
+Czego jeszcze nie ma: przeglądania i przywracania z archiwum oraz trwałego
+„opróżnij archiwum” (`ExerciseDao.deleteById` czeka na ten ekran). To M9 — razem
+z importem plików, bo dopiero wtedy pojawia się pytanie „co leży w archiwum i dlaczego”.
 
 ---
 
@@ -877,21 +913,25 @@ kombinację dni i **rozpoczynam z niej trening**.
   trening naraz (nowy start zamyka poprzedni jako `cancelled`), karta „Kontynuuj
   trening” na Dziś, ekran treningu z licznikiem od `started_at` oraz „Zakończ
   trening” / „Przerwij trening” z potwierdzeniem,
-* **Usuwanie ćwiczenia mówi, co zabiera**: skoro pozycje ćwiczenia znikają z planów
-  i treningów kaskadą, potwierdzenie pokazuje liczniki („4 pozycje w planach
-  i 1 wpis w treningu”) i ostrzega, że usunięcie dotknie także te miejsca.
-  Liczniki obserwujemy na żywo, więc po sprzątnięciu planu ostrzeżenie znika samo.
-  Właściwe rozwiązanie (archiwizacja zamiast kasowania) → M9, patrz §6.8,
-* **Testy JVM: 72** (doszły: repozytoria planów i sesji na prawdziwym Room,
+* **Usuwanie ćwiczenia archiwizuje, nie kasuje** (§6.11): pozycje w planach
+  i historia treningów zostają czytelne, a ćwiczenie znika z katalogu,
+  wyszukiwania i spod swojego adresu. Potwierdzenie mówi, ile pozycji zostaje
+  („Zostanie w planach: 4 pozycje.”, „Zostanie w historii treningów: 1 wpis.”);
+  liczniki obserwujemy na żywo, więc po sprzątnięciu planu zdanie
+  znika samo. Przeglądanie archiwum i przywracanie → M9,
+* **Testy JVM: 74** (doszły: repozytoria planów i sesji na prawdziwym Room,
   import planu z assetów, grupowanie alternatyw, przestawianie wierszy,
-  liczniki użycia ćwiczenia, formatowanie czasu). `:app:lintDebug`
+  liczniki użycia ćwiczenia, archiwizacja nie ruszająca planów i historii,
+  formatowanie czasu). `:app:lintDebug`
   i `:app:assembleDebug` bez błędów.
 
 Świadome odstępstwa i odroczenia z M2:
 
 * **`seed_imports` odroczone do M9**, wersje seedów w `app_meta` — uzasadnienie
   w §6.8,
-* brak `is_archived` przy ponownym imporcie (§6.8),
+* brak archiwum w UI: ćwiczenie zniknięte z katalogu zostaje w bazie
+  (`is_archived = 1`), ale nie ma jeszcze ekranu, żeby je obejrzeć i przywrócić;
+  pozycje usunięte z samego pliku źródłowego nie są oznaczane (§6.8, §6.11),
 * **logowanie serii, licznik przerw i timer w tle → M4**. Ekran treningu w M2
   pokazuje cele i mierzy czas, ale nie zapisuje serii; `RestTimerService`
   i `set_logs` są zakresem M4/M5 — kryterium M2 (rozpoczęcie treningu z własnej

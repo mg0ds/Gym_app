@@ -89,7 +89,7 @@ class ExerciseRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun deleteExercise(id: Long) {
-        exerciseDao.deleteById(id)
+    override suspend fun archiveExercise(id: Long) {
+        exerciseDao.archive(id = id, updatedAtEpochMs = timeProvider.nowEpochMs())
     }
 }

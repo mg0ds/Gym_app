@@ -64,15 +64,14 @@
     <string name="exercise_favourite_add">Add to favourites</string>
     <string name="exercise_favourite_remove">Remove from favourites</string>
     <string name="exercise_delete_title">Delete this exercise?</string>
-    <string name="exercise_delete_message">“%1$s” will be removed from the catalogue together with its settings. This cannot be undone.</string>
-    <string name="exercise_delete_used">This exercise is in use: %1$s. Deleting it removes it from those places too.</string>
+    <string name="exercise_delete_message">“%1$s” will disappear from the catalogue and from search. This cannot be undone.</string>
     <plurals name="exercise_delete_used_in_plans">
-        <item quantity="one">%1$d plan position</item>
-        <item quantity="other">%1$d plan positions</item>
+        <item quantity="one">It will stay in your plans: %1$d position.</item>
+        <item quantity="other">It will stay in your plans: %1$d positions.</item>
     </plurals>
     <plurals name="exercise_delete_used_in_sessions">
-        <item quantity="one">%1$d workout entry</item>
-        <item quantity="other">%1$d workout entries</item>
+        <item quantity="one">It will stay in your workout history: %1$d entry.</item>
+        <item quantity="other">It will stay in your workout history: %1$d entries.</item>
     </plurals>
 
     <!-- Exercise form -->

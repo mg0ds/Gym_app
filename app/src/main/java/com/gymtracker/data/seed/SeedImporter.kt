@@ -162,7 +162,7 @@ class SeedImporter @Inject constructor(
                     val entries = mutableListOf<PlanExerciseEntity>()
                     workout.exercises.sortedBy { exercise -> exercise.order }.forEach { planned ->
                         val group = planned.alternativeGroupKey()
-                        val exerciseId = exerciseDao.getByExternalId(planned.exerciseId)?.id
+                        val exerciseId = exerciseDao.getActiveByExternalId(planned.exerciseId)?.id
                         if (exerciseId == null) {
                             missing += planned.exerciseId
                         } else {
@@ -179,7 +179,8 @@ class SeedImporter @Inject constructor(
                         // Alternatywy wchodzą zaraz po ćwiczeniu podstawowym, w tej
                         // samej grupie - jedno z nich użytkownik faktycznie zrobi.
                         planned.alternatives.forEach { alternative ->
-                            val alternativeId = exerciseDao.getByExternalId(alternative.exerciseId)?.id
+                            val alternativeId =
+                                exerciseDao.getActiveByExternalId(alternative.exerciseId)?.id
                             if (alternativeId == null) {
                                 missing += alternative.exerciseId
                                 return@forEach

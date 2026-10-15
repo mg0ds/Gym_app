@@ -87,7 +87,7 @@ fun ExerciseDetailScreen(
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
                 showDeleteDialog = false
-                viewModel.delete(onDeleted = onBack)
+                viewModel.archive(onArchived = onBack)
             },
         )
     }
@@ -357,12 +357,26 @@ private fun DeleteExerciseDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.exercise_delete_message, exerciseName))
-                // Baza kasuje pozycje ćwiczenia kaskadą, więc mówimy wprost,
-                // ile ich jest - inaczej użytkownik traci je „po cichu”.
-                if (usage.isUsed) {
+                // Usunięcie jest archiwizacją, więc plany i historia zostają -
+                // mówimy to wprost, żeby nikt nie bał się stracić treningów.
+                if (usage.planPositions > 0) {
                     Text(
-                        text = usageWarningText(usage),
-                        color = MaterialTheme.colorScheme.error,
+                        text = pluralStringResource(
+                            id = R.plurals.exercise_delete_used_in_plans,
+                            count = usage.planPositions,
+                            usage.planPositions,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (usage.sessionPositions > 0) {
+                    Text(
+                        text = pluralStringResource(
+                            id = R.plurals.exercise_delete_used_in_sessions,
+                            count = usage.sessionPositions,
+                            usage.sessionPositions,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -378,32 +392,6 @@ private fun DeleteExerciseDialog(
             }
         },
     )
-}
-
-/** „2 pozycje w planach i 1 wpis w treningu” - odmiana przez liczby jest w zasobach. */
-@Composable
-private fun usageWarningText(usage: ExerciseUsage): String {
-    val parts = buildList {
-        if (usage.planPositions > 0) {
-            add(
-                pluralStringResource(
-                    id = R.plurals.exercise_delete_used_in_plans,
-                    count = usage.planPositions,
-                    usage.planPositions,
-                ),
-            )
-        }
-        if (usage.sessionPositions > 0) {
-            add(
-                pluralStringResource(
-                    id = R.plurals.exercise_delete_used_in_sessions,
-                    count = usage.sessionPositions,
-                    usage.sessionPositions,
-                ),
-            )
-        }
-    }
-    return stringResource(R.string.exercise_delete_used, parts.joinToString(separator = " i "))
 }
 
 @Composable

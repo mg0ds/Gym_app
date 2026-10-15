@@ -37,14 +37,27 @@ interface ExerciseDao {
         favouritesOnly: Boolean,
     ): Flow<List<ExerciseEntity>>
 
-    @Query("SELECT * FROM exercises WHERE id = :id")
+    /**
+     * Ćwiczenia z katalogu, czyli **nie**zarchiwizowane. Zarchiwizowany wiersz
+     * istnieje dalej (trzyma ze sobą plany i historię), ale dla aplikacji go nie
+     * ma: nie da się go otworzyć ani edytować, dopóki nie wróci z archiwum (M9).
+     */
+    @Query("SELECT * FROM exercises WHERE id = :id AND is_archived = 0")
     fun observeById(id: Long): Flow<ExerciseEntity?>
 
-    @Query("SELECT * FROM exercises WHERE id = :id")
+    @Query("SELECT * FROM exercises WHERE id = :id AND is_archived = 0")
     suspend fun getById(id: Long): ExerciseEntity?
 
     @Query("SELECT * FROM exercises WHERE external_id = :externalId LIMIT 1")
     suspend fun getByExternalId(externalId: String): ExerciseEntity?
+
+    /**
+     * Jak wyżej, ale pomija zarchiwizowane. Używane przy imporcie planu: plan
+     * nie powinien odwoływać się do ćwiczenia, które użytkownik usunął
+     * z katalogu, bo na ekranie dnia zostałby wiersz-widmo.
+     */
+    @Query("SELECT * FROM exercises WHERE external_id = :externalId AND is_archived = 0 LIMIT 1")
+    suspend fun getActiveByExternalId(externalId: String): ExerciseEntity?
 
     /** Partie mięśniowe obecne w katalogu - źródło filtrów na liście. */
     @Query(
@@ -75,8 +88,18 @@ interface ExerciseDao {
     @Update
     suspend fun update(exercise: ExerciseEntity)
 
+    /**
+     * Twarde kasowanie. Produkcja z niego **nie** korzysta (patrz [archive]):
+     * wiersz ćwiczenia trzyma ze sobą plany i historię treningów, więc
+     * usunięcie z katalogu to archiwizacja. Metoda zostaje, bo z niej korzysta
+     * test triggerów FTS i przyszłe „opróżnij archiwum” (M9).
+     */
     @Query("DELETE FROM exercises WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** Usunięcie z katalogu bez ruszania planów i historii. */
+    @Query("UPDATE exercises SET is_archived = 1, updated_at = :updatedAtEpochMs WHERE id = :id")
+    suspend fun archive(id: Long, updatedAtEpochMs: Long)
 
     @Query(
         """

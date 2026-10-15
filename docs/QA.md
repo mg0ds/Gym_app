@@ -118,5 +118,6 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 8.18 | „Zakończ trening” | Karta znika; sesja `finished` z czasem i kopią ćwiczeń (tylko wybory domyślne) |
 | 8.19 | „Przerwij trening” → potwierdzenie | Karta znika; sesja `cancelled`, nie liczona jako odbyta |
 | 8.20 | Usuń plan, który ma zakończony trening | Plan i dni znikają, historia treningu zostaje (z nazwą dnia z planu) |
-| 8.21 | Usuń ćwiczenie używane w planie i treningu | Potwierdzenie mówi wprost, ile pozycji zniknie z planów i treningów |
-| 8.22 | „Wczytaj plany startowe” przy już zaimportowanym planie | „Gotowe: plany +0, pominięto 1, dni 0.”; brak duplikatów dni i pozycji, zmiany użytkownika **nie** nadpisane |
+| 8.21 | Usuń ćwiczenie używane w planie i treningu | Potwierdzenie mówi, ile pozycji **zostaje** („Zostanie w planach: N pozycji.”); ćwiczenie znika z katalogu i z wyszukiwania |
+| 8.22 | Po usunięciu ćwiczenia otwórz plan i kartę treningu z historii | Wiersze dalej są, z nazwą ćwiczenia — historia treningów nie ginie |
+| 8.23 | „Wczytaj plany startowe” przy już zaimportowanym planie | „Gotowe: plany +0, pominięto 1, dni 0.”; brak duplikatów dni i pozycji, zmiany użytkownika **nie** nadpisane |

@@ -225,6 +225,37 @@ class SeedImporterTest {
     }
 
     @Test
+    fun `zarchiwizowane cwiczenie nie wraca z importem i nie trafia do planu`() = runTest {
+        val importer = importerWith(
+            exercisesJson = FIXTURE_PROGRAM_EXERCISES,
+            programs = mapOf("${SeedFiles.PROGRAMS_DIR}/test-plan.json" to FIXTURE_PROGRAM),
+        )
+        importer.importExercises()
+        val squat = requireNotNull(database.exerciseDao().getByExternalId("squat"))
+        database.exerciseDao().archive(id = squat.id, updatedAtEpochMs = 2_000L)
+
+        // Ponowny import katalogu: wiersz zajmuje `external_id`, więc nic nie
+        // dopisuje i **nie zdejmuje archiwizacji** - usunięcie było decyzją.
+        val again = importer.importExercises()
+        assertEquals(0, again.imported)
+        assertEquals(4, again.skipped)
+        assertTrue(requireNotNull(database.exerciseDao().getByExternalId("squat")).isArchived)
+
+        // Plan nie odwołuje się do zarchiwizowanego ćwiczenia (nie zostawia
+        // wiersza-widma), a brak zgłasza jak każdy inny brak w katalogu.
+        val result = importer.importPrograms()
+
+        assertEquals(listOf("squat"), result.missingExercises)
+        assertEquals(3, result.positionsImported)
+        val plan = requireNotNull(database.planDao().getPlanByExternalId("test-plan"))
+        val day = database.planDao().getDays(plan.id).single()
+        assertEquals(
+            listOf("Barbell Bench Press", "Military Press", "Plank"),
+            database.planDao().getDayExercises(day.id).map { row -> row.exerciseName },
+        )
+    }
+
+    @Test
     fun `import planu z danych w apce daje trzy dni i wybor zamiast drugiego cwiczenia`() = runTest {
         val importer = assetImporter()
         importer.importExercises()

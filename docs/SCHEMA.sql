@@ -55,6 +55,8 @@ CREATE TABLE exercises (
     notes               TEXT,                   -- komentarz uzytkownika do cwiczenia
     -- Bez DEFAULT w DDL: wartosci domyslne ustawia model Kotlina (@ColumnInfo(defaultValue)).
     is_favourite        INTEGER NOT NULL,
+    -- 1 = ukryte w katalogu. "Usun" NIE kasuje wiersza: kaskady z plan_day_exercises
+    -- i session_exercises zabralyby ze soba historie treningow (docs/PLAN.md 6.11).
     is_archived         INTEGER NOT NULL,
     created_at          INTEGER NOT NULL,
     updated_at          INTEGER NOT NULL

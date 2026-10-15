@@ -174,14 +174,38 @@ class ExerciseRepositoryTest {
     }
 
     @Test
-    fun `usuniete cwiczenie znika z listy`() = runTest {
-        val id = repository.addExercise(ExerciseDraft(name = "Pompki"))
+    fun `zarchiwizowane cwiczenie znika z katalogu, ale zostaje w bazie`() = runTest {
+        val id = repository.addExercise(ExerciseDraft(name = "Pompki", muscleGroup = "Chest"))
 
-        repository.deleteExercise(id)
+        repository.archiveExercise(id)
 
+        // Zniknęło z katalogu, wyszukiwania i filtrów...
         assertNull(repository.getExercise(id))
+        assertNull(repository.observeExercise(id).first())
         assertEquals(emptyList<String>(), repository.observeExercises().first().map { it.name })
+        assertEquals(emptyList<String>(), repository.observeMuscleGroups().first())
         assertEquals(0, repository.observeActiveCount().first())
+        // ...ale wiersz istnieje dalej: to on trzyma plany i historię treningów.
+        // `count` liczy wszystkie wiersze, `observeActiveCount` tylko aktywne.
+        assertEquals(1, database.exerciseDao().count())
+    }
+
+    @Test
+    fun `zarchiwizowane cwiczenie zostaje w planie i w historii treningu`() = runTest {
+        val exerciseId = repository.addExercise(ExerciseDraft(name = "Pompki"))
+        val planId = planRepository.createPlan(PlanDraft(name = "Plan"))
+        val dayId = planRepository.addDay(planId, PlanDayDraft(name = "Dzień A"))
+        planRepository.addExercise(dayId, PlanExerciseDraft(exerciseId = exerciseId))
+        val sessionId = requireNotNull(sessionRepository.startFromPlanDay(dayId))
+        sessionRepository.finishSession(sessionId)
+
+        repository.archiveExercise(exerciseId)
+
+        // Plan i trening nadal mają tę pozycję - z nazwą czytelną dla człowieka.
+        val day = requireNotNull(planRepository.observeDay(dayId).first())
+        assertEquals(listOf("Pompki"), day.exercises.map { it.exerciseName })
+        val session = requireNotNull(sessionRepository.observeSession(sessionId).first())
+        assertEquals(listOf("Pompki"), session.exercises.map { it.exerciseName })
     }
 
     @Test
@@ -207,7 +231,7 @@ class ExerciseRepositoryTest {
 
         assertNotNull(repository.observeExercise(id).first())
 
-        repository.deleteExercise(id)
+        repository.archiveExercise(id)
 
         assertNull(repository.observeExercise(id).first())
     }
@@ -218,7 +242,6 @@ class ExerciseRepositoryTest {
 
         val usage = repository.observeUsage(id).first()
 
-        assertFalse(usage.isUsed)
         assertEquals(0, usage.planPositions)
         assertEquals(0, usage.sessionPositions)
     }
@@ -243,7 +266,6 @@ class ExerciseRepositoryTest {
 
         val usage = repository.observeUsage(exerciseId).first()
 
-        assertTrue(usage.isUsed)
         assertEquals(2, usage.planPositions)
         assertEquals(1, usage.sessionPositions)
         // Ćwiczenie z jednym dniem ma dokładnie jedną pozycję w planie.

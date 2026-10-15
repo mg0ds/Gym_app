@@ -56,11 +56,11 @@ class ExerciseDetailViewModel @Inject constructor(
         }
     }
 
-    /** Usuwa ćwiczenie i oddaje sterowanie (ekran wraca do listy). */
-    fun delete(onDeleted: () -> Unit) {
+    /** Usuwa ćwiczenie z katalogu i oddaje sterowanie (ekran wraca do listy). */
+    fun archive(onArchived: () -> Unit) {
         viewModelScope.launch {
-            repository.deleteExercise(exerciseId)
-            onDeleted()
+            repository.archiveExercise(exerciseId)
+            onArchived()
         }
     }
 
