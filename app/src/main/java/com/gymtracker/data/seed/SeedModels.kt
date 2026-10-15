@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * Modele plików z danymi startowymi (katalog `assets/seed/`).
  *
- * Pliki są generowane poza aplikacją, dlatego odczyt jest wyrozumiały:
+ * Wpisy są przygotowane raz, poza aplikacją, dlatego odczyt jest wyrozumiały:
  * nieznane pola ignorujemy, a nowe opcjonalne pola nie wywracają importu.
  */
 @Serializable

@@ -6,7 +6,7 @@ import com.gymtracker.domain.model.ExerciseDraft
 import com.gymtracker.domain.model.YouTubeLinks
 import kotlinx.serialization.json.Json
 
-/** Jedna instancja konwertera JSON dla list zapisywanych w bazie jako JSON. */
+/** Jedna instancja konwertera JSON dla list zapisywanych w bazie. */
 internal val ExerciseJson: Json = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true
