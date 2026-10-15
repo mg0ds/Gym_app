@@ -10,10 +10,13 @@ Stan: **M0 ukończony** (fundament projektu). Kolejny krok to katalog ćwiczeń 
 
 ## Wymagania
 
-* **JDK 21** — AGP 9 wymaga min. 17, ale sandbox Robolectric dla SDK 36 wymaga Javy 21
-  (Android Studio wnosi własne JDK 21, więc zwykle nic nie trzeba instalować),
+* **JDK 21** — AGP 9 wymaga min. 17, ale sandbox Robolectric dla SDK 36 wymaga Javy 21,
 * Android Studio (dowolna wersja obsługująca AGP 9) lub samo Android SDK,
 * **Android SDK Platform 36** + Build Tools 36.x.
+
+> Android Studio 2026.2 wnosi własne JDK w wersji **25**. Do zbudowania apki wystarczy,
+> ale testy uruchamiamy na Javie 21 (tak samo jak w CI), więc w Studiu ustaw
+> *Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK* na JDK 21.
 
 ## Budowanie i testy
 
@@ -25,6 +28,38 @@ Stan: **M0 ukończony** (fundament projektu). Kolejny krok to katalog ćwiczeń 
 
 Wszystkie trzy kroki uruchamia CI na GitHub Actions dla każdego pusha i PR-a
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+### Środowisko lokalne (macOS) — konfiguracja od zera
+
+```bash
+brew install --cask android-studio                  # IDE + SDK Manager + Device Manager
+brew install --cask android-commandlinetools        # sdkmanager, avdmanager
+brew install --cask android-platform-tools          # adb, fastboot
+brew install openjdk@21                             # JDK 21 (formuła — bez sudo)
+
+export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.1.0" \
+           "emulator" "system-images;android-36;google_apis;arm64-v8a"
+```
+
+`local.properties` (ignorowany przez git) musi wskazywać SDK:
+
+```properties
+sdk.dir=/Users/<użytkownik>/Library/Android/sdk
+```
+
+Emulator (AVD) i instalacja apki:
+
+```bash
+avdmanager create avd -n gym_api36 -d pixel_7 \
+  -k "system-images;android-36;google_apis;arm64-v8a"
+~/Library/Android/sdk/emulator/emulator -avd gym_api36 &
+./gradlew installDebug
+```
+
+Telefon po USB: włącz *debugowanie USB*, podłącz kabel, sprawdź `adb devices`,
+potem `./gradlew installDebug`.
 
 Po **pierwszym lokalnym** buildzie warto zacommitować wyeksportowane schematy bazy
 (`app/schemas/com.gymtracker.data.db.AppDatabase/1.json`) — Room używa ich do testów
