@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -53,6 +54,7 @@ import com.gymtracker.domain.model.Exercise
 fun ExerciseListScreen(
     onExerciseClick: (Long) -> Unit,
     onAddExercise: () -> Unit,
+    onOpenPlans: () -> Unit,
     viewModel: ExerciseListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -65,6 +67,7 @@ fun ExerciseListScreen(
         onFavouriteToggle = viewModel::toggleFavourite,
         onExerciseClick = onExerciseClick,
         onAddExercise = onAddExercise,
+        onOpenPlans = onOpenPlans,
     )
 }
 
@@ -78,10 +81,21 @@ private fun ExerciseListContent(
     onFavouriteToggle: (Exercise) -> Unit,
     onExerciseClick: (Long) -> Unit,
     onAddExercise: () -> Unit,
+    onOpenPlans: () -> Unit,
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.exercises_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.exercises_title)) },
+                actions = {
+                    IconButton(onClick = onOpenPlans) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = stringResource(R.string.plans_title),
+                        )
+                    }
+                },
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddExercise) {

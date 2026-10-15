@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gymtracker.domain.model.Exercise
+import com.gymtracker.domain.model.ExerciseUsage
 import com.gymtracker.domain.repository.ExerciseRepository
 import com.gymtracker.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,18 @@ class ExerciseDetailViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
             initialValue = ExerciseDetailUiState(),
+        )
+
+    /**
+     * Gdzie ćwiczenie jest używane. Osobny strumień, a nie część [uiState], bo
+     * potrzebne tylko przy usuwaniu - a liczymy je zapytaniem do dwóch tabel,
+     * więc nie ma sensu przeliczać go przy każdym odświeżeniu katalogu.
+     */
+    val usage: StateFlow<ExerciseUsage> = repository.observeUsage(exerciseId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = ExerciseUsage(),
         )
 
     fun toggleFavourite() {

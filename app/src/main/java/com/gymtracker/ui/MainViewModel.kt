@@ -27,10 +27,10 @@ class MainViewModel @Inject constructor(
 
     init {
         // Pierwsze uruchomienie (albo nowsza wersja danych startowych): wczytaj
-        // katalog ćwiczeń. Import jest idempotentny i nie nadpisuje zmian
-        // użytkownika, więc można go wołać przy każdym starcie aplikacji.
+        // katalog ćwiczeń i plany. Import jest idempotentny i nie nadpisuje
+        // zmian użytkownika, więc można go wołać przy każdym starcie aplikacji.
         viewModelScope.launch {
-            runCatching { seedImporter.importExercisesIfNeeded() }
+            runCatching { seedImporter.importStartDataIfNeeded() }
         }
     }
 

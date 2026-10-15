@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
 import com.gymtracker.domain.model.Exercise
+import com.gymtracker.domain.model.ExerciseUsage
 
 /**
  * Szczegóły ćwiczenia: dane z katalogu, domyślne serie/powtórzenia/przerwa,
@@ -61,6 +63,7 @@ fun ExerciseDetailScreen(
     viewModel: ExerciseDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val usage by viewModel.usage.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -80,6 +83,7 @@ fun ExerciseDetailScreen(
     if (showDeleteDialog && exercise != null) {
         DeleteExerciseDialog(
             exerciseName = exercise.name,
+            usage = usage,
             onDismiss = { showDeleteDialog = false },
             onConfirm = {
                 showDeleteDialog = false
@@ -343,13 +347,26 @@ private fun InfoRow(
 @Composable
 private fun DeleteExerciseDialog(
     exerciseName: String,
+    usage: ExerciseUsage,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.exercise_delete_title)) },
-        text = { Text(stringResource(R.string.exercise_delete_message, exerciseName)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.exercise_delete_message, exerciseName))
+                // Baza kasuje pozycje ćwiczenia kaskadą, więc mówimy wprost,
+                // ile ich jest - inaczej użytkownik traci je „po cichu”.
+                if (usage.isUsed) {
+                    Text(
+                        text = usageWarningText(usage),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(stringResource(R.string.action_delete))
@@ -361,6 +378,32 @@ private fun DeleteExerciseDialog(
             }
         },
     )
+}
+
+/** „2 pozycje w planach i 1 wpis w treningu” - odmiana przez liczby jest w zasobach. */
+@Composable
+private fun usageWarningText(usage: ExerciseUsage): String {
+    val parts = buildList {
+        if (usage.planPositions > 0) {
+            add(
+                pluralStringResource(
+                    id = R.plurals.exercise_delete_used_in_plans,
+                    count = usage.planPositions,
+                    usage.planPositions,
+                ),
+            )
+        }
+        if (usage.sessionPositions > 0) {
+            add(
+                pluralStringResource(
+                    id = R.plurals.exercise_delete_used_in_sessions,
+                    count = usage.sessionPositions,
+                    usage.sessionPositions,
+                ),
+            )
+        }
+    }
+    return stringResource(R.string.exercise_delete_used, parts.joinToString(separator = " i "))
 }
 
 @Composable

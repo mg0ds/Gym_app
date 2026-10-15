@@ -40,12 +40,15 @@ fun SettingsScreen(
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val seedImportState by viewModel.seedImportState.collectAsStateWithLifecycle()
+    val programImportState by viewModel.programImportState.collectAsStateWithLifecycle()
 
     SettingsContent(
         themeMode = themeMode,
         seedImportState = seedImportState,
+        programImportState = programImportState,
         onThemeModeChange = viewModel::setThemeMode,
         onImportSeedData = viewModel::importSeedData,
+        onImportProgramData = viewModel::importProgramData,
         modifier = modifier,
     )
 }
@@ -55,8 +58,10 @@ fun SettingsScreen(
 internal fun SettingsContent(
     themeMode: ThemeMode,
     seedImportState: SeedImportState,
+    programImportState: ProgramImportState,
     onThemeModeChange: (ThemeMode) -> Unit,
     onImportSeedData: () -> Unit,
+    onImportProgramData: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -106,6 +111,22 @@ internal fun SettingsContent(
             }
 
             SeedImportStatus(state = seedImportState)
+
+            Text(
+                text = stringResource(R.string.settings_import_programs_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = onImportProgramData,
+                enabled = programImportState != ProgramImportState.Running,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.settings_import_programs_action))
+            }
+
+            ProgramImportStatus(state = programImportState)
         }
     }
 }
@@ -136,6 +157,31 @@ private fun SeedImportStatus(state: SeedImportState) {
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = if (state is SeedImportState.Failed) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
+}
+
+@Composable
+private fun ProgramImportStatus(state: ProgramImportState) {
+    val text = when (state) {
+        ProgramImportState.Idle -> null
+        ProgramImportState.Running -> stringResource(R.string.settings_import_programs_running)
+        ProgramImportState.Failed -> stringResource(R.string.settings_import_programs_failed)
+        is ProgramImportState.Done -> stringResource(
+            R.string.settings_import_programs_done,
+            state.imported,
+            state.skipped,
+            state.days,
+        )
+    } ?: return
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (state is ProgramImportState.Failed) {
             MaterialTheme.colorScheme.error
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
@@ -177,8 +223,10 @@ private fun SettingsContentPreview() {
         SettingsContent(
             themeMode = ThemeMode.SYSTEM,
             seedImportState = SeedImportState.Idle,
+            programImportState = ProgramImportState.Idle,
             onThemeModeChange = {},
             onImportSeedData = {},
+            onImportProgramData = {},
         )
     }
 }

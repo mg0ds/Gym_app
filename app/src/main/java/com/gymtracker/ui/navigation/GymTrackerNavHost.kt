@@ -29,6 +29,11 @@ import com.gymtracker.ui.exercises.ExerciseDetailScreen
 import com.gymtracker.ui.exercises.ExerciseEditScreen
 import com.gymtracker.ui.exercises.ExerciseListScreen
 import com.gymtracker.ui.home.HomeScreen
+import com.gymtracker.ui.plans.ExercisePickerScreen
+import com.gymtracker.ui.plans.PlanDayScreen
+import com.gymtracker.ui.plans.PlanDetailScreen
+import com.gymtracker.ui.plans.PlanListScreen
+import com.gymtracker.ui.session.SessionScreen
 import com.gymtracker.ui.settings.SettingsScreen
 
 /**
@@ -63,7 +68,9 @@ fun GymTrackerNavHost(
             composable(Routes.HOME) {
                 HomeScreen(
                     onOpenExercises = { navController.navigateToTopLevel(Routes.EXERCISES) },
+                    onOpenPlans = { navController.navigate(Routes.PLANS) },
                     onOpenSettings = { navController.navigateToTopLevel(Routes.SETTINGS) },
+                    onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
                 )
             }
 
@@ -73,6 +80,7 @@ fun GymTrackerNavHost(
                         navController.navigate(Routes.exerciseDetail(exerciseId))
                     },
                     onAddExercise = { navController.navigate(Routes.EXERCISE_NEW) },
+                    onOpenPlans = { navController.navigate(Routes.PLANS) },
                 )
             }
 
@@ -107,6 +115,63 @@ fun GymTrackerNavHost(
 
             composable(Routes.SETTINGS) {
                 SettingsScreen()
+            }
+
+            composable(Routes.PLANS) {
+                PlanListScreen(
+                    onBack = { navController.popBackStack() },
+                    onPlanClick = { planId -> navController.navigate(Routes.planDetail(planId)) },
+                )
+            }
+
+            composable(
+                route = Routes.PLAN_DETAIL,
+                arguments = listOf(navArgument(Routes.ARG_PLAN_ID) { type = NavType.LongType }),
+            ) {
+                PlanDetailScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDay = { dayId -> navController.navigate(Routes.planDay(dayId)) },
+                    onSessionStarted = { sessionId ->
+                        navController.navigate(Routes.session(sessionId))
+                    },
+                )
+            }
+
+            composable(
+                route = Routes.PLAN_DAY,
+                arguments = listOf(navArgument(Routes.ARG_DAY_ID) { type = NavType.LongType }),
+            ) {
+                PlanDayScreen(
+                    onBack = { navController.popBackStack() },
+                    onAddExercise = { dayId -> navController.navigate(Routes.exercisePicker(dayId)) },
+                    onAddAlternative = { dayId, anchorId ->
+                        navController.navigate(Routes.alternativePicker(dayId, anchorId))
+                    },
+                )
+            }
+
+            composable(
+                route = Routes.PLAN_EXERCISE_PICKER,
+                arguments = listOf(
+                    navArgument(Routes.ARG_DAY_ID) { type = NavType.LongType },
+                    navArgument(Routes.ARG_ANCHOR_ID) {
+                        type = NavType.LongType
+                        defaultValue = 0L
+                    },
+                ),
+            ) {
+                // Wybór dodaje ćwiczenie do dnia, więc wystarczy wrócić.
+                ExercisePickerScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(
+                route = Routes.SESSION,
+                arguments = listOf(navArgument(Routes.ARG_SESSION_ID) { type = NavType.LongType }),
+            ) {
+                SessionScreen(
+                    onBack = { navController.popBackStack() },
+                    onFinished = { navController.popBackStack() },
+                )
             }
         }
     }

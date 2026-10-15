@@ -11,15 +11,19 @@
     <string name="home_title">Today</string>
     <string name="home_subtitle">Your plan and today\'s workout</string>
     <string name="home_ready_title">Exercise catalogue ready</string>
-    <string name="home_ready_body">Adding your own exercises, search (also without Polish diacritics) and favourites all work. Next step: training plans and the calendar.</string>
+    <string name="home_ready_body">Exercise catalogue and training plans are ready. You can start a workout from a plan screen. The calendar and set logging come next.</string>
     <string name="home_version">Version %1$s</string>
     <string name="home_open_exercises">Open exercise catalogue</string>
+    <string name="home_open_plans">Open training plans</string>
     <string name="home_open_settings">Open settings</string>
+    <string name="home_active_session_title">You have a workout in progress</string>
+    <string name="home_active_session_resume">Continue workout</string>
 
     <!-- Common -->
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_delete">Delete</string>
+    <string name="action_add">Add</string>
     <string name="action_edit">Edit</string>
     <string name="value_other">Other</string>
 
@@ -61,6 +65,15 @@
     <string name="exercise_favourite_remove">Remove from favourites</string>
     <string name="exercise_delete_title">Delete this exercise?</string>
     <string name="exercise_delete_message">“%1$s” will be removed from the catalogue together with its settings. This cannot be undone.</string>
+    <string name="exercise_delete_used">This exercise is in use: %1$s. Deleting it removes it from those places too.</string>
+    <plurals name="exercise_delete_used_in_plans">
+        <item quantity="one">%1$d plan position</item>
+        <item quantity="other">%1$d plan positions</item>
+    </plurals>
+    <plurals name="exercise_delete_used_in_sessions">
+        <item quantity="one">%1$d workout entry</item>
+        <item quantity="other">%1$d workout entries</item>
+    </plurals>
 
     <!-- Exercise form -->
     <string name="exercise_new_title">New exercise</string>
@@ -95,6 +108,11 @@
     <string name="settings_import_running">Loading…</string>
     <string name="settings_import_done">Done: added %1$d, skipped %2$d.</string>
     <string name="settings_import_failed">Could not load the starter data.</string>
+    <string name="settings_import_programs_description">Loads the training plans from the starter data. It never overwrites your plans or your edits.</string>
+    <string name="settings_import_programs_action">Load starter plans</string>
+    <string name="settings_import_programs_running">Loading plans…</string>
+    <string name="settings_import_programs_done">Done: plans +%1$d, skipped %2$d, days %3$d.</string>
+    <string name="settings_import_programs_failed">Could not load the starter plans.</string>
 
     <!-- Catalogue vocabulary: muscle groups -->
     <string name="muscle_chest">Chest</string>
@@ -129,6 +147,97 @@
     <string name="level_beginner">Beginner</string>
     <string name="level_intermediate">Intermediate</string>
     <string name="level_advanced">Advanced</string>
+
+    <!-- Training plans -->
+    <string name="plans_title">Training plans</string>
+    <string name="plans_add">New plan</string>
+    <string name="plans_from_starter_data">From starter data</string>
+    <string name="plans_empty_title">No plans yet</string>
+    <string name="plans_empty_body">Add a plan with the + button and arrange its days and exercises. You can also load the starter plans in settings.</string>
+    <string name="plan_name_label">Name</string>
+    <string name="plan_description_label">Description (optional)</string>
+    <string name="plan_edit_action">Edit plan</string>
+    <string name="plan_more_actions">More actions</string>
+    <string name="plan_delete_title">Delete?</string>
+    <string name="plan_delete_confirm">Delete the plan “%1$s” together with its days? This cannot be undone.</string>
+    <string name="plan_drag_hint">Long press and drag to change the order</string>
+
+    <!-- Plan days -->
+    <string name="plan_day_add">Add day</string>
+    <string name="plan_day_dialog_title">Plan day</string>
+    <string name="plan_day_name_label">Day name</string>
+    <string name="plan_day_weekday_label">Weekday (optional)</string>
+    <string name="plan_day_start">Start</string>
+    <string name="plan_day_rename">Rename day</string>
+    <string name="plan_day_delete">Delete day</string>
+    <string name="plan_day_delete_confirm">Delete the day “%1$s” together with its exercises?</string>
+    <string name="plan_days_empty_title">Plan has no days</string>
+    <string name="plan_days_empty_body">Add the first day (e.g. “Day A”) with the + button.</string>
+    <string name="plan_move_up">Move up</string>
+    <string name="plan_move_down">Move down</string>
+
+    <!-- Day exercises -->
+    <string name="plan_day_add_exercise">Add exercise</string>
+    <string name="plan_day_empty_title">Day has no exercises</string>
+    <string name="plan_day_empty_body">Add exercises with the + button, then set the sets and reps.</string>
+    <string name="plan_edit_target">Edit sets and reps</string>
+    <string name="plan_remove_exercise">Remove exercise</string>
+    <string name="plan_exercise_delete_confirm">Remove “%1$s” from this day?</string>
+    <string name="plan_add_alternative">Add alternative</string>
+    <string name="plan_alternative_prefix">or</string>
+    <string name="plan_make_default">Make it the default</string>
+    <string name="plan_default_choice_chip">default choice</string>
+    <string name="plan_join_superset">Combine into a superset with the next one</string>
+    <string name="plan_unlink_superset">Split the superset</string>
+    <string name="plan_superset_chip">superset %1$d</string>
+    <string name="plan_target_sets_reps">%1$d × %2$s</string>
+    <string name="plan_target_none">no target</string>
+    <string name="plan_rest">rest %1$d s</string>
+
+    <!-- Exercise target -->
+    <string name="plan_sets_label">Sets</string>
+    <string name="plan_reps_unit_label">Unit</string>
+    <string name="plan_reps_from_label">Reps from</string>
+    <string name="plan_reps_to_label">Reps to</string>
+    <string name="plan_weight_label">Weight (kg)</string>
+    <string name="plan_rest_label">Rest (s)</string>
+    <string name="plan_note_label">Note</string>
+    <string name="plan_unit_reps">reps</string>
+    <string name="plan_unit_seconds">seconds</string>
+    <string name="plan_unit_meters">meters</string>
+
+    <!-- Picking an exercise for a plan -->
+    <string name="plan_pick_exercise_title">Add exercise</string>
+    <string name="plan_pick_alternative_title">Add alternative</string>
+
+    <!-- Workout -->
+    <string name="session_finish">Finish workout</string>
+    <string name="session_cancel">Discard workout</string>
+    <string name="session_no_exercises">This day has no exercises yet.</string>
+    <string name="session_cancel_confirm_title">Discard the workout?</string>
+    <string name="session_cancel_confirm_body">The workout will not be saved as completed.</string>
+    <string name="session_in_progress">Workout in progress</string>
+    <string name="session_finished">Workout finished</string>
+    <string name="session_started_at">Started at %1$s</string>
+
+    <!-- Weekdays -->
+    <string name="weekday_monday">Monday</string>
+    <string name="weekday_tuesday">Tuesday</string>
+    <string name="weekday_wednesday">Wednesday</string>
+    <string name="weekday_thursday">Thursday</string>
+    <string name="weekday_friday">Friday</string>
+    <string name="weekday_saturday">Saturday</string>
+    <string name="weekday_sunday">Sunday</string>
+
+    <!-- Plurals -->
+    <plurals name="plan_target_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <plurals name="plan_day_exercise_count">
+        <item quantity="one">%1$d exercise</item>
+        <item quantity="other">%1$d exercises</item>
+    </plurals>
 
     <!-- Accessibility -->
     <string name="cd_back">Back</string>

@@ -1,8 +1,8 @@
 package com.gymtracker.ui.navigation
 
 /**
- * Trasy nawigacji. Ekrany katalogu ćwiczeń mają podane identyfikatory,
- * bo nawigacja Compose nie przekazuje obiektów - tylko argumenty trasy.
+ * Trasy nawigacji. Ekrany mają identyfikatory w adresie, bo nawigacja Compose
+ * nie przekazuje obiektów - tylko argumenty trasy.
  */
 object Routes {
 
@@ -20,6 +20,34 @@ object Routes {
     fun exerciseDetail(exerciseId: Long): String = "exercise/$exerciseId"
 
     fun exerciseEdit(exerciseId: Long): String = "exercise/$exerciseId/edit"
+
+    // --- plany (M2) ---
+
+    const val ARG_PLAN_ID = "planId"
+    const val ARG_DAY_ID = "dayId"
+    const val ARG_SESSION_ID = "sessionId"
+
+    /** Ćwiczenie, do którego dokładamy alternatywę (0 = zwykłe dodawanie). */
+    const val ARG_ANCHOR_ID = "anchorId"
+
+    const val PLANS = "plans"
+    const val PLAN_DETAIL = "plan/{$ARG_PLAN_ID}"
+    const val PLAN_DAY = "planDay/{$ARG_DAY_ID}"
+    const val PLAN_EXERCISE_PICKER = "planDay/{$ARG_DAY_ID}/pickExercise?$ARG_ANCHOR_ID={$ARG_ANCHOR_ID}"
+    const val SESSION = "session/{$ARG_SESSION_ID}"
+
+    fun planDetail(planId: Long): String = "plan/$planId"
+
+    fun planDay(dayId: Long): String = "planDay/$dayId"
+
+    /** Wybór zwykłego ćwiczenia do dnia. */
+    fun exercisePicker(dayId: Long): String = "planDay/$dayId/pickExercise"
+
+    /** Wybór alternatywy dla pozycji [anchorPlanExerciseId]. */
+    fun alternativePicker(dayId: Long, anchorPlanExerciseId: Long): String =
+        "planDay/$dayId/pickExercise?$ARG_ANCHOR_ID=$anchorPlanExerciseId"
+
+    fun session(sessionId: Long): String = "session/$sessionId"
 
     /** Trasy najwyższego poziomu - na nich pokazujemy dolny pasek nawigacji. */
     val topLevel: Set<String> = setOf(HOME, EXERCISES, SETTINGS)

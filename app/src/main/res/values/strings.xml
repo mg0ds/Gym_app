@@ -11,14 +11,18 @@
     <string name="home_title">Dziś</string>
     <string name="home_subtitle">Twój plan i dzisiejszy trening</string>
     <string name="home_ready_title">Katalog ćwiczeń gotowy</string>
-    <string name="home_ready_body">Dodawanie własnych ćwiczeń, wyszukiwanie (także bez polskich znaków) i ulubione działają. Kolejny krok: plany treningowe i kalendarz.</string>
+    <string name="home_ready_body">Katalog ćwiczeń i plany treningowe gotowe. Trening z planu możesz rozpocząć z ekranu planu. Kalendarz i zapisywanie serii są w kolejnych krokach.</string>
     <string name="home_version">Wersja %1$s</string>
     <string name="home_open_exercises">Otwórz katalog ćwiczeń</string>
+    <string name="home_open_plans">Otwórz plany treningowe</string>
     <string name="home_open_settings">Otwórz ustawienia</string>
+    <string name="home_active_session_title">Masz rozpoczęty trening</string>
+    <string name="home_active_session_resume">Kontynuuj trening</string>
 
     <!-- Wspólne -->
     <string name="action_save">Zapisz</string>
     <string name="action_cancel">Anuluj</string>
+    <string name="action_add">Dodaj</string>
     <string name="action_delete">Usuń</string>
     <string name="action_edit">Edytuj</string>
     <string name="value_other">Inne</string>
@@ -61,6 +65,19 @@
     <string name="exercise_favourite_remove">Usuń z ulubionych</string>
     <string name="exercise_delete_title">Usunąć ćwiczenie?</string>
     <string name="exercise_delete_message">„%1$s” zniknie z katalogu razem ze swoimi ustawieniami. Tej operacji nie można cofnąć.</string>
+    <string name="exercise_delete_used">Ćwiczenie jest używane: %1$s. Usunięcie zabierze je także z tych miejsc.</string>
+    <plurals name="exercise_delete_used_in_plans">
+        <item quantity="one">%1$d pozycja w planie</item>
+        <item quantity="few">%1$d pozycje w planach</item>
+        <item quantity="many">%1$d pozycji w planach</item>
+        <item quantity="other">%1$d pozycji w planach</item>
+    </plurals>
+    <plurals name="exercise_delete_used_in_sessions">
+        <item quantity="one">%1$d wpis w treningu</item>
+        <item quantity="few">%1$d wpisy w treningach</item>
+        <item quantity="many">%1$d wpisów w treningach</item>
+        <item quantity="other">%1$d wpisów w treningach</item>
+    </plurals>
 
     <!-- Formularz ćwiczenia -->
     <string name="exercise_new_title">Nowe ćwiczenie</string>
@@ -95,6 +112,11 @@
     <string name="settings_import_running">Wczytywanie…</string>
     <string name="settings_import_done">Gotowe: dodano %1$d, pominięto %2$d.</string>
     <string name="settings_import_failed">Nie udało się wczytać danych startowych.</string>
+    <string name="settings_import_programs_description">Wczytuje plany treningowe z danych startowych. Twoich planów i zmian w planach nie nadpisuje.</string>
+    <string name="settings_import_programs_action">Wczytaj plany startowe</string>
+    <string name="settings_import_programs_running">Wczytywanie planów…</string>
+    <string name="settings_import_programs_done">Gotowe: plany +%1$d, pominięto %2$d, dni %3$d.</string>
+    <string name="settings_import_programs_failed">Nie udało się wczytać planów startowych.</string>
 
     <!-- Słownik katalogu: partie mięśniowe -->
     <string name="muscle_chest">Klatka piersiowa</string>
@@ -129,6 +151,101 @@
     <string name="level_beginner">Początkujący</string>
     <string name="level_intermediate">Średniozaawansowany</string>
     <string name="level_advanced">Zaawansowany</string>
+
+    <!-- Plany treningowe -->
+    <string name="plans_title">Plany treningowe</string>
+    <string name="plans_add">Nowy plan</string>
+    <string name="plans_from_starter_data">Z danych startowych</string>
+    <string name="plans_empty_title">Nie masz jeszcze planów</string>
+    <string name="plans_empty_body">Dodaj plan przyciskiem + i ułóż dni oraz ćwiczenia. Plany startowe możesz wczytać w ustawieniach.</string>
+    <string name="plan_name_label">Nazwa</string>
+    <string name="plan_description_label">Opis (opcjonalnie)</string>
+    <string name="plan_edit_action">Edytuj plan</string>
+    <string name="plan_more_actions">Więcej działań</string>
+    <string name="plan_delete_title">Usunąć?</string>
+    <string name="plan_delete_confirm">Usunąć plan „%1$s” razem z jego dniami? Tej operacji nie można cofnąć.</string>
+    <string name="plan_drag_hint">Przytrzymaj i przeciągnij, żeby zmienić kolejność</string>
+
+    <!-- Dni planu -->
+    <string name="plan_day_add">Dodaj dzień</string>
+    <string name="plan_day_dialog_title">Dzień planu</string>
+    <string name="plan_day_name_label">Nazwa dnia</string>
+    <string name="plan_day_weekday_label">Dzień tygodnia (opcjonalnie)</string>
+    <string name="plan_day_start">Rozpocznij</string>
+    <string name="plan_day_rename">Zmień nazwę dnia</string>
+    <string name="plan_day_delete">Usuń dzień</string>
+    <string name="plan_day_delete_confirm">Usunąć dzień „%1$s” razem z ćwiczeniami?</string>
+    <string name="plan_days_empty_title">Plan bez dni</string>
+    <string name="plan_days_empty_body">Dodaj pierwszy dzień (np. „Dzień A”) przyciskiem +.</string>
+    <string name="plan_move_up">Przenieś wyżej</string>
+    <string name="plan_move_down">Przenieś niżej</string>
+
+    <!-- Ćwiczenia dnia -->
+    <string name="plan_day_add_exercise">Dodaj ćwiczenie</string>
+    <string name="plan_day_empty_title">Dzień bez ćwiczeń</string>
+    <string name="plan_day_empty_body">Dodaj ćwiczenia przyciskiem +, a potem ustaw serie i powtórzenia.</string>
+    <string name="plan_edit_target">Zmień serie i powtórzenia</string>
+    <string name="plan_remove_exercise">Usuń ćwiczenie</string>
+    <string name="plan_exercise_delete_confirm">Usunąć „%1$s” z tego dnia?</string>
+    <string name="plan_add_alternative">Dodaj alternatywę</string>
+    <string name="plan_alternative_prefix">albo</string>
+    <string name="plan_make_default">Ustaw jako podstawowe</string>
+    <string name="plan_default_choice_chip">wybór domyślny</string>
+    <string name="plan_join_superset">Połącz w superserię z następnym</string>
+    <string name="plan_unlink_superset">Rozłącz superserię</string>
+    <string name="plan_superset_chip">superseria %1$d</string>
+    <string name="plan_target_sets_reps">%1$d × %2$s</string>
+    <string name="plan_target_none">bez celu</string>
+    <string name="plan_rest">przerwa %1$d s</string>
+
+    <!-- Cel ćwiczenia -->
+    <string name="plan_sets_label">Serie</string>
+    <string name="plan_reps_unit_label">Jednostka</string>
+    <string name="plan_reps_from_label">Powtórzenia od</string>
+    <string name="plan_reps_to_label">Powtórzenia do</string>
+    <string name="plan_weight_label">Ciężar (kg)</string>
+    <string name="plan_rest_label">Przerwa (s)</string>
+    <string name="plan_note_label">Komentarz</string>
+    <string name="plan_unit_reps">powtórzenia</string>
+    <string name="plan_unit_seconds">sekundy</string>
+    <string name="plan_unit_meters">metry</string>
+
+    <!-- Wybór ćwiczenia do planu -->
+    <string name="plan_pick_exercise_title">Dodaj ćwiczenie</string>
+    <string name="plan_pick_alternative_title">Dodaj alternatywę</string>
+
+    <!-- Trening -->
+    <string name="session_finish">Zakończ trening</string>
+    <string name="session_cancel">Przerwij trening</string>
+    <string name="session_no_exercises">Ten dzień nie ma jeszcze ćwiczeń.</string>
+    <string name="session_cancel_confirm_title">Przerwać trening?</string>
+    <string name="session_cancel_confirm_body">Trening nie zostanie zapisany jako odbyty.</string>
+    <string name="session_in_progress">Trening w toku</string>
+    <string name="session_finished">Trening zakończony</string>
+    <string name="session_started_at">Start o %1$s</string>
+
+    <!-- Dni tygodnia -->
+    <string name="weekday_monday">Poniedziałek</string>
+    <string name="weekday_tuesday">Wtorek</string>
+    <string name="weekday_wednesday">Środa</string>
+    <string name="weekday_thursday">Czwartek</string>
+    <string name="weekday_friday">Piątek</string>
+    <string name="weekday_saturday">Sobota</string>
+    <string name="weekday_sunday">Niedziela</string>
+
+    <!-- Liczby mnogie -->
+    <plurals name="plan_target_sets">
+        <item quantity="one">%1$d seria</item>
+        <item quantity="few">%1$d serie</item>
+        <item quantity="many">%1$d serii</item>
+        <item quantity="other">%1$d serii</item>
+    </plurals>
+    <plurals name="plan_day_exercise_count">
+        <item quantity="one">%1$d ćwiczenie</item>
+        <item quantity="few">%1$d ćwiczenia</item>
+        <item quantity="many">%1$d ćwiczeń</item>
+        <item quantity="other">%1$d ćwiczeń</item>
+    </plurals>
 
     <!-- Dostępność -->
     <string name="cd_back">Wstecz</string>

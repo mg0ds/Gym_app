@@ -26,6 +26,18 @@ sealed interface SeedImportState {
     data object Failed : SeedImportState
 }
 
+/** Stan przycisku wczytywania planów startowych. */
+sealed interface ProgramImportState {
+
+    data object Idle : ProgramImportState
+
+    data object Running : ProgramImportState
+
+    data class Done(val imported: Int, val skipped: Int, val days: Int) : ProgramImportState
+
+    data object Failed : ProgramImportState
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settings: SettingsDataStore,
@@ -40,6 +52,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _seedImportState = MutableStateFlow<SeedImportState>(SeedImportState.Idle)
     val seedImportState: StateFlow<SeedImportState> = _seedImportState.asStateFlow()
+
+    private val _programImportState = MutableStateFlow<ProgramImportState>(ProgramImportState.Idle)
+    val programImportState: StateFlow<ProgramImportState> = _programImportState.asStateFlow()
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
@@ -59,6 +74,32 @@ class SettingsViewModel @Inject constructor(
                     SeedImportState.Done(imported = result.imported, skipped = result.skipped)
                 },
                 onFailure = { SeedImportState.Failed },
+            )
+        }
+    }
+
+    /**
+     * Wczytanie planów startowych. Najpierw upewniamy się, że katalog ćwiczeń
+     * jest w bazie - plan wskazuje ćwiczenia po slugu, więc bez katalogu nie ma
+     * czego do niego dopiąć.
+     */
+    fun importProgramData() {
+        if (_programImportState.value == ProgramImportState.Running) return
+
+        _programImportState.value = ProgramImportState.Running
+        viewModelScope.launch {
+            _programImportState.value = runCatching {
+                seedImporter.importExercisesIfNeeded()
+                seedImporter.importPrograms()
+            }.fold(
+                onSuccess = { result ->
+                    ProgramImportState.Done(
+                        imported = result.plansImported,
+                        skipped = result.plansSkipped,
+                        days = result.daysImported,
+                    )
+                },
+                onFailure = { ProgramImportState.Failed },
             )
         }
     }
