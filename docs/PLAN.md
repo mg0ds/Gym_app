@@ -66,7 +66,7 @@ treningowy z `data/seed/` (patrz §7).
 |---|---|---|
 | UI | Jetpack Compose + Material 3 | Standard, dynamiczne kolory, mniej kodu niż XML. Alternatywa: XML + ViewBinding (jeśli zespół go zna). |
 | DI | Hilt | Sprawdzone, dobre wsparcie `ViewModel`/`Service`. Alternatywa: Koin. |
-| Baza | Room + SQLite | Typowane zapytania, migracje, `Flow`. SQLite FTS5 do wyszukiwania ćwiczeń (polskie znaki). |
+| Baza | Room + SQLite | Typowane zapytania, migracje, `Flow`. SQLite FTS4 (`unicode61`) do wyszukiwania ćwiczeń — działa też bez polskich ogonków. |
 | Preferencje | DataStore (Preferences) | Zamiast `SharedPreferences`. |
 | Async | Coroutines + Flow | — |
 | Daty | `kotlinx-datetime` | `LocalDate` bez pułapek stref czasowych. |
@@ -137,7 +137,8 @@ com.gymtracker
 │  ├─ db (AppDatabase, Converters, daos/, entities/)
 │  ├─ prefs (SettingsDataStore)
 │  ├─ media (MediaStorage, MediaResolver)
-│  ├─ seed (SeedImporter, SeedModels)
+│  ├─ search (ExerciseSearchQuery)          # budowa zapytania FTS z wpisu uzytkownika
+│  ├─ seed (SeedImporter, SeedSource/AssetSeedSource, SeedModels)
 │  └─ repo (ExerciseRepositoryImpl, PlanRepositoryImpl, SessionRepositoryImpl, BodyRepositoryImpl)
 ├─ domain
 │  ├─ model (Exercise, Plan, PlanDay, ScheduledSession, Session, SetLog, RestInterval, MetricType, BodyEntry)
@@ -191,7 +192,11 @@ metric_types 1─* body_entries          (karta postaci)
    „średnia przerwa dla ćwiczenia” (rozróżniamy przerwy dokończone od przerwanych).
 6. **Media w plikach, nie w bazie.** W bazie ścieżki. Zdjęcie 5 MB w BLOB-ie
    zabiłoby kopie zapasowe i migracje.
-7. **FTS5 z `remove_diacritics 2`** — wyszukiwanie „obwod” znajdzie „obwód”.
+7. **FTS4 z tokenizerem `unicode61`** — szukanie „obwod” znajdzie „obwód”,
+   a „sztanga” — „sztangą”. Wybór FTS4, nie FTS5: Room nie ma adnotacji `@Fts5`,
+   a `@Fts4(contentEntity = …)` sam zakłada triggery synchronizujące indeks
+   i działa również w testach Robolectric. Zapytania budujemy jako prefiksowe
+   (`sztan*`) i łączymy spójnikiem AND — patrz `ExerciseSearchQuery`.
 
 ### 4.3 Migracje
 
@@ -463,19 +468,23 @@ zakresy 1M/3M/6M/1R/wszystko, zoom/pan, „empty state” gdy brak danych.
 
 ### 6.8 Import danych startowych
 
-* `data/seed/exercises.json` + `data/seed/programs/*.json` → `app/src/main/assets/seed/`.
+* `data/seed/exercises.json` + `data/seed/programs/*.json` to **jedyna** kopia w repo.
+  Zadanie Gradle `syncSeedAssets` kopiuje je do assetów na czas budowania
+  (`app/build/generated/…/seed/`), więc apka czyta `assets/seed/…`, a drugiej
+  kopii plików w repo nie ma.
 * Format: `schema_version`, `generated_at`, `exercises[]` / `program`.
   Pełny kontrakt pól — §7.3.
 * `SeedImporter` przy pierwszym uruchomieniu (i na żądanie w Ustawieniach):
-  1. czyta JSON (`kotlinx.serialization`),
+  1. czyta JSON (`kotlinx.serialization`) przez `SeedSource` (`AssetSeedSource`),
   2. `INSERT OR IGNORE` po `external_id` (nigdy nie nadpisuje edycji użytkownika),
-  3. tworzy plan + dni + ćwiczenia dnia (z `alternative_group` dla „lub”),
-  4. zapisuje w `seed_imports` wersję i `generated_at`,
-  5. pokazuje podsumowanie: „zaimportowano 23 ćwiczenia, 1 plan, 3 dni”.
+  3. zapisuje wersję danych w `app_meta` (`exercises_seed_version`),
+  4. oddaje podsumowanie „dodano N, pominięto M”, które Ustawienia pokazują wprost.
+* M1 importuje wyłącznie katalog ćwiczeń. Plan + dni + ćwiczenia dnia (z
+  `alternative_group` dla „lub”) dochodzą w M2, razem z tabelą `seed_imports`.
 * Re-import po aktualizacji seeda: dopisuje nowe ćwiczenia, **nie rusza** istniejących
-  rekordów ani historii. Usunięte w źródle → oznaczamy `is_archived = 1`.
+  rekordów ani historii. Usunięte w źródle → `is_archived = 1` (M2).
 * Dodatkowo w Ustawieniach: „wczytaj plik JSON z pamięci urządzenia”
-  (ten sam format, walidacja + ręczne potwierdzenie).
+  (ten sam format, walidacja + ręczne potwierdzenie) — M9.
 
 ### 6.9 Backup / eksport
 
@@ -677,6 +686,42 @@ M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release
 * `assembleRelease` w CI — podpis i R8 są zakresem M9,
 * wersje bibliotek z PL/pytań zależności — aktualizacja wtedy, gdy dana
   biblioteka wchodzi do użytku (Vico w M6, Coil/Media3 w M7).
+
+**M1 ✔ (katalog ćwiczeń)** — cały zakres kryterium działa na urządzeniu:
+dodaję własne ćwiczenie i znajduję je w wyszukiwaniu.
+
+* **Baza v2**: `exercises` (indeksy `idx_exercises_ext` UNIQUE i `idx_exercises_muscle`)
+  oraz `exercises_fts` (FTS4 `unicode61`, `contentEntity`) — migracja 1→2 z testem
+  `SchemaMigrationTest`; migracja przetestowana też na urządzeniu z danymi z M0,
+* **Wyszukiwanie**: `ExerciseSearchQuery` zamienia wpis użytkownika na zapytanie
+  prefiksowe (`sztan*`, spójnik AND), więc „sztanga”, „sztangą” i „sztan” znajdują
+  to samo ćwiczenie. Sprawdzone również na bazie w telefonie (`sqlite3` + prawdziwe
+  triggery Room, nie tylko w Robolectric),
+* **Dane startowe**: 23 ćwiczenia wchodzą przy pierwszym starcie (`MainViewModel`)
+  i przyciskiem „Wczytaj katalog startowy” w Ustawieniach. Import jest idempotentny
+  (`INSERT OR IGNORE` po `external_id`) i **nigdy nie nadpisuje** zmian użytkownika —
+  zmieniona nazwa i ulubione przetrwały ponowny import (na urządzeniu: „dodano 0,
+  pominięto 23”),
+* **UI**: katalog z szukaniem, filtrem partii, ulubionymi i „+”, szczegóły ćwiczenia
+  (informacje, domyślne parametry, film/źródło, komentarz, edycja, usuwanie
+  z potwierdzeniem), formularz dodawania/edycji, dolny pasek (Dziś / Ćwiczenia /
+  Ustawienia). Teksty PL (domyślne) + EN; słownik katalogu tłumaczony w UI,
+  nieznane wartości pokazywane bez zmian,
+* linki: `youtu.be/ID`, `watch?v=ID`, `shorts/ID` normalizowane do
+  `https://www.youtube.com/watch?v=ID`, każdy inny zapisywany dosłownie,
+* **testy JVM: 43** (DAO i FTS z polskimi znakami, migracja 1→2, repozytorium,
+  importer seeda, linki YouTube, DataStore, model).
+
+Świadome odstępstwa i odroczenia z M1:
+
+* **FTS4 zamiast FTS5** z §4.2 — Room nie ma adnotacji `@Fts5`, a `@Fts4`
+  z `contentEntity` sam zakłada triggery i działa w Robolectric,
+* kolumny `instructions` (M7) i tabeli `seed_imports` (M2) jeszcze nie ma;
+  `docs/SCHEMA.sql` opisuje je jako przyszłe,
+* historia wykonań w szczegółach ćwiczenia → M6, miniatury YouTube i media
+  z galerii → M7,
+* `hiltViewModel` z `androidx.hilt.navigation.compose` jest przestarzałe
+  (tylko ostrzeżenie) — wymiana razem z podbiciem wersji Hilt.
 
 ---
 

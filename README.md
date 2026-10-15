@@ -6,7 +6,8 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0 ukończony** (fundament projektu). Kolejny krok to katalog ćwiczeń (M1).
+Stan: **M0 i M1 ukończone** (fundament + katalog ćwiczeń z wyszukiwaniem).
+Kolejny krok: plany treningowe (M2).
 
 ## Wymagania
 
@@ -94,21 +95,26 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (migracje)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json, 2.json)
 │   └── src/
-│       ├── main/java/com/gymtracker/  # data/ (db, prefs), domain/, di/, ui/
+│       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
 │       └── test/                      # testy jednostkowe (Robolectric)
 ├── docs/
 │   ├── PLAN.md            # plan wdrożenia aplikacji
-│   ├── SCHEMA.sql         # schemat bazy
+│   ├── SCHEMA.sql         # schemat bazy (stan obecny + tabele docelowe)
 │   └── QA.md              # scenariusze testów ręcznych
 ├── gradle/libs.versions.toml          # wszystkie wersje zależności
 └── data/
-    └── seed/                          # dane startowe → app/src/main/assets/seed/
+    └── seed/                          # dane startowe (kopiowane do assetów na czas budowania)
         ├── exercises.json            # 23 ćwiczenia
         └── programs/muscle-strength-full-body-workout-routine.json
 ```
+
+> Plików z `data/seed/` nie ma drugiej kopii w `app/src/main/assets/` — zadanie
+> Gradle `syncSeedAssets` przenosi je do generowanych assetów na czas budowania,
+> więc źródło prawdy jest jedno. Po zmianie zawartości seeda zrób
+> `./gradlew :app:clean`, żeby odświeżyć paczkę assetów.
 
 ## Stack
 
@@ -117,6 +123,7 @@ Gym_app/
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
 | Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` |
+| Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
 | Testy | JUnit4 + Robolectric (testy JVM), CI na GitHub Actions |
@@ -153,7 +160,7 @@ Gym_app/
 | Krok | Zakres | Status |
 |---|---|---|
 | **M0** | projekt Gradle, Compose, Hilt, Room + migracje, motyw PL/EN, CI | ✔ |
-| M1 | katalog ćwiczeń (CRUD, szukanie, filtry, import seeda) | — |
+| **M1** | katalog ćwiczeń: CRUD, szukanie FTS z polskimi znakami, filtr partii, ulubione, import 23 ćwiczeń | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

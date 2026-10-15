@@ -60,7 +60,7 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 
 | # | Scenariusz | Oczekiwany wynik |
 |---|---|---|
-| 5.1 | Pierwsze uruchomienie na czystej instalacji | Import seeda: „23 ćwiczenia, 1 plan, 3 dni” |
+| 5.1 | Pierwsze uruchomienie na czystej instalacji | Import katalogu: 23 ćwiczenia (plan i dni dochodzą w M2) |
 | 5.2 | Zmień nazwę ćwiczenia z seeda, uruchom re-import | Nazwa użytkownika **nie** nadpisana |
 | 5.3 | Eksport ZIP → odinstaluj → zainstaluj → import | Wszystkie dane i media wracają |
 | 5.4 | Import z pliku o wyższym `schemaVersion` | Czytelny błąd, brak częściowego importu |
@@ -74,3 +74,22 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 6.1 | TalkBack: przejdź przez start treningu | Wszystkie przyciski mają etykiety, timer ogłaszany bez spamu |
 | 6.2 | Czcionka 200% | Brak uciętych tekstów, przyciski nadal klikalne |
 | 6.3 | Motyw ciemny + dynamiczne kolory | Wykresy czytelne, brak białych „dziur” |
+
+## 7. Katalog ćwiczeń (M1)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 7.1 | Pierwsze uruchomienie na czystej instalacji | Katalog sam się wypełnia 23 ćwiczeniami z danych startowych |
+| 7.2 | Wpisz „bench” w szukanie | Zostają tylko ćwiczenia pasujące do wpisu |
+| 7.3 | Ćwiczenie „Wyciskanie sztangą leżąc”, wpisz „sztanga” (bez ogonka) | Ćwiczenie znalezione (odporność na polskie znaki) |
+| 7.4 | Wpisz „sztan” (urwany wyraz) | Ćwiczenie znalezione (szukanie prefiksowe) |
+| 7.5 | Wpisz tekst bez wyników | „Brak wyników” i podpowiedź z powtórzonym wpisem |
+| 7.6 | Filtr partii „Brzuch” | Tylko ćwiczenia z tej partii; „Wszystkie” wraca do pełnej listy |
+| 7.7 | Serduszko w wierszu listy | Ćwiczenie pojawia się w „Ulubione”; stan przeżywa restart apki |
+| 7.8 | Dodaj własne ćwiczenie (nazwa + serie/powtórzenia/przerwa) | Widać je w katalogu i znajduje je wyszukiwanie |
+| 7.9 | Zapisz ćwiczenie bez nazwy | Zapis zablokowany, komunikat przy polu nazwy |
+| 7.10 | Zmień nazwę i ulubione ćwiczenia z seeda, potem „Wczytaj katalog startowy” | „Gotowe: dodano 0, pominięto 23”; zmiany użytkownika **nie** nadpisane |
+| 7.11 | Usuń własne ćwiczenie (kosz → potwierdzenie) | Znika z katalogu, ekran wraca do listy |
+| 7.12 | Wklej `youtu.be/ID`, `watch?v=ID`, `shorts/ID` | Każdy rozpoznany jako film YouTube (podpowiedź pod polem) |
+| 7.13 | Wklej zwykły link | Podpowiedź „Zapiszemy to jako zwykły link”; w szczegółach „Zobacz źródło” |
+| 7.14 | Aktualizacja apki z wersji M0 (baza v1, dane użytkownika) | Migracja 1→2 bez błędu, dane i motyw zostają |

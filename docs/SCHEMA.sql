@@ -1,7 +1,14 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 1 (2026-10-15)
+-- Wersja: 2 (2026-10-16)
+--
+-- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
+--  * v1 (M0): app_meta                            [WDROZONE]
+--  * v2 (M1): exercises + exercises_fts + indeksy  [WDROZONE]
+--  * reszta tabel ponizej: docelowe, dochodza w M2-M8.
+-- Wiersze oznaczone [Mxx] jeszcze nie istnieja w kodzie - DDL trzymamy z gory,
+-- zeby caly model byl w jednym miejscu.
 --
 -- Zasady:
 --  * Wszystko lokalnie, zero chmury.
@@ -29,27 +36,53 @@ CREATE TABLE exercises (
     mechanics           TEXT,                   -- 'Compound' | 'Isolation'
     force_type          TEXT,
     level               TEXT,
-    instructions        TEXT,                   -- JSON: ["krok 1", "krok 2"]
+    instructions        TEXT,                   -- JSON: ["krok 1", "krok 2"]   [M7]
     youtube_url         TEXT,                   -- znormalizowany link (watch?v=ID)
     default_sets        INTEGER,
     default_reps_min    INTEGER,
     default_reps_max    INTEGER,
     default_rest_s      INTEGER,                -- domyslna przerwa w sekundach
     notes               TEXT,                   -- komentarz uzytkownika do cwiczenia
-    is_favourite        INTEGER NOT NULL DEFAULT 0,
-    is_archived         INTEGER NOT NULL DEFAULT 0,
+    -- Bez DEFAULT w DDL: wartosci domyslne ustawia model Kotlina (@ColumnInfo(defaultValue)).
+    is_favourite        INTEGER NOT NULL,
+    is_archived         INTEGER NOT NULL,
     created_at          INTEGER NOT NULL,
     updated_at          INTEGER NOT NULL
 );
 CREATE INDEX idx_exercises_muscle  ON exercises(muscle_group);
-CREATE INDEX idx_exercises_ext     ON exercises(external_id);
+-- UNIQUE: na tym opiera sie idempotentny import seeda (INSERT OR IGNORE po external_id).
+CREATE UNIQUE INDEX idx_exercises_ext ON exercises(external_id);
 
 -- Wyszukiwanie odporne na polskie znaki diakrytyczne.
-CREATE VIRTUAL TABLE exercises_fts USING fts5(
+-- FTS4, nie FTS5: Room nie ma adnotacji @Fts5, a @Fts4 z contentEntity dziala
+-- takze w Robolectric. Tokenizer unicode61 domyslnie usuwa diakrytyki, wiec
+-- "sztanga" znajdzie "sztangą", a "obwod" - "obwód".
+-- Triggery ponizej zaklada sam Room (@Fts4(contentEntity = ExerciseEntity::class));
+-- migracja musi tworzyc je identycznie, inaczej Room zglosi
+-- "Migration didn't properly handle ...".
+CREATE VIRTUAL TABLE exercises_fts USING FTS4(
     name, muscle_group, equipment,
-    content='exercises', content_rowid='id',
-    tokenize="unicode61 remove_diacritics 2"
+    tokenize=unicode61, content='exercises'
 );
+
+CREATE TRIGGER room_fts_content_sync_exercises_fts_BEFORE_UPDATE
+    BEFORE UPDATE ON exercises BEGIN
+    DELETE FROM exercises_fts WHERE docid = OLD.rowid;
+END;
+CREATE TRIGGER room_fts_content_sync_exercises_fts_BEFORE_DELETE
+    BEFORE DELETE ON exercises BEGIN
+    DELETE FROM exercises_fts WHERE docid = OLD.rowid;
+END;
+CREATE TRIGGER room_fts_content_sync_exercises_fts_AFTER_UPDATE
+    AFTER UPDATE ON exercises BEGIN
+    INSERT INTO exercises_fts (docid, name, muscle_group, equipment)
+    VALUES (NEW.rowid, NEW.name, NEW.muscle_group, NEW.equipment);
+END;
+CREATE TRIGGER room_fts_content_sync_exercises_fts_AFTER_INSERT
+    AFTER INSERT ON exercises BEGIN
+    INSERT INTO exercises_fts (docid, name, muscle_group, equipment)
+    VALUES (NEW.rowid, NEW.name, NEW.muscle_group, NEW.equipment);
+END;
 
 -- -----------------------------------------------------------------------------
 -- 2. ZALACZNIKI C WICZENIA (zdjecia, filmy, linki)
@@ -247,6 +280,8 @@ CREATE UNIQUE INDEX idx_body_uniq ON body_entries(metric_type_id, date);
 -- -----------------------------------------------------------------------------
 -- 7. IMPORT SEEDOW I METADANE
 -- -----------------------------------------------------------------------------
+-- [M2] W M1 wersja zaimportowanego katalogu lezy w app_meta pod kluczem
+-- 'exercises_seed_version'; osobna tabela dojdzie razem z importem planow.
 CREATE TABLE seed_imports (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     seed_id     TEXT NOT NULL,                  -- 'muscle-strength-full-body-workout-routine'
@@ -256,7 +291,9 @@ CREATE TABLE seed_imports (
     stats_json  TEXT
 );
 
-CREATE TABLE app_metadata (
-    key   TEXT PRIMARY KEY,
-    value TEXT
+-- WDROZONE (M0). Pary klucz-wartosc na stan wewnetrzny aplikacji.
+CREATE TABLE app_meta (
+    meta_key   TEXT PRIMARY KEY,
+    meta_value TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
 );
