@@ -1,14 +1,21 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 2 (2026-10-16)
+-- Wersja: 3 (2026-10-16)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
---  * v1 (M0): app_meta                            [WDROZONE]
---  * v2 (M1): exercises + exercises_fts + indeksy  [WDROZONE]
---  * reszta tabel ponizej: docelowe, dochodza w M2-M8.
--- Wiersze oznaczone [Mxx] jeszcze nie istnieja w kodzie - DDL trzymamy z gory,
--- zeby caly model byl w jednym miejscu.
+--  * v1 (M0): app_meta                                            [WDROZONE]
+--  * v2 (M1): exercises + exercises_fts + indeksy                  [WDROZONE]
+--  * v3 (M2): plans, plan_days, plan_day_exercises, sessions,
+--             session_exercises                                   [WDROZONE]
+--  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
+--    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
+--    miejscu - ale to jeszcze nie jest kod.
+--
+-- Uwaga dla wersji 1-3: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
+-- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
+-- "Migration didn't properly handle ...".
 --
 -- Zasady:
 --  * Wszystko lokalnie, zero chmury.
@@ -16,12 +23,15 @@
 --  * Znaczniki czasu jako INTEGER (epoch millis, UTC).
 --  * Listy (np. miesnie dodatkowe) jako TEXT z JSON - proste i wystarczajace.
 --  * Klucze zewnetrzne: external_id = slug ze strony (stabilny klucz naturalny).
+--  * Wartosci "enum" (jednostka powtorzen, status sesji) walidujemy w warstwie
+--    domeny (RepsUnit.fromWire, SessionStatus), a nie CHECK-iem w bazie: latwiej
+--    dodac nowa wartosc bez migracji, a baza i tak nie jest dostepna z zewnatrz.
 -- =============================================================================
 
 PRAGMA foreign_keys = ON;
 
 -- -----------------------------------------------------------------------------
--- 1. KATALOG C WICZE  (rozszerzalny przez uzytkownika)
+-- 1. KATALOG C WICZE  (rozszerzalny przez uzytkownika)          [WDROZONE M1]
 -- -----------------------------------------------------------------------------
 CREATE TABLE exercises (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +95,7 @@ CREATE TRIGGER room_fts_content_sync_exercises_fts_AFTER_INSERT
 END;
 
 -- -----------------------------------------------------------------------------
--- 2. ZALACZNIKI C WICZENIA (zdjecia, filmy, linki)
+-- 2. ZALACZNIKI C WICZENIA (zdjecia, filmy, linki)                        [M7]
 --    Pliki fizycznie w filesDir/media/, w bazie trzymamy tylko sciezke.
 -- -----------------------------------------------------------------------------
 CREATE TABLE exercise_media (
@@ -104,7 +114,11 @@ CREATE TABLE exercise_media (
 CREATE INDEX idx_media_exercise ON exercise_media(exercise_id, position);
 
 -- -----------------------------------------------------------------------------
--- 3. PLANY TRENINGOWE I ICH DNI
+-- 3. PLANY TRENINGOWE I ICH DNI                                  [WDROZONE M2]
+--
+-- Plan jest "przepisem": dni w kolejnosci rotacji, a w dniu pozycje z celem
+-- (serie/powtorzenia/ciezar/przerwa). Sesja treningowa to KOPIA dnia z chwili
+-- startu (patrz sekcja 5) - edycja planu nie przepisuje historii.
 -- -----------------------------------------------------------------------------
 CREATE TABLE plans (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,11 +127,12 @@ CREATE TABLE plans (
     description  TEXT,
     source_url   TEXT,
     author       TEXT,
-    is_active    INTEGER NOT NULL DEFAULT 0,
-    is_archived  INTEGER NOT NULL DEFAULT 0,
+    is_active    INTEGER NOT NULL,              -- plan "na teraz" (uzywany przez Dzien)
+    is_archived  INTEGER NOT NULL,
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL
 );
+CREATE UNIQUE INDEX idx_plans_ext ON plans(external_id);
 
 CREATE TABLE plan_days (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,9 +140,11 @@ CREATE TABLE plan_days (
     name         TEXT NOT NULL,                 -- 'Workout A'
     day_of_week  INTEGER,                       -- 0=poniedzialek .. 6=niedziela, NULL = brak stalej
     position     INTEGER NOT NULL,              -- kolejnosc w rotacji
-    note         TEXT,
-    UNIQUE (plan_id, position)
+    note         TEXT
 );
+-- UNIQUE(plan_id, position): przestawianie dni idzie w transakcji dwoma
+-- przebiegami (wartosci ujemne -> docelowe), patrz PlanRepositoryImpl.
+CREATE UNIQUE INDEX idx_plan_days_position ON plan_days(plan_id, position);
 
 CREATE TABLE plan_day_exercises (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,21 +154,22 @@ CREATE TABLE plan_day_exercises (
     target_sets         INTEGER,
     target_reps_min     INTEGER,
     target_reps_max     INTEGER,
-    target_reps_unit    TEXT NOT NULL DEFAULT 'reps'
-                        CHECK (target_reps_unit IN ('reps','seconds','meters')),
+    target_reps_unit    TEXT NOT NULL,          -- 'reps' | 'seconds' | 'meters' (RepsUnit)
     target_weight_kg    REAL,
     rest_seconds        INTEGER,
-    superset_group      INTEGER,                -- te same wartosci = superseria
-    alternative_group   TEXT,                   -- 'pull-ups-or-inverted-rows'
-    is_default_choice   INTEGER NOT NULL DEFAULT 1,
+    superset_group      INTEGER,                -- ta sama liczba w obrebie dnia = superseria
+    alternative_group   TEXT,                   -- '<id podstawowego>-or-<id alternatywy>'
+    is_default_choice   INTEGER NOT NULL,       -- dokladnie jedno na alternative_group
     note                TEXT
 );
-CREATE INDEX idx_pde_day ON plan_day_exercises(plan_day_id, position);
+CREATE INDEX idx_pde_day      ON plan_day_exercises(plan_day_id, position);
+CREATE INDEX idx_pde_exercise ON plan_day_exercises(exercise_id);
 
 -- -----------------------------------------------------------------------------
--- 4. HARMONOGRAM (kalendarz)
---    Regula ("co ile dni") -> jednorazowe rozwini cie do scheduled_sessions.
+-- 4. HARMONOGRAM (kalendarz)                                              [M3]
+--    Regula ("co ile dni") -> jednorazowe rozwiniecie do scheduled_sessions.
 --    Dzieki temu zapytania kalendarza sa trywialne, a zmiana reguly = przeliczenie.
+--    W M2 mamy tylko podpowiedz: plan_days.day_of_week z seeda.
 -- -----------------------------------------------------------------------------
 CREATE TABLE recurrences (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -189,33 +207,53 @@ CREATE UNIQUE INDEX idx_sched_uniq ON scheduled_sessions(date, plan_day_id)
 
 -- -----------------------------------------------------------------------------
 -- 5. TRENING (realizacja) + TIMERY
+--
+-- sessions / session_exercises                                 [WDROZONE M2]
+-- set_logs                                                    [M4]
+-- rest_intervals                                              [M5]
+--
+-- session_exercises to SNAPSHOT celu z planu: brakuje tu plan_day_exercise_id,
+-- bo pozycja w planie moze zniknac, a trening ma zostac czytelny. Ta sama
+-- uwaga dotyczy plan_id/plan_day_id w sessions: ON DELETE SET NULL, nigdy
+-- kasowanie historii.
 -- -----------------------------------------------------------------------------
 CREATE TABLE sessions (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    title            TEXT,
-    plan_id          INTEGER REFERENCES plans(id) ON DELETE SET NULL,
-    plan_day_id      INTEGER REFERENCES plan_days(id) ON DELETE SET NULL,
-    started_at       INTEGER NOT NULL,          -- epoch ms
-    finished_at      INTEGER,                   -- NULL = trening w toku
-    duration_s       INTEGER,                   -- finished_at - started_at (cache)
-    total_rest_s     INTEGER NOT NULL DEFAULT 0,-- suma przerw (uwzgledniona w czasie)
-    active_s         INTEGER,                   -- duration_s - total_rest_s
-    note             TEXT,
-    created_at       INTEGER NOT NULL,
-    updated_at       INTEGER NOT NULL
-);
-CREATE INDEX idx_sessions_started ON sessions(started_at);
-
-CREATE TABLE session_exercises (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id   INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-    exercise_id  INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
-    plan_day_exercise_id INTEGER REFERENCES plan_day_exercises(id) ON DELETE SET NULL,
-    position     INTEGER NOT NULL,
+    plan_id      INTEGER REFERENCES plans(id) ON DELETE SET NULL,
+    plan_day_id  INTEGER REFERENCES plan_days(id) ON DELETE SET NULL,
+    name         TEXT NOT NULL,                 -- np. 'Workout A' (skopiowane z dnia planu)
+    started_at   INTEGER NOT NULL,              -- epoch ms
+    finished_at  INTEGER,                       -- NULL = trening w toku
+    status       TEXT NOT NULL,                 -- 'active' | 'finished' | 'cancelled'
     note         TEXT
 );
-CREATE INDEX idx_session_ex ON session_exercises(session_id, position);
+CREATE INDEX idx_sessions_plan   ON sessions(plan_id);
+CREATE INDEX idx_sessions_day    ON sessions(plan_day_id);
+CREATE INDEX idx_sessions_status ON sessions(status);
 
+CREATE TABLE session_exercises (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id          INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    exercise_id         INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    position            INTEGER NOT NULL,
+    target_sets         INTEGER,
+    target_reps_min     INTEGER,
+    target_reps_max     INTEGER,
+    target_reps_unit    TEXT NOT NULL,
+    rest_seconds        INTEGER,
+    superset_group      INTEGER,
+    alternative_group   TEXT,                   -- zostaje dla kontekstu ("z czego wybieralismy")
+    is_default_choice   INTEGER NOT NULL,       -- do sesji trafiaja tylko wybory domyslne
+    note                TEXT
+);
+CREATE INDEX idx_session_exercises_pos      ON session_exercises(session_id, position);
+CREATE INDEX idx_session_exercises_exercise ON session_exercises(exercise_id);
+
+-- Logowane serie. [M4]
+-- Uwaga: kolumny duration_s/total_rest_s/active_s z pierwotnego projektu
+-- (cache czasu) NIE sa potrzebne: czas liczymy z started_at/finished_at,
+-- a sume przerw - z rest_intervals. Nie dodajemy pol, ktore moga sie rozjechac
+-- z rzeczywistoscia.
 CREATE TABLE set_logs (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     session_exercise_id   INTEGER NOT NULL REFERENCES session_exercises(id) ON DELETE CASCADE,
@@ -232,7 +270,7 @@ CREATE TABLE set_logs (
     UNIQUE (session_exercise_id, set_index)
 );
 
--- Historia przerw: zrodlo podsumowan i srednich per cwiczenie.
+-- Historia przerw: zrodlo podsumowan i srednich per cwiczenie. [M5]
 CREATE TABLE rest_intervals (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     exercise_id      INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
@@ -248,7 +286,7 @@ CREATE TABLE rest_intervals (
 CREATE INDEX idx_rest_exercise ON rest_intervals(exercise_id, started_at);
 
 -- -----------------------------------------------------------------------------
--- 6. KARTA POSTACI (waga + customowe wskazniki)
+-- 6. KARTA POSTACI (waga + customowe wskazniki)                           [M8]
 -- -----------------------------------------------------------------------------
 CREATE TABLE metric_types (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -280,8 +318,10 @@ CREATE UNIQUE INDEX idx_body_uniq ON body_entries(metric_type_id, date);
 -- -----------------------------------------------------------------------------
 -- 7. IMPORT SEEDOW I METADANE
 -- -----------------------------------------------------------------------------
--- [M2] W M1 wersja zaimportowanego katalogu lezy w app_meta pod kluczem
--- 'exercises_seed_version'; osobna tabela dojdzie razem z importem planow.
+-- [M9] Tabela seed_imports NIE istnieje i na razie nie jest planowana:
+-- wersje obu seedow (exercises_seed_version, programs_seed_version) leza
+-- w app_meta. Osobna tabela ma sens dopiero przy imporcie plikow z urzadzenia,
+-- gdy trzeba bedzie pamietac tez pliki odrzucone (docs/PLAN.md 6.8).
 CREATE TABLE seed_imports (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     seed_id     TEXT NOT NULL,                  -- 'muscle-strength-full-body-workout-routine'
@@ -291,7 +331,8 @@ CREATE TABLE seed_imports (
     stats_json  TEXT
 );
 
--- WDROZONE (M0). Pary klucz-wartosc na stan wewnetrzny aplikacji.
+-- WDROZONE (M0). Pary klucz-wartosc na stan wewnetrzny aplikacji:
+-- exercises_seed_version, programs_seed_version, motyw, ...
 CREATE TABLE app_meta (
     meta_key   TEXT PRIMARY KEY,
     meta_value TEXT NOT NULL,

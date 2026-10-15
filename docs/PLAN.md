@@ -197,12 +197,32 @@ metric_types 1─* body_entries          (karta postaci)
    a `@Fts4(contentEntity = …)` sam zakłada triggery synchronizujące indeks
    i działa również w testach Robolectric. Zapytania budujemy jako prefiksowe
    (`sztan*`) i łączymy spójnikiem AND — patrz `ExerciseSearchQuery`.
+8. **Alternatywa to osobny wiersz** `plan_day_exercises` z tym samym
+   `alternative_group`, a `is_default_choice` wskazuje, które ćwiczenie wchodzi do
+   treningu (dokładnie jedno na grupę). Klucz grupy to
+   `"<id podstawowego>-or-<id alternatywy>"`. Alternatywy nie mają własnej
+   kolejności — stoją zawsze pod swoim ćwiczeniem podstawowym, więc plan dnia ma
+   jedną, spójną listę pozycji (M2).
+9. **Superseria** to liczba w `superset_group` w obrębie dnia (`NULL` = ćwiczenie
+   pojedyncze). Numerujemy je od 1 w górę, więc o kolejności decyduje `position`,
+   a nie treść kolumny (M2).
+10. **Sesja jest kopią, nie referencją.** `session_exercises` zapisuje cel
+    i kolejność z chwili startu, więc późniejsza edycja planu nie przepisuje
+    rozpoczętego ani zakończonego treningu, a usunięcie planu nie kasuje historii
+    (`plan_id`/`plan_day_id` z `ON DELETE SET NULL`) (M2).
+11. **`UNIQUE(plan_id, position)`** — przestawianie wierszy robimy w jednej
+    transakcji dwoma przebiegami: najpierw wartości ujemne (tymczasowe), potem
+    docelowe. Inaczej zapis „w miejscu” łamie unikalność w połowie drogi (M2).
 
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
 * Migracje pisane ręcznie + test `MigrationTestHelper` (żadnego `fallbackToDestructiveMigration` w produkcji).
 * Test: migracja z v1 → vN na kopii bazy z danymi.
+* Stan: **v3** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
+  ćwiczenia dnia i sesje). `SchemaMigrationTest` przechodzi całą drogę 1 → 3,
+  a migracja 2 → 3 została sprawdzona także na urządzeniu z bazą z M1 (24
+  ćwiczenia, w tym własne, zostały na miejscu).
 
 ---
 
@@ -242,6 +262,30 @@ Ustawienia
  ├─ Zarządzanie seedami (sprawdź wersję, re-import)
  └─ O aplikacji, licencje
 ```
+
+**Co z tego istnieje po M2** (stan faktyczny, trasy z `Routes.kt`):
+
+```
+Dziś (home)                      ← dolny pasek
+ ├─ karta „Kontynuuj trening” (gdy jest aktywna sesja) → session/{id}
+ ├─ Otwórz plany treningowe → plans
+ ├─ Otwórz katalog ćwiczeń → exercises
+ └─ Otwórz ustawienia → settings
+Ćwiczenia (exercises)            ← dolny pasek
+ ├─ exercise/new, exercise/{id}, exercise/{id}/edit
+ └─ akcja „plany” w nagłówku → plans
+Plany (plans)                    ← bez dolnego paska
+ └─ plan/{planId}
+      └─ planDay/{dayId}
+           ├─ planDay/{dayId}/pickExercise                   (dodanie ćwiczenia)
+           └─ planDay/{dayId}/pickExercise?anchorId={planExerciseId}  (alternatywa)
+                    └─ (start) session/{sessionId}
+Ustawienia (settings)            ← dolny pasek
+```
+
+Dolny pasek pokazuje się tylko na trasach najwyższego poziomu
+(`Routes.topLevel`); ekrany ćwiczeń, planów i treningu są „pełnoekranowe”, żeby nie
+kusiło wyjście z planu w połowie jego układania.
 
 ### 5.2 Kluczowe ekrany — makiety opisowe
 
@@ -477,12 +521,30 @@ zakresy 1M/3M/6M/1R/wszystko, zoom/pan, „empty state” gdy brak danych.
 * `SeedImporter` przy pierwszym uruchomieniu (i na żądanie w Ustawieniach):
   1. czyta JSON (`kotlinx.serialization`) przez `SeedSource` (`AssetSeedSource`),
   2. `INSERT OR IGNORE` po `external_id` (nigdy nie nadpisuje edycji użytkownika),
-  3. zapisuje wersję danych w `app_meta` (`exercises_seed_version`),
+  3. zapisuje wersję danych w `app_meta` (`exercises_seed_version`,
+     `programs_seed_version`),
   4. oddaje podsumowanie „dodano N, pominięto M”, które Ustawienia pokazują wprost.
-* M1 importuje wyłącznie katalog ćwiczeń. Plan + dni + ćwiczenia dnia (z
-  `alternative_group` dla „lub”) dochodzą w M2, razem z tabelą `seed_imports`.
-* Re-import po aktualizacji seeda: dopisuje nowe ćwiczenia, **nie rusza** istniejących
-  rekordów ani historii. Usunięte w źródle → `is_archived = 1` (M2).
+* **M1** importuje katalog ćwiczeń, **M2** — plan startowy (`programs/*.json`) razem
+  z dniami, ćwiczeniami dnia, alternatywami i harmonogramem. Import planów jest
+  osobnym krokiem (`importProgramsIfNeeded`), a nie częścią importu ćwiczeń, więc
+  zmiana seeda ćwiczeń nie wymusza ponownego wczytania planu i odwrotnie. Kolejność
+  jest jednak istotna: plan odwołuje się do ćwiczeń po `external_id`, więc najpierw
+  importujemy katalog, a dopiero potem plan (w jednym przebiegu
+  `importStartDataIfNeeded`).
+* **Świadome odstępstwo: tabeli `seed_imports` (z §4.1) nie ma.** Wersje obu seedów
+  trzymamy w `app_meta`. Tabela miała sens, gdy planowane były niezależne źródła
+  importu z własnym cyklem życia i stanem „częściowo zaimportowany”; dziś mamy
+  jedno źródło (assety) i dwa klucz-wersje, więc dodatkowa tabela byłaby drugim
+  mechanizmem opisującym to samo — a drugi mechanizm to drugie miejsce, w którym
+  stan może się rozjechać. Wracamy do tematu w M9, gdy dojdzie import pliku
+  z pamięci urządzenia i trzeba będzie pamiętać również pliki odrzucone.
+* Re-import po aktualizacji seeda: dopisuje nowe ćwiczenia i nowe plany, **nie
+  rusza** istniejących rekordów, planów użytkownika ani historii. `INSERT OR IGNORE`
+  dotyczy wyłącznie wierszy z `external_id` — plany tworzone ręcznie mają go `NULL`,
+  więc są nietykalne. Pozycje usunięte ze źródła **nie** są archiwizowane
+  (`is_archived` zostaje 0): przy jednym źródle wersjonowanym w repo nie ma na razie
+  czego „wygaszać”, a dokładanie stanu, którego nikt nie czyta, to koszt bez zysku.
+  Wracamy do tego razem z importem plików z urządzenia (M9).
 * Dodatkowo w Ustawieniach: „wczytaj plik JSON z pamięci urządzenia”
   (ten sam format, walidacja + ręczne potwierdzenie) — M9.
 
@@ -492,6 +554,51 @@ zakresy 1M/3M/6M/1R/wszystko, zoom/pan, „empty state” gdy brak danych.
   (wszystkie tabele) + katalog `media/`.
 * Import: walidacja `schemaVersion`, tryb „dopisz” (domyślnie) lub „zastąp”.
 * Eksport CSV dla arkusza (ćwiczenia × serie) — opcjonalnie w V2.
+
+### 6.10 Edytor planu: kolejność, superserie, alternatywy (M2)
+
+**Kolejność (drag & drop).** Jedna reużywalna kompozycja
+`ui/components/ReorderableColumn` obsługuje i dni planu, i ćwiczenia dnia.
+To zwykła `Column` z `verticalScroll` (nie `LazyColumn`): listy są krótkie
+(3 dni, 8–9 ćwiczeń), a proste `Column` daje przewidywalne liczenie pozycji —
+wiersz przesuwa się o „jedną pozycję”, gdy przeciągnięcie przekroczy połowę
+wysokości **przeciąganego** wiersza (wysokości mierzymy, bo wiersz z chipsami
+jest wyższy).
+
+Nową kolejność oddajemy **raz, po upuszczeniu** — dzięki temu w trakcie
+przeciągania baza nie dostaje serii zapisów, a nieudany gest nic nie zmienia.
+Repozytorium przyjmuje całą nową listę identyfikatorów
+(`reorderDays(planId, orderedDayIds)`, `reorderExercises(dayId, orderedIds)`):
+jeśli lista nie zgadza się co do zbioru z tym, co jest w bazie, **nie zmieniamy
+nic** (żadnego zapisu połówkowego). Zapis idzie jednym `withTransaction`
+w dwóch przebiegach (wartości ujemne, potem docelowe) — patrz §4.2 pkt 11.
+
+W menu przepełnienia wiersza są dodatkowo „przenieś wyżej” / „przenieś niżej”.
+To nie duplikat: działa bez gestu (dostępność, TalkBack, emulator bez dotyku)
+i jest jedyną drogą, gdy drag jest niewygodny przy długiej liście.
+
+**Alternatywy.** „Pull Ups **lub** Inverted Rows” to dwa wiersze z tym samym
+`alternative_group`; pierwszy ma `is_default_choice = 1`. UI grupuje je przez
+`List<PlanExercise>.toGroups()` i pokazuje pod ćwiczeniem podstawowym jako
+„4a **albo** …”. Przeciąganie przestawia **tylko** ćwiczenia podstawowe, a każda
+alternatywa idzie zaraz za swoim (nie da się rozdzielić pary przez przypadek).
+Alternatywa, która zostanie sama (bo usunięto jej ćwiczenie podstawowe), traci
+grupę i staje się zwykłą pozycją.
+
+**Superserie.** `linkSuperset` nadaje `superset_group = max + 1` w obrębie dnia,
+`unlinkSuperset` czyści grupę, gdy zostaje w niej jeden samotny członek (żeby nie
+została „superseria jednoosobowa”). Na ekranie widać chip „superseria N”.
+
+**Start treningu.** „Rozpocznij” tworzy `sessions` + `session_exercises` jako
+**kopię** dnia (patrz §4.2 pkt 10) i przechodzi do ekranu treningu: lista celów,
+czas liczony od `started_at` (ticker w kompozycji, nie w bazie), „Zakończ trening”
+i „Przerwij trening”. Do sesji trafiają tylko **wybory domyślne** z grup
+alternatyw — trening jest konkretny, a nie „jeden z dwóch”. Jednocześnie może być
+aktywny tylko jeden trening: nowy start zamyka poprzedni jako `cancelled`.
+
+Ekran treningu w M2 celowo **nie loguje serii** — to zakres M4 (wtedy dochodzi
+`ForegroundService`, licznik przerw i wpisy w `set_logs`). M2 dowozi to, co było
+kryterium: mogę zbudować własną kombinację dni i **rozpocząć z niej** trening.
 
 ---
 
@@ -609,10 +716,28 @@ własnej licencji — plan tego nie zakłada.
 | `exercises[].muscle_group`, `secondary_muscles`, `equipment` | odpowiednie kolumny (listy jako JSON TEXT) |
 | `exercises[].youtube_id` | `exercises.youtube_id` |
 | `program.id` | `plans.external_id` |
-| `program.workouts[]` | `plan_days` (`position` = `order`) |
-| `program.workouts[].exercises[]` | `plan_day_exercises` (`target_reps_unit` z `tracking`) |
-| `exercises[].alternatives` | dodatkowe wiersze z tym samym `alternative_group` |
-| `program.schedule[]` | podpowiedź do utworzenia `recurrences` (co 7 dni, `weekdays_mask` z dnia) |
+| `program.name`, `author`, `source_url`, `summary.*` | kolumny `plans` (`description` z `summary.main_goal`/`workout_type`) |
+| `program.workouts[]` | `plan_days` (`position` = `order`, `name` = `workout.name`) |
+| `program.schedule[].day_of_week` | `plan_days.day_of_week` (0 = poniedziałek, `NULL` gdy dnia nie ma w harmonogramie) |
+| `program.workouts[].exercises[]` | `plan_day_exercises` (`position` = kolejność w dniu) |
+| `exercises[].sets`, `reps_min`, `reps_max` | `target_sets`, `target_reps_min`, `target_reps_max` |
+| `exercises[].tracking.reps == "time"` | `target_reps_unit = 'seconds'` (z `tracking.unit`), inaczej `'reps'` |
+| `exercises[].modifier` | `note` — **tylko** dla wyboru domyślnego (modyfikator opisuje serię, którą faktycznie wykonujemy) |
+| `exercises[].alternatives` | dodatkowe wiersze z tym samym `alternative_group` (`is_default_choice = 0`) |
+| `exercises[].choice_note` | nie zapisywane — napis „X lub Y” wynika wprost z grupy alternatyw |
+
+Dwie rzeczy, które warto powiedzieć wprost:
+
+* **`workouts[].exercises[].name` nie jest zapisywane.** Wiersz planu pokazuje
+  nazwę z **katalogu**, żeby „Bench Press” z programu i „Barbell Bench Press”
+  na karcie ćwiczenia nie były dwiema różnymi rzeczami pod tym samym
+  `exercise_id` (patrz pułapka z nazwami w §7.5). Nazwa z planu jest tylko kluczem
+  użytym przy imporcie; ćwiczenie rozpoznajemy po `exercise_id`.
+* **`program.schedule[]` nie tworzy jeszcze reguł cyklicznych.** W M2 zapisujemy
+  `day_of_week` przy dniu planu — to podpowiedź dla kalendarza i kolumna do
+  sortowania dni. Prawdziwe `recurrences`/`scheduled_sessions` powstają w M3,
+  gdy użytkownik będzie mógł je edytować; wtedy `schedule` posłuży jako wartość
+  początkową formularza, a nie jako gotowa reguła.
 
 ### 7.5 Znane pułapki danych (obsłużone w seedzie)
 
@@ -622,7 +747,7 @@ własnej licencji — plan tego nie zakłada.
 | Wiersz z wyborem | „Pull Ups **lub** Inverted Rows” | pierwszy = ćwiczenie, reszta w `alternatives` (+ `choice_note`) |
 | Serie na czas | plank `60 seconds` | `reps_min/max = 60`, `tracking.reps = "time"` |
 | Modyfikator w nawiasie | „Squats (Ramped)” | `modifier = "Ramped"` |
-| Ten sam dzień, dwa wiersze | Workout C: „Squats” ×2 (5×5 i 1×20) | dwie pozycje planu, druga `modifier = "Back-down set"` |
+| Ten sam dzień, dwa wiersze | Workout C: „Squats” ×2 (3×5 i 1×20) | dwie pozycje planu; pierwsza ma `modifier = "Ramped"`, druga **nie ma modyfikatora** (`null`) — `sets`/`reps` wystarczają, żeby je rozróżnić |
 | Niespójne nazwy | „Seated Overhead Press” w planie ↔ „Seated Barbell Shoulder Press” na karcie | `name` + `name_in_program` + `external_id` jako klucz |
 | Ćwiczenie tylko w tekście artykułu | „Military Press” | dodane do katalogu jako 23. ćwiczenie |
 | Lista suplementów przez `<br>` | „Multivitamin<br>Creatine…” | w seedzie jako tablica `recommended_supps` |
@@ -716,12 +841,65 @@ dodaję własne ćwiczenie i znajduję je w wyszukiwaniu.
 
 * **FTS4 zamiast FTS5** z §4.2 — Room nie ma adnotacji `@Fts5`, a `@Fts4`
   z `contentEntity` sam zakłada triggery i działa w Robolectric,
-* kolumny `instructions` (M7) i tabeli `seed_imports` (M2) jeszcze nie ma;
-  `docs/SCHEMA.sql` opisuje je jako przyszłe,
+* kolumny `instructions` (M7) i tabeli `seed_imports` jeszcze nie ma;
+  `docs/SCHEMA.sql` opisuje je jako przyszłe, a wersje seedów trzymamy
+  w `app_meta` (§6.8),
 * historia wykonań w szczegółach ćwiczenia → M6, miniatury YouTube i media
   z galerii → M7,
 * `hiltViewModel` z `androidx.hilt.navigation.compose` jest przestarzałe
   (tylko ostrzeżenie) — wymiana razem z podbiciem wersji Hilt.
+
+**M2 ✔ (plany)** — cały zakres kryterium działa na urządzeniu: buduję własną
+kombinację dni i **rozpoczynam z niej trening**.
+
+* **Baza v3**: `plans`, `plan_days`, `plan_day_exercises`, `sessions`,
+  `session_exercises` (z `UNIQUE(plan_id, position)` i `CHECK` na status sesji);
+  migracja 2 → 3 z testem `SchemaMigrationTest` — sprawdzona też na urządzeniu
+  z bazą z M1 (własne ćwiczenie i ulubione zostały na miejscu),
+* **Domena i repozytoria**: `PlanRepository` (drafty planu/dnia/pozycji, kolejność,
+  superserie, alternatywy, `PlanDetails`), `SessionRepository` (obserwacja aktywnej
+  sesji, start z dnia planu, zakończenie, przerwanie), mapowanie w `PlanMappers`,
+* **Import planu startowego**: `programs/*.json` → 1 plan, 3 dni (A/B/C),
+  25 pozycji + 1 alternatywa (26 wierszy), plank jako `3 × 60 s` (`seconds`),
+  dzień tygodnia z `schedule` (pon/śr/pt), wersja w `app_meta`
+  (`programs_seed_version`), drugi przycisk w Ustawieniach,
+* **UI**: lista planów (etykieta autora i „z danych startowych”), szczegóły planu
+  (dni z dniem tygodnia i liczbą ćwiczeń, „Rozpocznij”), ekran dnia (cele
+  w formie `5 × 5` / `2 × 8-12` / `3 × 60 s` z przerwą, alternatywy jako
+  „4a **albo** …”, etykiety „wybór domyślny” i „superseria N”), formularze
+  planu/dnia/celu, wybór ćwiczenia z katalogu (szukanie + filtr partii),
+  menu wiersza (edytuj cel, dodaj alternatywę, superseria, wyżej/niżej, usuń),
+* **Kolejność**: przeciąganie (przytrzymanie + ruch, zapis **raz po upuszczeniu**)
+  oraz „przenieś wyżej/niżej” w menu jako droga bez gestu. Cała nowa kolejność
+  idzie do bazy jednym wywołaniem; gdy lista identyfikatorów nie zgadza się ze
+  stanem bazy, nie zmieniamy nic,
+* **Trening**: sesja = kopia dnia (tylko wybory domyślne alternatyw), jeden aktywny
+  trening naraz (nowy start zamyka poprzedni jako `cancelled`), karta „Kontynuuj
+  trening” na Dziś, ekran treningu z licznikiem od `started_at` oraz „Zakończ
+  trening” / „Przerwij trening” z potwierdzeniem,
+* **Usuwanie ćwiczenia mówi, co zabiera**: skoro pozycje ćwiczenia znikają z planów
+  i treningów kaskadą, potwierdzenie pokazuje liczniki („4 pozycje w planach
+  i 1 wpis w treningu”) i ostrzega, że usunięcie dotknie także te miejsca.
+  Liczniki obserwujemy na żywo, więc po sprzątnięciu planu ostrzeżenie znika samo.
+  Właściwe rozwiązanie (archiwizacja zamiast kasowania) → M9, patrz §6.8,
+* **Testy JVM: 72** (doszły: repozytoria planów i sesji na prawdziwym Room,
+  import planu z assetów, grupowanie alternatyw, przestawianie wierszy,
+  liczniki użycia ćwiczenia, formatowanie czasu). `:app:lintDebug`
+  i `:app:assembleDebug` bez błędów.
+
+Świadome odstępstwa i odroczenia z M2:
+
+* **`seed_imports` odroczone do M9**, wersje seedów w `app_meta` — uzasadnienie
+  w §6.8,
+* brak `is_archived` przy ponownym imporcie (§6.8),
+* **logowanie serii, licznik przerw i timer w tle → M4**. Ekran treningu w M2
+  pokazuje cele i mierzy czas, ale nie zapisuje serii; `RestTimerService`
+  i `set_logs` są zakresem M4/M5 — kryterium M2 (rozpoczęcie treningu z własnej
+  kombinacji dni) jest nim objęte w całości,
+* `plan_days.day_of_week` to na razie etykieta i podpowiedź do sortowania, a nie
+  reguła powtarzania; prawdziwy harmonogram i kalendarz → M3,
+* źródło planu (`source_url`) i media → M7 (nie mamy jeszcze ekranu, na którym
+  miałyby się pokazać).
 
 ---
 
@@ -729,13 +907,24 @@ dodaję własne ćwiczenie i znajduję je w wyszukiwaniu.
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | `RecurrenceExpander` (DST, granice, rotacja), statystyki przerw (mediana, filtry), 1RM, walidacja linków YouTube, importer seedów | JUnit5 + `Clock` wstrzykiwany |
-| Bazy | DAO, migracje, kaskady, unikalne indeksy, FTS | Room in-memory, `MigrationTestHelper` |
-| Repozytoria | mapowanie encja↔model, `Flow` | Turbine |
-| UI | krytyczne ścieżki: start treningu → zalogowanie serii → koniec; dodanie ćwiczenia; reguła cykliczna | Compose UI Test + Robolectric |
-| Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie | lista scenariuszy w `docs/QA.md` |
-| Statyczne | ktlint, detekt, Compose lint | CI na każdym PR |
-| Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3), kaskady, unikalne indeksy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie | Room in-memory + `runTest` |
+| UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, start i koniec treningu | Compose UI Test + Robolectric (M3+), teraz scenariusze w `docs/QA.md` |
+| Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
+| Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
+| Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
+
+Stan na M2: **72 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
+(Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
+przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2
+i przy 2 → 3.
+
+Weryfikacja na urządzeniu (emulator API 36) po M2: migracja bazy z M1 bez utraty
+danych, import planu startowego, zbudowanie własnego planu i dnia, cele
+(`5 × 5`, `2 × 8-12`, `3 × 60 s`), alternatywa, superseria, przestawienie
+kolejności (gestem i z menu), start treningu z własnego dnia, przerwanie
+i zakończenie, karta „Kontynuuj trening”. Scenariusze: `docs/QA.md`.
 
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.

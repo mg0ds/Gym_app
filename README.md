@@ -6,8 +6,9 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0 i M1 ukończone** (fundament + katalog ćwiczeń z wyszukiwaniem).
-Kolejny krok: plany treningowe (M2).
+Stan: **M0–M2 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+treningowe z edytorem dni i start treningu z planu).
+Kolejny krok: kalendarz i harmonogram (M3).
 
 ## Wymagania
 
@@ -79,7 +80,7 @@ Telefon po USB: włącz *debugowanie USB*, podłącz kabel, sprawdź `adb device
 potem `./gradlew installDebug`.
 
 Po **pierwszym lokalnym** buildzie warto zacommitować wyeksportowane schematy bazy
-(`app/schemas/com.gymtracker.data.db.AppDatabase/1.json`) — Room używa ich do testów
+(`app/schemas/com.gymtracker.data.db.AppDatabase/*.json`) — Room używa ich do testów
 migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 
 ## Zawartość repozytorium
@@ -95,7 +96,7 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json, 2.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json, 2.json, 3.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -122,8 +123,9 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 3) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
+| Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
 | Testy | JUnit4 + Robolectric (testy JVM), CI na GitHub Actions |
@@ -161,6 +163,7 @@ Gym_app/
 |---|---|---|
 | **M0** | projekt Gradle, Compose, Hilt, Room + migracje, motyw PL/EN, CI | ✔ |
 | **M1** | katalog ćwiczeń: CRUD, szukanie FTS z polskimi znakami, filtr partii, ulubione, import 23 ćwiczeń | ✔ |
+| **M2** | plany: dni i kolejność (przeciąganie), serie/powtórzenia/czas, superserie, alternatywy, import planu startowego, start i zakończenie treningu z planu | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

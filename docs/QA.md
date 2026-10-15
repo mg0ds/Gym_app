@@ -60,7 +60,7 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 
 | # | Scenariusz | Oczekiwany wynik |
 |---|---|---|
-| 5.1 | Pierwsze uruchomienie na czystej instalacji | Import katalogu: 23 ćwiczenia (plan i dni dochodzą w M2) |
+| 5.1 | Pierwsze uruchomienie na czystej instalacji | Katalog: 23 ćwiczenia; plan startowy z 3 dniami wczytuje się razem z nim (albo przyciskiem w Ustawieniach) |
 | 5.2 | Zmień nazwę ćwiczenia z seeda, uruchom re-import | Nazwa użytkownika **nie** nadpisana |
 | 5.3 | Eksport ZIP → odinstaluj → zainstaluj → import | Wszystkie dane i media wracają |
 | 5.4 | Import z pliku o wyższym `schemaVersion` | Czytelny błąd, brak częściowego importu |
@@ -93,3 +93,30 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 7.12 | Wklej `youtu.be/ID`, `watch?v=ID`, `shorts/ID` | Każdy rozpoznany jako film YouTube (podpowiedź pod polem) |
 | 7.13 | Wklej zwykły link | Podpowiedź „Zapiszemy to jako zwykły link”; w szczegółach „Zobacz źródło” |
 | 7.14 | Aktualizacja apki z wersji M0 (baza v1, dane użytkownika) | Migracja 1→2 bez błędu, dane i motyw zostają |
+
+## 8. Plany i trening z planu (M2)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 8.1 | Aktualizacja z M1 (baza v2, własne ćwiczenie + ulubione) | Migracja 2→3 bez błędu; katalog, ulubione i własne ćwiczenia zostają; plan startowy się importuje |
+| 8.2 | Wejdź w plany po czystej instalacji | 1 plan („Muscle & Strength Full Body Workout Routine”), 3 dni: A/pon, B/śr, C/pt, liczby ćwiczeń 8/8/9 |
+| 8.3 | Otwórz dzień B | Pozycje z celami (`3 × 5`, `2 × 8-12`), deska jako `3 × 60 s`, przy ćwiczeniu 4 para „4 / 4a **albo**” z etykietą „wybór domyślny” |
+| 8.4 | Dodaj własny plan („+” → nazwa) | Plan na liście, w środku pusto z podpowiedzią o dodaniu dnia |
+| 8.5 | Dodaj dzień z dniem tygodnia | Dzień na liście z etykietą dnia tygodnia i „0 ćwiczeń”; zmiana nazwy i usunięcie działają |
+| 8.6 | Dodaj ćwiczenie z katalogu (szukanie w wyborze) | Pozycja na końcu dnia z domyślnym celem `3 serie` |
+| 8.7 | „Zmień serie i powtórzenia”: 5 / 5-5 / 60 kg / 120 s | Wiersz pokazuje `5 × 5 • przerwa 120 s` |
+| 8.8 | Ustaw jednostkę „sekundy” i 60 | Wiersz pokazuje `3 × 60 s` |
+| 8.9 | „Dodaj alternatywę” do pozycji | Nowa pozycja jako `Na` z „albo …”, podstawowa ma etykietę „wybór domyślny” |
+| 8.10 | Na alternatywie „Ustaw jako podstawowe” | Etykieta „wybór domyślny” przechodzi na nią, kolejność bez zmian |
+| 8.11 | „Połącz w superserię z następnym” | Obie pozycje z etykietą „superseria 1”; „Rozłącz superserię” usuwa etykiety |
+| 8.12 | Przeciągnij pozycję (przytrzymaj i przesuń) | Po upuszczeniu pozycja zostaje na nowym miejscu, alternatywa idzie razem z podstawową, numeracja superserii bez zmian |
+| 8.13 | Przeciągnij i upuść w to samo miejsce | Kolejność **bez zmian** (nic się nie zapisuje) |
+| 8.14 | „Przenieś wyżej”/„Przenieś niżej” z menu wiersza | To samo co przeciąganie (droga bez gestu) |
+| 8.15 | „Rozpocznij” na dniu | Ekran treningu: „Trening w toku”, licznik rośnie, lista celów; alternatywy **nie** ma na liście |
+| 8.16 | Wyjdź z treningu na Dziś | Karta „Masz rozpoczęty trening” → „Kontynuuj trening” wznawia z licznikiem od `started_at` |
+| 8.17 | W trakcie treningu ustal nowy (z planu) | Poprzedni zamyka się jako `cancelled`, nowy jest aktywny; tylko jeden trwa |
+| 8.18 | „Zakończ trening” | Karta znika; sesja `finished` z czasem i kopią ćwiczeń (tylko wybory domyślne) |
+| 8.19 | „Przerwij trening” → potwierdzenie | Karta znika; sesja `cancelled`, nie liczona jako odbyta |
+| 8.20 | Usuń plan, który ma zakończony trening | Plan i dni znikają, historia treningu zostaje (z nazwą dnia z planu) |
+| 8.21 | Usuń ćwiczenie używane w planie i treningu | Potwierdzenie mówi wprost, ile pozycji zniknie z planów i treningów |
+| 8.22 | „Wczytaj plany startowe” przy już zaimportowanym planie | „Gotowe: plany +0, pominięto 1, dni 0.”; brak duplikatów dni i pozycji, zmiany użytkownika **nie** nadpisane |
