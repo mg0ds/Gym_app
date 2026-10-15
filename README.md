@@ -1,5 +1,7 @@
 # GymTracker
 
+[![CI](https://github.com/mg0ds/Gym_app/actions/workflows/ci.yml/badge.svg)](https://github.com/mg0ds/Gym_app/actions/workflows/ci.yml)
+
 Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalog
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
