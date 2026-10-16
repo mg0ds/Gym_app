@@ -58,6 +58,7 @@ class ExerciseRepositoryTest {
         sessionRepository = SessionRepositoryImpl(
             sessionDao = database.sessionDao(),
             planDao = database.planDao(),
+            calendarDao = database.calendarDao(),
             database = database,
             timeProvider = timeProvider,
         )

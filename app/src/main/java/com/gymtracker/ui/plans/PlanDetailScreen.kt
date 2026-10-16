@@ -27,6 +27,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,16 +47,23 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
 import com.gymtracker.domain.model.PlanDay
+import com.gymtracker.domain.model.Recurrence
+import com.gymtracker.ui.calendar.recurrenceSummary
 import com.gymtracker.ui.components.ReorderableColumn
 
 /**
  * Plan: nazwa, opis i lista dni w kolejności. Dni przestawia się przeciągnięciem,
  * a stąd też **rozpoczyna się trening** z wybranego dnia (kryterium M2).
+ *
+ * Pod dniami jest harmonogram ([Recurrence]): reguły „co N dni”, które
+ * rozplanowują dni planu w kalendarzu (M3).
  */
 @Composable
 fun PlanDetailScreen(
     onBack: () -> Unit,
     onOpenDay: (dayId: Long) -> Unit,
+    onStartSchedule: (planId: Long) -> Unit,
+    onEditSchedule: (planId: Long, recurrenceId: Long) -> Unit,
     onSessionStarted: (sessionId: Long) -> Unit,
     viewModel: PlanDetailViewModel = hiltViewModel(),
 ) {
@@ -72,6 +80,9 @@ fun PlanDetailScreen(
         onUpdatePlan = viewModel::updatePlan,
         onDeletePlan = viewModel::deletePlan,
         onStartSession = { dayId -> viewModel.startSession(dayId, onSessionStarted) },
+        onStartSchedule = onStartSchedule,
+        onEditSchedule = onEditSchedule,
+        onDeleteRecurrence = viewModel::deleteRecurrence,
     )
 }
 
@@ -88,12 +99,16 @@ private fun PlanDetailContent(
     onUpdatePlan: (name: String, description: String) -> Unit,
     onDeletePlan: (onDeleted: () -> Unit) -> Unit,
     onStartSession: (dayId: Long) -> Unit,
+    onStartSchedule: (planId: Long) -> Unit,
+    onEditSchedule: (planId: Long, recurrenceId: Long) -> Unit,
+    onDeleteRecurrence: (recurrenceId: Long) -> Unit,
 ) {
     var showAddDayDialog by remember { mutableStateOf(false) }
     var showEditPlanDialog by remember { mutableStateOf(false) }
     var showDeletePlanDialog by remember { mutableStateOf(false) }
     var dayToRename by remember { mutableStateOf<PlanDay?>(null) }
     var dayToDelete by remember { mutableStateOf<PlanDay?>(null) }
+    var recurrenceToDelete by remember { mutableStateOf<Recurrence?>(null) }
 
     Scaffold(
         topBar = {
@@ -152,27 +167,36 @@ private fun PlanDetailContent(
                 )
             }
 
-            if (uiState.days.isEmpty()) {
-                EmptyDays()
-            } else {
-                ReorderableColumn(
-                    itemCount = uiState.days.size,
-                    onMove = onMoveDay,
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                ) { index ->
-                    val day = uiState.days[index]
-                    DayCard(
-                        day = day,
-                        index = index,
-                        dayCount = uiState.days.size,
-                        onOpen = onOpenDay,
-                        onStart = onStartSession,
-                        onRename = { dayToRename = day },
-                        onDelete = { dayToDelete = day },
-                        onMoveUp = { onMoveDay(index, index - 1) },
-                        onMoveDown = { onMoveDay(index, index + 1) },
-                    )
-                }
+            ReorderableColumn(
+                itemCount = uiState.days.size,
+                onMove = onMoveDay,
+                contentPadding = PaddingValues(bottom = 96.dp),
+                footer = {
+                    if (uiState.days.isEmpty()) {
+                        EmptyDays()
+                    } else {
+                        ScheduleSection(
+                            planId = uiState.plan?.id,
+                            recurrences = uiState.recurrences,
+                            onStartSchedule = onStartSchedule,
+                            onEditSchedule = onEditSchedule,
+                            onDeleteRecurrence = { recurrence -> recurrenceToDelete = recurrence },
+                        )
+                    }
+                },
+            ) { index ->
+                val day = uiState.days[index]
+                DayCard(
+                    day = day,
+                    index = index,
+                    dayCount = uiState.days.size,
+                    onOpen = onOpenDay,
+                    onStart = onStartSession,
+                    onRename = { dayToRename = day },
+                    onDelete = { dayToDelete = day },
+                    onMoveUp = { onMoveDay(index, index - 1) },
+                    onMoveDown = { onMoveDay(index, index + 1) },
+                )
             }
         }
     }
@@ -223,6 +247,17 @@ private fun PlanDetailContent(
             onConfirm = {
                 dayToDelete = null
                 onDeleteDay(day.id)
+            },
+        )
+    }
+
+    recurrenceToDelete?.let { recurrence ->
+        ConfirmDeleteDialog(
+            text = stringResource(R.string.plan_schedule_delete_confirm),
+            onDismiss = { recurrenceToDelete = null },
+            onConfirm = {
+                recurrenceToDelete = null
+                onDeleteRecurrence(recurrence.id)
             },
         )
     }
@@ -351,7 +386,7 @@ private fun DayCard(
 private fun EmptyDays() {
     Box(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -368,6 +403,68 @@ private fun EmptyDays() {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+/**
+ * Harmonogram planu: reguły, które rozplanowują dni w kalendarzu. Stąd zakłada
+ * się nową regułę („Zaplanuj treningi”) i stąd zmienia się lub usuwa istniejące.
+ * Bez dni w planie nie ma czego rozplanowywać, więc sekcja wtedy nie występuje.
+ */
+@Composable
+private fun ScheduleSection(
+    planId: Long?,
+    recurrences: List<Recurrence>,
+    onStartSchedule: (planId: Long) -> Unit,
+    onEditSchedule: (planId: Long, recurrenceId: Long) -> Unit,
+    onDeleteRecurrence: (Recurrence) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.plan_schedule_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+
+        if (recurrences.isEmpty()) {
+            Text(
+                text = stringResource(R.string.plan_schedule_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            recurrences.forEach { recurrence ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = recurrenceSummary(recurrence),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(
+                                onClick = { planId?.let { id -> onEditSchedule(id, recurrence.id) } },
+                            ) {
+                                Text(text = stringResource(R.string.plan_schedule_edit))
+                            }
+                            TextButton(onClick = { onDeleteRecurrence(recurrence) }) {
+                                Text(text = stringResource(R.string.plan_schedule_delete))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        OutlinedButton(onClick = { planId?.let(onStartSchedule) }) {
+            Text(text = stringResource(R.string.plan_schedule_action))
         }
     }
 }

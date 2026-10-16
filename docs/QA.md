@@ -30,19 +30,36 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 2.6 | Ustaw przerwę 10 min, przerwij po 20 s | Wartość odfiltrowana ze statystyk (poza zakresem 10–900 s) |
 | 2.7 | Odrzuć uprawnienie „Alarmy i przypomnienia” | Przerwa nadal działa (z tolerancją), w Ustawieniach widoczna informacja |
 
-## 3. Kalendarz i reguły
+## 3. Kalendarz, reguły i harmonogram (M3)
 
 | # | Scenariusz | Oczekiwany wynik |
 |---|---|---|
-| 3.1 | Reguła: od 01.10.2026, do 31.12.2026, co 3 dni | Poprawne daty (sprawdź na kartce: 1, 4, 7, 10… paź) |
-| 3.2 | Ta sama reguła + rotacja A/B/C | Daty naprzemiennie A, B, C, A… |
-| 3.3 | Reguła przez zmianę czasu (29.03.2026) | Dni kalendarzowe bez przeskoku/powtórzenia |
-| 3.4 | „Co ile dni” = 0 lub puste | Walidacja blokuje zapis z komunikatem |
-| 3.5 | Data do < data od | Walidacja blokuje zapis |
-| 3.6 | Dodaj wyjątek (skip) na 25.12 | Wpis znika, pozostałe bez zmian |
-| 3.7 | Edytuj regułę po 2 zrobionych treningach | Zrobione zostają w historii, przyszłe przeliczone |
-| 3.8 | Usuń plan, który miał zaplanowane daty | Daty zostają (bez planu → „Wolny trening”), brak crasha |
-| 3.9 | Reguła bezterminowa, przewiń kalendarz 12 mies. w przód | Daty dosypywane płynnie, bez zacięcia |
+| 3.1 | Kryterium M3: plan A/B/C, reguła „od 1.10.2026, do 31.12.2026, co 3 dni”, rotacja dni | Podgląd pokazuje 31 treningów: pierwszy 1.10 (A), ostatni 30.12 (poprawny rytm „co 3 dni”) |
+| 3.2 | Ten sam plan w kalendarzu po zapisie | Wpisy dokładnie na datach z podglądu, nazwy dni A/B/C zgodne z podglądem |
+| 3.3 | Reguła „co 1 dzień” od 1.10 do 31.10 | 31 wpisów, każdy dzień miesiąca zajęty |
+| 3.4 | Reguła przez zmianę czasu (29.03.2026) | Dni kalendarzowe bez przeskoku i bez powtórzonego dnia |
+| 3.5 | „Co ile dni” = 0, puste albo „abc” | Pole podświetlone, zapis zablokowany, komunikat o minimum 1 |
+| 3.6 | Data do wcześniejsza niż data od | Zapis zablokowany, komunikat; „Zapisz” wyszarzony |
+| 3.7 | Data od albo do poza oknem 20 tygodni | Kalendarz nie pozwala wybrać dnia poza oknem; komunikat mówi, do kiedy planujemy |
+| 3.8 | Tryb „Wybrane dni”: dotknij dni, w tym poza horyzontem | Dni poza oknem nie reagują na dotyk; podgląd pokazuje wybrane daty z rotacją dni |
+| 3.9 | Reguła tylko z pon./śr./pt. (dni tygodnia) | Wpisy wyłącznie w te dni, pozostałe wolne |
+| 3.10 | Menu wpisu: „przenieś” na inny dzień | Wpis na nowej dacie, status bez zmian (osobnego „przeniesiony” nie ma) |
+| 3.11 | Menu wpisu: „oznacz jako odbyty” / „pominięty” / „przywróć do zaplanowanych” | Kropka zmienia kolor zgodnie ze statusem, historia zostaje |
+| 3.12 | Zapisz identyczną regułę drugi raz | Jeden zestaw wpisów (bez duplikatów); istniejące (np. odbyty) nie znikają |
+| 3.13 | Edytuj regułę po 2 odbytych treningach | Odbyte wpisy zostają w historii, przyszłe przeliczone |
+| 3.14 | Usuń regułę | Wpisy „zaplanowane” znikają, odbyte zostają bez reguły |
+| 3.15 | Usuń plan, który miał zaplanowane daty | Wpisy zostają bez planu („Wolny trening”); start z takiego wpisu tworzy sesję bez ćwiczeń, bez crasha |
+| 3.16 | Otwórz apkę po kilku dniach, przewiń kalendarz w przód | Wpisy dosypane do nowego horyzontu (20 tyg.); pominięte i przeniesione nie wracają |
+| 3.17 | Akcja „Dziś” w nagłówku | Kalendarz wraca do bieżącego miesiąca |
+| 3.18 | Aktualizacja z M2 (baza v3: plan, sesja, własne ćwiczenie) | Migracja 3→4 bez błędu; plany i historia treningów zostają, kalendarz pusty |
+| 3.19 | Interfejs po angielsku | Nazwy miesięcy i dni po angielsku („Mon, 1 Oct”), format dat spójny z resztą |
+| 3.20 | W szczegółach planu sekcja „Harmonogram” bez reguł | Podpowiedź i przycisk „Zaplanuj treningi” |
+| 3.21 | „Zaplanuj treningi” w planie bez dni | Sekcja się nie pokazuje (nie ma czego planować); dodaj dzień, żeby zaplanować |
+| 3.22 | „Zmień” przy regule | Formularz wypełniony danymi reguły, podgląd widoczny od razu; zapis nadpisuje tę samą regułę |
+| 3.23 | „Usuń” przy regule → potwierdzenie | Reguła znika z listy, wpisy „zaplanowane” znikają z kalendarza, odbyte zostają |
+| 3.24 | Start treningu z wpisu w kalendarzu, potem „Zakończ trening” | Wpis odhaczony jako odbyty (zielona kropka) |
+| 3.25 | Start z wpisu w kalendarzu, potem „Przerwij trening” | Wpis zostaje „zaplanowany” (przerwany trening nie odhacza dnia) |
+| 3.26 | Start z karty dnia planu (M2), gdy dzień jest też zaplanowany | Sesja z dnia planu; wpis w kalendarzu zostaje „zaplanowany” (odhacza go start z kalendarza) |
 
 ## 4. Media i YouTube
 

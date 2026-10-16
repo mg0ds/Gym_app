@@ -30,13 +30,27 @@ object Routes {
     /** Ćwiczenie, do którego dokładamy alternatywę (0 = zwykłe dodawanie). */
     const val ARG_ANCHOR_ID = "anchorId"
 
+    /** Reguła zmieniana w formularzu harmonogramu (0 = zakładanie nowej). */
+    const val ARG_RECURRENCE_ID = "recurrenceId"
+
     const val PLANS = "plans"
     const val PLAN_DETAIL = "plan/{$ARG_PLAN_ID}"
     const val PLAN_DAY = "planDay/{$ARG_DAY_ID}"
     const val PLAN_EXERCISE_PICKER = "planDay/{$ARG_DAY_ID}/pickExercise?$ARG_ANCHOR_ID={$ARG_ANCHOR_ID}"
+    const val PLAN_SCHEDULE = "plan/{$ARG_PLAN_ID}/schedule?$ARG_RECURRENCE_ID={$ARG_RECURRENCE_ID}"
     const val SESSION = "session/{$ARG_SESSION_ID}"
 
     fun planDetail(planId: Long): String = "plan/$planId"
+
+    /** Nowy harmonogram planu. */
+    fun planSchedule(planId: Long): String = "plan/$planId/schedule?$ARG_RECURRENCE_ID=$NO_ID"
+
+    /** Zmiana istniejącej reguły harmonogramu. */
+    fun planScheduleEdit(planId: Long, recurrenceId: Long): String =
+        "plan/$planId/schedule?$ARG_RECURRENCE_ID=$recurrenceId"
+
+    /** Wartość „brak” dla opcjonalnych argumentów numerycznych trasy. */
+    const val NO_ID = 0L
 
     fun planDay(dayId: Long): String = "planDay/$dayId"
 

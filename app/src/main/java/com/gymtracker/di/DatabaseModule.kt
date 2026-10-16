@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.DatabaseMigrations
 import com.gymtracker.data.db.daos.AppMetaDao
+import com.gymtracker.data.db.daos.CalendarDao
 import com.gymtracker.data.db.daos.ExerciseDao
 import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.SessionDao
@@ -37,4 +38,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSessionDao(database: AppDatabase): SessionDao = database.sessionDao()
+
+    @Provides
+    fun provideCalendarDao(database: AppDatabase): CalendarDao = database.calendarDao()
 }

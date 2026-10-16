@@ -7,6 +7,8 @@ import com.gymtracker.data.db.entities.ExerciseEntity
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
+import com.gymtracker.data.db.entities.RecurrenceEntity
+import com.gymtracker.data.db.entities.ScheduledSessionEntity
 import com.gymtracker.data.search.ExerciseSearchQuery
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -21,11 +23,12 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Test migracji schematu: zakłada bazę w wersji 1 (taką, jaką miała użytkownika
- * aplikacja z M0), otwiera ją kodem, który zna wersję 2, i sprawdza, że:
+ * aplikacja z M0), otwiera ją kodem, który zna wersję 4, i sprawdza, że:
  *
  *  * dane użytkownika przetrwały,
  *  * Room zaakceptował schemat po migracji (sam porównuje go z oczekiwanym),
- *  * katalog ćwiczeń działa, łącznie z indeksem wyszukiwania założonym w migracji.
+ *  * katalog ćwiczeń działa, łącznie z indeksem wyszukiwania założonym w migracji,
+ *  * kalendarz z migracji 3→4 przyjmuje reguły i wpisy.
  *
  * Gdyby SQL w [DatabaseMigrations] rozjechał się z tym, co generuje Room
  * (np. brakujący `NOT NULL` czy inny tokenizer FTS), ten test to wyłapie.
@@ -46,7 +49,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 3 zachowuje dane i dodaje katalog oraz plany`() = runTest {
+    fun `migracja 1 do 4 zachowuje dane i dodaje katalog, plany oraz kalendarz`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -103,10 +106,45 @@ class SchemaMigrationTest {
             val day = requireNotNull(database.planDao().getDay(dayId))
             assertEquals(planId, day.planId)
 
-            // Kaskada: usunięcie planu zabiera dni i ćwiczenia dni.
+            // Kalendarz z migracji 3→4: reguła i wpis z rotacją dnia planu.
+            val recurrenceId = database.calendarDao().insertRecurrence(
+                RecurrenceEntity(
+                    planId = planId,
+                    planDayId = dayId,
+                    startDate = "2026-10-01",
+                    endDate = "2026-12-31",
+                    intervalDays = 3,
+                    weekdaysMask = null,
+                    createdAtEpochMs = 2_000L,
+                ),
+            )
+            database.calendarDao().insertScheduled(
+                listOf(
+                    ScheduledSessionEntity(
+                        date = "2026-10-01",
+                        planId = planId,
+                        planDayId = dayId,
+                        recurrenceId = recurrenceId,
+                        title = "Dzień A",
+                        status = ScheduledSessionEntity.STATUS_PLANNED,
+                        createdAtEpochMs = 2_000L,
+                    ),
+                ),
+            )
+            val scheduled = database.calendarDao().getScheduledOn("2026-10-01").single()
+            assertEquals(dayId, scheduled.planDayId)
+            assertEquals(recurrenceId, scheduled.recurrenceId)
+
+            // Kaskada: usunięcie planu zabiera dni, ćwiczenia dni i reguły,
+            // a wpis w kalendarzu zostaje - tylko bez wskazania (SET NULL).
             database.planDao().deletePlan(planId)
             assertNull(database.planDao().getDay(dayId))
             assertTrue(database.planDao().getDayExercises(dayId).isEmpty())
+            assertNull(database.calendarDao().getRecurrence(recurrenceId))
+            val orphan = database.calendarDao().getScheduledOn("2026-10-01").single()
+            assertNull(orphan.planId)
+            assertNull(orphan.planDayId)
+            assertNull(orphan.recurrenceId)
         } finally {
             database.close()
         }

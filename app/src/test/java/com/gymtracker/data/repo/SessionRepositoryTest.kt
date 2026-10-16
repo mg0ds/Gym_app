@@ -46,7 +46,13 @@ class SessionRepositoryTest {
         ).build()
         val timeProvider = TimeProvider { currentTime }
         plans = PlanRepositoryImpl(database.planDao(), database, timeProvider)
-        sessions = SessionRepositoryImpl(database.sessionDao(), database.planDao(), database, timeProvider)
+        sessions = SessionRepositoryImpl(
+            database.sessionDao(),
+            database.planDao(),
+            database.calendarDao(),
+            database,
+            timeProvider,
+        )
 
         listOf("squat" to "Barbell Back Squat", "bench" to "Barbell Bench Press")
             .forEach { (slug, name) ->

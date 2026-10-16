@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.PlanDayDraft
+import com.gymtracker.domain.model.Recurrence
+import com.gymtracker.domain.repository.CalendarRepository
 import com.gymtracker.domain.repository.PlanRepository
 import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.ui.navigation.Routes
@@ -13,15 +15,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Plan z dniami w kolejności ich `position`. */
+/** Plan z dniami w kolejności ich `position` i harmonogramem (M3). */
 data class PlanDetailUiState(
     val isLoading: Boolean = true,
     val plan: Plan? = null,
     val days: List<PlanDay> = emptyList(),
+    val recurrences: List<Recurrence> = emptyList(),
 )
 
 @HiltViewModel
@@ -29,20 +32,24 @@ class PlanDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val plans: PlanRepository,
     private val sessions: SessionRepository,
+    private val calendar: CalendarRepository,
 ) : ViewModel() {
 
     private val planId: Long = checkNotNull(savedStateHandle[Routes.ARG_PLAN_ID]) {
         "brak identyfikatora planu w trasie"
     }
 
-    val uiState: StateFlow<PlanDetailUiState> = plans.observePlanDetails(planId)
-        .map { details ->
-            PlanDetailUiState(
-                isLoading = false,
-                plan = details?.plan,
-                days = details?.days.orEmpty(),
-            )
-        }
+    val uiState: StateFlow<PlanDetailUiState> = combine(
+        plans.observePlanDetails(planId),
+        calendar.observeRecurrencesOfPlan(planId),
+    ) { details, recurrences ->
+        PlanDetailUiState(
+            isLoading = false,
+            plan = details?.plan,
+            days = details?.days.orEmpty(),
+            recurrences = recurrences,
+        )
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -95,6 +102,11 @@ class PlanDetailViewModel @Inject constructor(
         viewModelScope.launch {
             sessions.startFromPlanDay(dayId)?.let { sessionId -> onStarted(sessionId) }
         }
+    }
+
+    /** Usuwa regułę harmonogramu; zaplanowane dni znikają, historia zostaje. */
+    fun deleteRecurrence(recurrenceId: Long) {
+        viewModelScope.launch { calendar.deleteRecurrence(recurrenceId) }
     }
 
     private companion object {

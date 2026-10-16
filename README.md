@@ -6,9 +6,10 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M2 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
-treningowe z edytorem dni i start treningu z planu).
-Kolejny krok: kalendarz i harmonogram (M3).
+Stan: **M0–M3 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
+„co N dni”).
+Kolejny krok: logowanie serii i timery treningu i przerw (M4–M5).
 
 ## Wymagania
 
@@ -89,14 +90,14 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | główny plan: wymagania, stack, architektura, model danych, ekrany, algorytmy timerów i harmonogramu, kamienie milowe, testy, ryzyka |
 | [`docs/SCHEMA.sql`](docs/SCHEMA.sql) | docelowy DDL bazy lokalnej (Room/SQLite) — realizowany krok po kroku |
-| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, DST) |
+| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu) |
 | [`data/seed/`](data/seed) | dane startowe do importu: `exercises.json` + `programs/*.json` |
 | `app/` | kod aplikacji (Kotlin + Compose, Room, Hilt) |
 
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json, 2.json, 3.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 4.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -123,10 +124,12 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 3) |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 4) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
+| Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
+| Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
 | Testy | JUnit4 + Robolectric (testy JVM), CI na GitHub Actions |
@@ -165,6 +168,7 @@ Gym_app/
 | **M0** | projekt Gradle, Compose, Hilt, Room + migracje, motyw PL/EN, CI | ✔ |
 | **M1** | katalog ćwiczeń: CRUD, szukanie FTS z polskimi znakami, filtr partii, ulubione, import 23 ćwiczeń | ✔ |
 | **M2** | plany: dni i kolejność (przeciąganie), serie/powtórzenia/czas, superserie, alternatywy, import planu startowego, start i zakończenie treningu z planu, usuwanie ćwiczenia przez archiwizację | ✔ |
+| **M3** | kalendarz miesiąca z wpisami i statusami, harmonogram planu (reguła „co N dni” albo wybrane dni), rotacja dni A/B/C, horyzont 20 tygodni, podgląd dat przed zapisem, start treningu z wpisu i odhaczenie po zakończeniu | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

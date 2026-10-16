@@ -3,21 +3,13 @@
     <string name="app_name">GymTracker</string>
 
     <!-- Navigation -->
-    <string name="nav_today">Today</string>
+    <string name="nav_calendar">Calendar</string>
     <string name="nav_exercises">Exercises</string>
     <string name="nav_settings">Settings</string>
 
-    <!-- Home -->
-    <string name="home_title">Today</string>
-    <string name="home_subtitle">Your plan and today\'s workout</string>
-    <string name="home_ready_title">Exercise catalogue ready</string>
-    <string name="home_ready_body">Exercise catalogue and training plans are ready. You can start a workout from a plan screen. The calendar and set logging come next.</string>
-    <string name="home_version">Version %1$s</string>
-    <string name="home_open_exercises">Open exercise catalogue</string>
-    <string name="home_open_plans">Open training plans</string>
-    <string name="home_open_settings">Open settings</string>
-    <string name="home_active_session_title">You have a workout in progress</string>
-    <string name="home_active_session_resume">Continue workout</string>
+    <!-- Workout in progress (card on the calendar) -->
+    <string name="calendar_active_title">You have a workout in progress</string>
+    <string name="calendar_active_resume">Continue workout</string>
 
     <!-- Common -->
     <string name="action_save">Save</string>
@@ -209,6 +201,69 @@
     <string name="plan_pick_exercise_title">Add exercise</string>
     <string name="plan_pick_alternative_title">Add alternative</string>
 
+    <!-- Plan schedule -->
+    <string name="plan_schedule_title">Schedule</string>
+    <string name="plan_schedule_empty">This plan has no schedule yet.</string>
+    <string name="plan_schedule_action">Plan workouts</string>
+    <string name="plan_schedule_edit">Change schedule</string>
+    <string name="plan_schedule_delete">Delete schedule</string>
+    <string name="plan_schedule_delete_confirm">Delete this schedule? Planned days will disappear from the calendar; completed and skipped days stay as history.</string>
+
+    <!-- Calendar -->
+    <string name="calendar_title">Calendar</string>
+    <string name="calendar_today">Today</string>
+    <string name="calendar_previous_month">Previous month</string>
+    <string name="calendar_next_month">Next month</string>
+    <string name="calendar_selected_day">%1$s, %2$s</string>
+    <string name="calendar_day_empty">Nothing planned for this day.</string>
+    <string name="calendar_plan_workout">Plan a workout</string>
+    <string name="calendar_entry_actions">Actions for this day</string>
+
+    <!-- Calendar entries -->
+    <string name="schedule_start">Start workout</string>
+    <string name="schedule_mark_done">Mark as done</string>
+    <string name="schedule_mark_skipped">Skip</string>
+    <string name="schedule_move">Move to another day</string>
+    <string name="schedule_remove">Remove from calendar</string>
+    <string name="schedule_restore">Restore as planned</string>
+    <string name="schedule_open_session">Open workout</string>
+    <string name="schedule_status_planned">planned</string>
+    <string name="schedule_status_done">done</string>
+    <string name="schedule_status_skipped">skipped</string>
+    <string name="schedule_from_recurrence">from rule</string>
+
+    <!-- Schedule summary and form -->
+    <string name="schedule_every_day">every day</string>
+    <string name="schedule_range">from %1$s to %2$s</string>
+    <string name="schedule_range_open">from %1$s for 20 weeks</string>
+    <string name="schedule_rotates_days">plan day rotation</string>
+    <string name="schedule_form_title">Plan workouts</string>
+    <string name="schedule_form_title_edit">Change schedule</string>
+    <string name="schedule_mode_rule">Repeating rule</string>
+    <string name="schedule_mode_dates">Picked days</string>
+    <string name="schedule_field_days">Workout day</string>
+    <string name="schedule_rotate_option">Rotate plan days</string>
+    <string name="schedule_rotate_hint">Rotation: %1$s</string>
+    <string name="schedule_field_start">From date</string>
+    <string name="schedule_field_end">To date</string>
+    <string name="schedule_field_end_optional">to date (optional)</string>
+    <string name="schedule_field_end_none">no end date</string>
+    <string name="schedule_field_interval">Every N days</string>
+    <string name="schedule_field_weekdays">Weekdays (optional)</string>
+    <string name="schedule_weekdays_from_plan">From your plan: %1$s</string>
+    <string name="schedule_preview_title">Preview</string>
+    <string name="schedule_preview_empty">No dates to plan.</string>
+    <string name="schedule_preview_more">…and %1$d more</string>
+    <string name="schedule_horizon_hint">You can plan up to 20 weeks ahead, until %1$s.</string>
+    <string name="schedule_pick_dates_hint">Tap days in the calendar. You can pick several.</string>
+    <string name="schedule_clear">Clear</string>
+    <string name="schedule_error_start_beyond_horizon">The start date is too far away - you can plan up to 20 weeks ahead.</string>
+    <string name="schedule_error_end_before_start">The end date is before the start date.</string>
+    <string name="schedule_error_end_beyond_horizon">The end date is too far away - you can plan up to 20 weeks ahead.</string>
+    <string name="schedule_error_interval_too_small">The interval is at least 1 day.</string>
+    <string name="schedule_error_interval_invalid">Enter the number of days.</string>
+    <string name="schedule_error_no_plan_day">This plan has no days yet.</string>
+
     <!-- Workout -->
     <string name="session_finish">Finish workout</string>
     <string name="session_cancel">Discard workout</string>
@@ -227,6 +282,13 @@
     <string name="weekday_friday">Friday</string>
     <string name="weekday_saturday">Saturday</string>
     <string name="weekday_sunday">Sunday</string>
+    <string name="weekday_short_monday">Mon</string>
+    <string name="weekday_short_tuesday">Tue</string>
+    <string name="weekday_short_wednesday">Wed</string>
+    <string name="weekday_short_thursday">Thu</string>
+    <string name="weekday_short_friday">Fri</string>
+    <string name="weekday_short_saturday">Sat</string>
+    <string name="weekday_short_sunday">Sun</string>
 
     <!-- Plurals -->
     <plurals name="plan_target_sets">
@@ -236,6 +298,18 @@
     <plurals name="plan_day_exercise_count">
         <item quantity="one">%1$d exercise</item>
         <item quantity="other">%1$d exercises</item>
+    </plurals>
+    <plurals name="schedule_every_days">
+        <item quantity="one">every %1$d day</item>
+        <item quantity="other">every %1$d days</item>
+    </plurals>
+    <plurals name="schedule_preview_count">
+        <item quantity="one">%1$d workout will be planned.</item>
+        <item quantity="other">%1$d workouts will be planned.</item>
+    </plurals>
+    <plurals name="schedule_selected_days">
+        <item quantity="one">%1$d day picked</item>
+        <item quantity="other">%1$d days picked</item>
     </plurals>
 
     <!-- Accessibility -->

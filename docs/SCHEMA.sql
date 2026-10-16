@@ -1,18 +1,19 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 3 (2026-10-16)
+-- Wersja: 4 (2026-10-16)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
 --  * v2 (M1): exercises + exercises_fts + indeksy                  [WDROZONE]
 --  * v3 (M2): plans, plan_days, plan_day_exercises, sessions,
 --             session_exercises                                   [WDROZONE]
+--  * v4 (M3): recurrences, scheduled_sessions                      [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
 --
--- Uwaga dla wersji 1-3: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- Uwaga dla wersji 1-4: DDL ponizszy dla tabel [WDROZONE] jest przepisany
 -- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
 -- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
 -- "Migration didn't properly handle ...".
@@ -171,21 +172,23 @@ CREATE INDEX idx_pde_exercise ON plan_day_exercises(exercise_id);
 -- 4. HARMONOGRAM (kalendarz)                                              [M3]
 --    Regula ("co ile dni") -> jednorazowe rozwiniecie do scheduled_sessions.
 --    Dzieki temu zapytania kalendarza sa trywialne, a zmiana reguly = przeliczenie.
---    W M2 mamy tylko podpowiedz: plan_days.day_of_week z seeda.
+--
+--    Horyzont planowania: 20 tygodni w przod (ScheduleLimits.MAX_WEEKS_AHEAD).
+--    Rotacja dni A/B/C nie ma wlasnej kolumny: rotate = (plan_day_id IS NULL);
+--    taka regula przechodzi po plan_days w kolejnosci position.
 -- -----------------------------------------------------------------------------
 CREATE TABLE recurrences (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     plan_id        INTEGER REFERENCES plans(id) ON DELETE CASCADE,
     plan_day_id    INTEGER REFERENCES plan_days(id) ON DELETE CASCADE,
-    rotate_days    INTEGER NOT NULL DEFAULT 1,  -- 1 = ten sam dzien; 0 = rotacja po plan_days
     start_date     TEXT NOT NULL,               -- 'YYYY-MM-DD'
-    end_date       TEXT,                        -- NULL = bezterminowo
-    interval_days  INTEGER NOT NULL DEFAULT 1 CHECK (interval_days >= 1),  -- "co ile dni"
-    weekdays_mask  INTEGER,                     -- bitmaska bit0=pon; NULL = bez ograniczen
-    skip_dates     TEXT,                        -- JSON ["2026-11-01"]
-    is_active      INTEGER NOT NULL DEFAULT 1,
+    end_date       TEXT,                        -- NULL = do horyzontu (dzis + 20 tyg.)
+    interval_days  INTEGER NOT NULL,            -- "co ile dni" (>= 1 pilnuje domena)
+    weekdays_mask  INTEGER,                     -- bitmaska bit0=pon; NULL = kazdy dzien
     created_at     INTEGER NOT NULL
 );
+CREATE INDEX idx_recurrences_plan ON recurrences(plan_id);
+CREATE INDEX idx_recurrences_day  ON recurrences(plan_day_id);
 
 CREATE TABLE scheduled_sessions (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,19 +196,20 @@ CREATE TABLE scheduled_sessions (
     plan_id       INTEGER REFERENCES plans(id) ON DELETE SET NULL,
     plan_day_id   INTEGER REFERENCES plan_days(id) ON DELETE SET NULL,
     recurrence_id INTEGER REFERENCES recurrences(id) ON DELETE SET NULL,
-    title         TEXT,
-    status        TEXT NOT NULL DEFAULT 'planned'
-                  CHECK (status IN ('planned','done','skipped','moved')),
-    session_id    INTEGER,                      -- realizacja (FK dopisane po utworzeniu sessions)
-    moved_to      TEXT,
+    title         TEXT NOT NULL,                -- snapshot nazwy dnia z chwili planowania
+    status        TEXT NOT NULL,                -- 'planned' | 'done' | 'skipped'
+    session_id    INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
     created_at    INTEGER NOT NULL
 );
-CREATE INDEX idx_sched_date   ON scheduled_sessions(date);
-CREATE INDEX idx_sched_status ON scheduled_sessions(status, date);
-CREATE INDEX idx_sched_rec    ON scheduled_sessions(recurrence_id);
--- Jedna zaplanowana sesja danego dnia planu na dany dzien:
-CREATE UNIQUE INDEX idx_sched_uniq ON scheduled_sessions(date, plan_day_id)
-    WHERE plan_day_id IS NOT NULL;
+-- Jedna sesja danego dnia planu na dany dzien; INSERT OR IGNORE = idempotencja.
+-- Bez WHERE: SQLite traktuje NULL jako rozne wartosci, wiec wpisy bez dnia planu
+-- (po usunieciu planu) nie koliduja ze soba i nie gina.
+CREATE UNIQUE INDEX idx_sched_uniq ON scheduled_sessions(date, plan_day_id);
+CREATE INDEX idx_sched_date_status ON scheduled_sessions(date, status);
+CREATE INDEX idx_sched_plan        ON scheduled_sessions(plan_id);
+CREATE INDEX idx_sched_day         ON scheduled_sessions(plan_day_id);
+CREATE INDEX idx_sched_recurrence  ON scheduled_sessions(recurrence_id);
+CREATE INDEX idx_sched_session     ON scheduled_sessions(session_id);
 
 -- -----------------------------------------------------------------------------
 -- 5. TRENING (realizacja) + TIMERY

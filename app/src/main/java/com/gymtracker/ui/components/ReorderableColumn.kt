@@ -48,6 +48,8 @@ fun ReorderableColumn(
     onMove: (fromIndex: Int, toIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    /** Treść pod listą - nie bierze udziału w przeciąganiu (np. harmonogram planu). */
+    footer: (@Composable () -> Unit)? = null,
     itemContent: @Composable (index: Int) -> Unit,
 ) {
     var draggedIndex by remember { mutableIntStateOf(NO_DRAG) }
@@ -129,6 +131,8 @@ fun ReorderableColumn(
                 itemContent(index)
             }
         }
+
+        footer?.invoke()
     }
 }
 

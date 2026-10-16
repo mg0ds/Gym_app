@@ -28,7 +28,8 @@ import com.gymtracker.R
 import com.gymtracker.ui.exercises.ExerciseDetailScreen
 import com.gymtracker.ui.exercises.ExerciseEditScreen
 import com.gymtracker.ui.exercises.ExerciseListScreen
-import com.gymtracker.ui.home.HomeScreen
+import com.gymtracker.ui.calendar.CalendarScreen
+import com.gymtracker.ui.calendar.ScheduleFormScreen
 import com.gymtracker.ui.plans.ExercisePickerScreen
 import com.gymtracker.ui.plans.PlanDayScreen
 import com.gymtracker.ui.plans.PlanDetailScreen
@@ -66,10 +67,8 @@ fun GymTrackerNavHost(
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.HOME) {
-                HomeScreen(
-                    onOpenExercises = { navController.navigateToTopLevel(Routes.EXERCISES) },
+                CalendarScreen(
                     onOpenPlans = { navController.navigate(Routes.PLANS) },
-                    onOpenSettings = { navController.navigateToTopLevel(Routes.SETTINGS) },
                     onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
                 )
             }
@@ -131,10 +130,27 @@ fun GymTrackerNavHost(
                 PlanDetailScreen(
                     onBack = { navController.popBackStack() },
                     onOpenDay = { dayId -> navController.navigate(Routes.planDay(dayId)) },
+                    onStartSchedule = { planId -> navController.navigate(Routes.planSchedule(planId)) },
+                    onEditSchedule = { planId, recurrenceId ->
+                        navController.navigate(Routes.planScheduleEdit(planId, recurrenceId))
+                    },
                     onSessionStarted = { sessionId ->
                         navController.navigate(Routes.session(sessionId))
                     },
                 )
+            }
+
+            composable(
+                route = Routes.PLAN_SCHEDULE,
+                arguments = listOf(
+                    navArgument(Routes.ARG_PLAN_ID) { type = NavType.LongType },
+                    navArgument(Routes.ARG_RECURRENCE_ID) {
+                        type = NavType.LongType
+                        defaultValue = Routes.NO_ID
+                    },
+                ),
+            ) {
+                ScheduleFormScreen(onBack = { navController.popBackStack() })
             }
 
             composable(
@@ -202,7 +218,7 @@ private enum class BottomDestination(
     val icon: ImageVector,
     @StringRes val labelRes: Int,
 ) {
-    TODAY(Routes.HOME, Icons.Filled.DateRange, R.string.nav_today),
+    TODAY(Routes.HOME, Icons.Filled.DateRange, R.string.nav_calendar),
     EXERCISES(Routes.EXERCISES, Icons.Filled.List, R.string.nav_exercises),
     SETTINGS(Routes.SETTINGS, Icons.Filled.Settings, R.string.nav_settings),
 }

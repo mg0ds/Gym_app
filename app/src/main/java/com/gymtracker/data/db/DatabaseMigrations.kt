@@ -203,5 +203,85 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * M3: kalendarz.
+     *
+     * Dodaje `recurrences` (przepis: co ile dni, od/do, dni tygodnia) i
+     * `scheduled_sessions` (rozplanowane wpisy). Reguła jest kasowana razem
+     * z planem/dniem (CASCADE), ale wpisy zostają: po usunięciu planu tracą
+     * tylko wskazanie (`SET NULL`) i dalej są śladem w kalendarzu.
+     */
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `recurrences` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`plan_id` INTEGER, " +
+                    "`plan_day_id` INTEGER, " +
+                    "`start_date` TEXT NOT NULL, " +
+                    "`end_date` TEXT, " +
+                    "`interval_days` INTEGER NOT NULL, " +
+                    "`weekdays_mask` INTEGER, " +
+                    "`created_at` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`plan_id`) REFERENCES `plans`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                    "FOREIGN KEY(`plan_day_id`) REFERENCES `plan_days`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_recurrences_plan` " +
+                    "ON `recurrences` (`plan_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_recurrences_day` " +
+                    "ON `recurrences` (`plan_day_id`)",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `scheduled_sessions` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`date` TEXT NOT NULL, " +
+                    "`plan_id` INTEGER, " +
+                    "`plan_day_id` INTEGER, " +
+                    "`recurrence_id` INTEGER, " +
+                    "`title` TEXT NOT NULL, " +
+                    "`status` TEXT NOT NULL, " +
+                    "`session_id` INTEGER, " +
+                    "`created_at` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`plan_id`) REFERENCES `plans`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL , " +
+                    "FOREIGN KEY(`plan_day_id`) REFERENCES `plan_days`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL , " +
+                    "FOREIGN KEY(`recurrence_id`) REFERENCES `recurrences`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL , " +
+                    "FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL )",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `idx_sched_uniq` " +
+                    "ON `scheduled_sessions` (`date`, `plan_day_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_sched_date_status` " +
+                    "ON `scheduled_sessions` (`date`, `status`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_sched_plan` " +
+                    "ON `scheduled_sessions` (`plan_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_sched_day` " +
+                    "ON `scheduled_sessions` (`plan_day_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_sched_recurrence` " +
+                    "ON `scheduled_sessions` (`recurrence_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_sched_session` " +
+                    "ON `scheduled_sessions` (`session_id`)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }

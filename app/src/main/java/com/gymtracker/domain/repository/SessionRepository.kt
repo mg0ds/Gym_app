@@ -18,6 +18,13 @@ interface SessionRepository {
      */
     suspend fun startFromPlanDay(planDayId: Long): Long?
 
+    /**
+     * Rozpoczyna trening z wpisu w kalendarzu i wiąże wpis z sesją. Gdy plan
+     * (albo dzień) już nie istnieje, powstaje sesja bez ćwiczeń, ale z nazwą
+     * wpisu - zaplanowany dzień nie może stać się nierozpoczynalny.
+     */
+    suspend fun startFromSchedule(scheduledId: Long): Long?
+
     suspend fun finishSession(sessionId: Long)
 
     /** Przerywa trening bez zapisywania go jako odbytego. */

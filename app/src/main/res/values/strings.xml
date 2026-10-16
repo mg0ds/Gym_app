@@ -3,21 +3,13 @@
     <string name="app_name">GymTracker</string>
 
     <!-- Nawigacja -->
-    <string name="nav_today">Dziś</string>
+    <string name="nav_calendar">Kalendarz</string>
     <string name="nav_exercises">Ćwiczenia</string>
     <string name="nav_settings">Ustawienia</string>
 
-    <!-- Ekran startowy -->
-    <string name="home_title">Dziś</string>
-    <string name="home_subtitle">Twój plan i dzisiejszy trening</string>
-    <string name="home_ready_title">Katalog ćwiczeń gotowy</string>
-    <string name="home_ready_body">Katalog ćwiczeń i plany treningowe gotowe. Trening z planu możesz rozpocząć z ekranu planu. Kalendarz i zapisywanie serii są w kolejnych krokach.</string>
-    <string name="home_version">Wersja %1$s</string>
-    <string name="home_open_exercises">Otwórz katalog ćwiczeń</string>
-    <string name="home_open_plans">Otwórz plany treningowe</string>
-    <string name="home_open_settings">Otwórz ustawienia</string>
-    <string name="home_active_session_title">Masz rozpoczęty trening</string>
-    <string name="home_active_session_resume">Kontynuuj trening</string>
+    <!-- Trwający trening (karta na kalendarzu) -->
+    <string name="calendar_active_title">Masz rozpoczęty trening</string>
+    <string name="calendar_active_resume">Kontynuuj trening</string>
 
     <!-- Wspólne -->
     <string name="action_save">Zapisz</string>
@@ -213,6 +205,69 @@
     <string name="plan_pick_exercise_title">Dodaj ćwiczenie</string>
     <string name="plan_pick_alternative_title">Dodaj alternatywę</string>
 
+    <!-- Harmonogram planu -->
+    <string name="plan_schedule_title">Harmonogram</string>
+    <string name="plan_schedule_empty">Ten plan nie ma jeszcze harmonogramu.</string>
+    <string name="plan_schedule_action">Zaplanuj treningi</string>
+    <string name="plan_schedule_edit">Zmień harmonogram</string>
+    <string name="plan_schedule_delete">Usuń harmonogram</string>
+    <string name="plan_schedule_delete_confirm">Usunąć ten harmonogram? Zaplanowane dni znikną z kalendarza, a odbyte i pominięte zostaną jako historia.</string>
+
+    <!-- Kalendarz -->
+    <string name="calendar_title">Kalendarz</string>
+    <string name="calendar_today">Dziś</string>
+    <string name="calendar_previous_month">Poprzedni miesiąc</string>
+    <string name="calendar_next_month">Następny miesiąc</string>
+    <string name="calendar_selected_day">%1$s, %2$s</string>
+    <string name="calendar_day_empty">Nic nie zaplanowano na ten dzień.</string>
+    <string name="calendar_plan_workout">Zaplanuj trening</string>
+    <string name="calendar_entry_actions">Działania dla tego dnia</string>
+
+    <!-- Wpisy w kalendarzu -->
+    <string name="schedule_start">Rozpocznij trening</string>
+    <string name="schedule_mark_done">Oznacz jako odbyty</string>
+    <string name="schedule_mark_skipped">Pomiń</string>
+    <string name="schedule_move">Przenieś na inny dzień</string>
+    <string name="schedule_remove">Usuń z kalendarza</string>
+    <string name="schedule_restore">Przywróć jako zaplanowany</string>
+    <string name="schedule_open_session">Otwórz trening</string>
+    <string name="schedule_status_planned">zaplanowany</string>
+    <string name="schedule_status_done">odbyty</string>
+    <string name="schedule_status_skipped">pominięty</string>
+    <string name="schedule_from_recurrence">z reguły</string>
+
+    <!-- Harmonogram: podsumowanie i formularz -->
+    <string name="schedule_every_day">codziennie</string>
+    <string name="schedule_range">od %1$s do %2$s</string>
+    <string name="schedule_range_open">od %1$s przez 20 tygodni</string>
+    <string name="schedule_rotates_days">rotacja dni planu</string>
+    <string name="schedule_form_title">Zaplanuj treningi</string>
+    <string name="schedule_form_title_edit">Zmień harmonogram</string>
+    <string name="schedule_mode_rule">Reguła powtarzania</string>
+    <string name="schedule_mode_dates">Wybrane dni</string>
+    <string name="schedule_field_days">Dzień treningu</string>
+    <string name="schedule_rotate_option">Rotacja dni planu</string>
+    <string name="schedule_rotate_hint">Rotacja: %1$s</string>
+    <string name="schedule_field_start">Data od</string>
+    <string name="schedule_field_end">Data do</string>
+    <string name="schedule_field_end_optional">data do (opcjonalnie)</string>
+    <string name="schedule_field_end_none">bez daty końcowej</string>
+    <string name="schedule_field_interval">Co ile dni</string>
+    <string name="schedule_field_weekdays">Dni tygodnia (opcjonalnie)</string>
+    <string name="schedule_weekdays_from_plan">Podpowiedź z planu: %1$s</string>
+    <string name="schedule_preview_title">Podgląd</string>
+    <string name="schedule_preview_empty">Brak dat do zaplanowania.</string>
+    <string name="schedule_preview_more">…i jeszcze %1$d</string>
+    <string name="schedule_horizon_hint">Planujemy najwyżej 20 tygodni w przód, do %1$s.</string>
+    <string name="schedule_pick_dates_hint">Dotknij dni w kalendarzu. Możesz wybrać kilka.</string>
+    <string name="schedule_clear">Wyczyść</string>
+    <string name="schedule_error_start_beyond_horizon">Data od jest za daleko - planujemy najwyżej 20 tygodni w przód.</string>
+    <string name="schedule_error_end_before_start">Data do jest przed datą od.</string>
+    <string name="schedule_error_end_beyond_horizon">Data do jest za daleko - planujemy najwyżej 20 tygodni w przód.</string>
+    <string name="schedule_error_interval_too_small">Odstęp to co najmniej 1 dzień.</string>
+    <string name="schedule_error_interval_invalid">Podaj liczbę dni.</string>
+    <string name="schedule_error_no_plan_day">Ten plan nie ma jeszcze dni.</string>
+
     <!-- Trening -->
     <string name="session_finish">Zakończ trening</string>
     <string name="session_cancel">Przerwij trening</string>
@@ -231,6 +286,13 @@
     <string name="weekday_friday">Piątek</string>
     <string name="weekday_saturday">Sobota</string>
     <string name="weekday_sunday">Niedziela</string>
+    <string name="weekday_short_monday">pon.</string>
+    <string name="weekday_short_tuesday">wt.</string>
+    <string name="weekday_short_wednesday">śr.</string>
+    <string name="weekday_short_thursday">czw.</string>
+    <string name="weekday_short_friday">pt.</string>
+    <string name="weekday_short_saturday">sob.</string>
+    <string name="weekday_short_sunday">nd.</string>
 
     <!-- Liczby mnogie -->
     <plurals name="plan_target_sets">
@@ -244,6 +306,24 @@
         <item quantity="few">%1$d ćwiczenia</item>
         <item quantity="many">%1$d ćwiczeń</item>
         <item quantity="other">%1$d ćwiczeń</item>
+    </plurals>
+    <plurals name="schedule_every_days">
+        <item quantity="one">co %1$d dzień</item>
+        <item quantity="few">co %1$d dni</item>
+        <item quantity="many">co %1$d dni</item>
+        <item quantity="other">co %1$d dni</item>
+    </plurals>
+    <plurals name="schedule_preview_count">
+        <item quantity="one">Zostanie zaplanowany %1$d trening.</item>
+        <item quantity="few">Zostaną zaplanowane %1$d treningi.</item>
+        <item quantity="many">Zostanie zaplanowanych %1$d treningów.</item>
+        <item quantity="other">Zostanie zaplanowanych %1$d treningów.</item>
+    </plurals>
+    <plurals name="schedule_selected_days">
+        <item quantity="one">Wybrany %1$d dzień</item>
+        <item quantity="few">Wybrane %1$d dni</item>
+        <item quantity="many">Wybranych %1$d dni</item>
+        <item quantity="other">Wybranych %1$d dni</item>
     </plurals>
 
     <!-- Dostępność -->

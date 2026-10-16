@@ -69,7 +69,7 @@ treningowy z `data/seed/` (patrz §7).
 | Baza | Room + SQLite | Typowane zapytania, migracje, `Flow`. SQLite FTS4 (`unicode61`) do wyszukiwania ćwiczeń — działa też bez polskich ogonków. |
 | Preferencje | DataStore (Preferences) | Zamiast `SharedPreferences`. |
 | Async | Coroutines + Flow | — |
-| Daty | `kotlinx-datetime` | `LocalDate` bez pułapek stref czasowych. |
+| Daty | `java.time` (`LocalDate`, `YearMonth`, `DayOfWeek`) | Dostępne od API 26 (nasze `minSdk`), zero dodatkowych zależności, działa w testach JVM i Robolectric. **Odstąpiliśmy od `kotlinx-datetime`** — uzasadnienie w §8.1. |
 | Nawigacja | Navigation Compose (type-safe routes) | — |
 | Wykresy | **Vico** (Compose-native) | Alternatywa: MPAndroidChart (View, owijka) — cięższy i starszy. |
 | JSON | `kotlinx.serialization` | Import seedów, backup. |
@@ -186,8 +186,8 @@ metric_types 1─* body_entries          (karta postaci)
    sesji wybiera jedną, reszta jest oznaczana jako pominięta.
 4. **Reguła „co ile dni”** rozwijana do konkretnych dat (`scheduled_sessions`).
    Zaleta: kalendarz to jedno proste zapytanie po `date`, bez liczenia reguł przy
-   każdym renderze. Wada: przy „bezterminowo co 3 dni” trzeba rozwinąć horyzont
-   (np. +12 miesięcy) i dosypywać przy przewijaniu — patrz §6.1.
+   każdym renderze. Wada: trzeba rozwinąć horyzont i dosypywać go w miarę upływu
+   dni — horyzont to **20 tygodni** (§6.1).
 5. **Przerwy jako osobna tabela** (`rest_intervals`) — tylko ona daje sensowne
    „średnia przerwa dla ćwiczenia” (rozróżniamy przerwy dokończone od przerwanych).
 6. **Media w plikach, nie w bazie.** W bazie ścieżki. Zdjęcie 5 MB w BLOB-ie
@@ -217,16 +217,36 @@ metric_types 1─* body_entries          (karta postaci)
     Kaskady z `plan_day_exercises` i `session_exercises` są potrzebne (usunięcie
     planu ma posprzątać po sobie), ale przy ćwiczeniu oznaczałyby utratę historii
     treningów — dlatego „usuń z katalogu” to zmiana flagi (M2, szczegóły §6.11).
+13. **Wpis w kalendarzu to kopia, nie referencja.** `scheduled_sessions.title`
+    zapisuje nazwę dnia z chwili planowania, więc kalendarz zostaje czytelny po
+    zmianie nazwy dnia i po usunięciu planu. Usunięcie planu kasuje reguły
+    (`CASCADE`), ale wpisy tylko tracą wskazanie (`SET NULL`) — historia i plan
+    na najbliższe dni nie mogą zniknąć przez porządek w planach (M3).
+14. **Rotacja wynika z `plan_day_id IS NULL`,** nie z osobnej kolumny: reguła
+    bez wybranego dnia rotuje po dniach planu w kolejności `position`, a reguła
+    z dniem zawsze trafia w ten dzień. Jedna informacja, jeden stan (M3).
+15. **Statusy wpisu tylko `planned` / `done` / `skipped`.** Przeniesienie to
+    zmiana `date` tego samego wiersza, a nie nowy wiersz ze statusem „moved” —
+    inaczej „gdzie jest mój trening” trzeba by składać z dwóch rekordów (M3).
+16. **`UNIQUE(date, plan_day_id)`, bez `WHERE`.** Room nie obsługuje częściowych
+    indeksów, a SQLite traktuje `NULL` jako różne wartości — dzięki temu wpisy
+    bez dnia planu (po jego usunięciu) nie kolidują ze sobą, a powtórzone
+    planowanie jest idempotentne przez `INSERT OR IGNORE` (M3).
 
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
 * Migracje pisane ręcznie + test `MigrationTestHelper` (żadnego `fallbackToDestructiveMigration` w produkcji).
 * Test: migracja z v1 → vN na kopii bazy z danymi.
-* Stan: **v3** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
-  ćwiczenia dnia i sesje). `SchemaMigrationTest` przechodzi całą drogę 1 → 3,
-  a migracja 2 → 3 została sprawdzona także na urządzeniu z bazą z M1 (24
-  ćwiczenia, w tym własne, zostały na miejscu).
+* Stan: **v4** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
+  ćwiczenia dnia i sesje, v4 → reguły harmonogramu i wpisy w kalendarzu).
+  `SchemaMigrationTest` przechodzi całą drogę 1 → 4, a migracje sprawdzamy także
+  na urządzeniu z bazą z poprzedniego etapu (2 → 3: 24 ćwiczenia, w tym własne,
+  zostały na miejscu; 3 → 4: plany, sesje i historia bez zmian).
+* Migracje v4 dodają dwie tabele (`recurrences`, `scheduled_sessions`) i trzy
+  indeksy; nie zmieniają istniejących kolumn, więc dane z M2 przechodzą bez
+  przepisywania. `MigrationTestHelper` porównuje wynikowy schemat z plikiem
+  `app/schemas/…/4.json`, więc rozjazd SQL-u wychwyci test, nie użytkownik.
 
 ---
 
@@ -267,19 +287,21 @@ Ustawienia
  └─ O aplikacji, licencje
 ```
 
-**Co z tego istnieje po M2** (stan faktyczny, trasy z `Routes.kt`):
+**Co z tego istnieje po M3** (stan faktyczny, trasy z `Routes.kt`):
 
 ```
-Dziś (home)                      ← dolny pasek
+Kalendarz (home)                 ← dolny pasek
  ├─ karta „Kontynuuj trening” (gdy jest aktywna sesja) → session/{id}
- ├─ Otwórz plany treningowe → plans
- ├─ Otwórz katalog ćwiczeń → exercises
- └─ Otwórz ustawienia → settings
+ ├─ akcja „Dziś” w nagłówku (powrót do bieżącego miesiąca)
+ └─ dotknięcie wpisu: start / podgląd → session/{id}
 Ćwiczenia (exercises)            ← dolny pasek
  ├─ exercise/new, exercise/{id}, exercise/{id}/edit
  └─ akcja „plany” w nagłówku → plans
 Plany (plans)                    ← bez dolnego paska
  └─ plan/{planId}
+      ├─ sekcja „Harmonogram”:
+      │    ├─ plan/{planId}/schedule?recurrenceId=0     (nowa reguła albo wybrane dni)
+      │    └─ plan/{planId}/schedule?recurrenceId={id}  (zmiana istniejącej reguły)
       └─ planDay/{dayId}
            ├─ planDay/{dayId}/pickExercise                   (dodanie ćwiczenia)
            └─ planDay/{dayId}/pickExercise?anchorId={planExerciseId}  (alternatywa)
@@ -288,8 +310,10 @@ Ustawienia (settings)            ← dolny pasek
 ```
 
 Dolny pasek pokazuje się tylko na trasach najwyższego poziomu
-(`Routes.topLevel`); ekrany ćwiczeń, planów i treningu są „pełnoekranowe”, żeby nie
-kusiło wyjście z planu w połowie jego układania.
+(`Routes.topLevel`: Kalendarz / Ćwiczenia / Ustawienia); ekrany ćwiczeń, planów,
+harmonogramu i treningu są „pełnoekranowe”, żeby nie kusiło wyjście z formularza
+reguły w połowie jej układania. Argumenty opcjonalne trasy mają wartość
+`Routes.NO_ID` (`0`) — `recurrenceId = 0` znaczy „nowa reguła”.
 
 ### 5.2 Kluczowe ekrany — makiety opisowe
 
@@ -305,6 +329,31 @@ kusiło wyjście z planu w połowie jego układania.
 └───────────────────────────────────────────┘
 Legenda: ● zrobiony  ○ zaplanowany  ✕ pominięty  ⟳ z reguły cyklicznej
 ```
+
+**Formularz harmonogramu (M3)**
+```
+┌───────────────────────────────────────────┐
+│ ‹  Zaplanuj treningi            [Zapisz]  │
+├───────────────────────────────────────────┤
+│ [Reguła powtarzania] [Wybrane dni]        │
+│ Dni planu:                                │
+│  (Rotacja A → B → C)  (A)  (B)  (C)       │
+│ Data od:    czw., 1 paź.                  │
+│ Data do:    sob., 31 gru.          [✕]    │
+│ Co ile dni: [3]                           │
+│ Dni tygodnia: (pn.) (wt.) (śr.) (czw.) …  │
+│ ┌ Podgląd ──────────────────────────────┐ │
+│ │ 31 treningów                          │ │
+│ │ czw., 1 paź.    Workout A             │ │
+│ │ niedz., 4 paź.  Workout B             │ │
+│ │ …                                     │ │
+│ └───────────────────────────────────────┘ │
+│ Planowanie tylko do 27.02.2027.           │
+└───────────────────────────────────────────┘
+```
+Tryb „Wybrane dni” zamienia regułę na siatkę miesiąca z wielokrotnym wyborem
+(poza oknem 20 tygodni dni są nieaktywne), a rotacja działa tak samo — daty
+dostają kolejne dni planu w kolejności chronologicznej.
 
 **Sesja treningowa (live)**
 ```
@@ -341,47 +390,85 @@ Legenda: ● zrobiony  ○ zaplanowany  ✕ pominięty  ⟳ z reguły cyklicznej
 
 ### 6.1 Kalendarz i generator harmonogramu
 
-**Wejście użytkownika:** tryb „konkretne dni” (multi-select na kalendarzu) albo
-„reguła cykliczna”: `data od`, `data do` (opcjonalna), `co ile dni`, opcjonalnie
-dni tygodnia, opcjonalnie rotacja dni planu (A → B → C → A…).
+**Wejście użytkownika:** tryb „wybrane dni” (multi-select na siatce miesiąca)
+albo „reguła powtarzania”: `data od`, `data do` (opcjonalna), `co ile dni`,
+opcjonalnie dni tygodnia, opcjonalnie rotacja dni planu (A → B → C → A…).
 
-**Algorytm rozwijania reguły:**
+**Horyzont planowania: 20 tygodni w przód.** Data od i data do muszą mieścić się
+w oknie `[dziś, dziś + 20 tygodni]` — bez planowania bezterminowego i bez
+planowania w przeszłość. Daty wybieramy z `DatePicker` z zawężonym zakresem
+(`SelectableDates`), a `RecurrenceExpander.validate` pilnuje tego samego po
+stronie domeny. Horyzont przesuwa się razem z „dziś”, więc przy wejściu
+w kalendarz `refreshHorizon()` **dosypuje wpisy tylko w przód** (od `MAX(date)`
+danej reguły do nowego horyzontu) — nie odtwarza tego, co użytkownik przeniósł
+albo pominął.
+
+**Algorytm rozwijania reguły** (czysta funkcja z jawnym „dziś” — testuje się bez
+bazy i bez zegara; daty w `java.time.LocalDate`, więc dzień nie ma godziny
+i zmiana czasu go nie przesuwa):
 
 ```kotlin
-class RecurrenceExpander(private val clock: Clock) {
+object RecurrenceExpander {
 
-    fun expand(rule: Recurrence, horizonMonths: Int = 12): List<LocalDate> {
-        require(rule.intervalDays >= 1) { "co ile dni >= 1" }
-        val horizon = rule.endDate
-            ?: clock.today().plus(horizonMonths, DateTimeUnit.MONTH)
-        val dates = mutableListOf<LocalDate>()
-        var date = rule.startDate
-        while (date <= horizon && dates.size < MAX_ENTRIES) {          // zabezpieczenie
-            if (date.allowedBy(rule)) dates += date                    // weekdays_mask + skip_dates
-            date = date.plus(rule.intervalDays, DateTimeUnit.DAY)      // zawsze w dniach kalendarzowych
+    fun horizon(today: LocalDate, endDate: LocalDate?): LocalDate {
+        val limit = ScheduleLimits.horizonEnd(today)      // dziś + 20 tygodni
+        return if (endDate == null || endDate.isAfter(limit)) limit else endDate
+    }
+
+    fun dates(draft: RecurrenceDraft, today: LocalDate): List<LocalDate> {
+        val end = horizon(today, draft.endDate)
+        val step = draft.intervalDays.coerceAtLeast(1)
+        val first = maxOf(draft.startDate, today)          // nie planujemy w przeszłość
+        if (first.isAfter(end)) return emptyList()
+        val result = mutableListOf<LocalDate>()
+        var date = first
+        var offset = ChronoUnit.DAYS.between(draft.startDate, first)  // rytm od pierwotnego startu
+        while (!date.isAfter(end)) {
+            val onInterval = offset % step == 0L
+            val allowedDay = draft.weekdays.isEmpty() || date.dayOfWeek in draft.weekdays
+            if (onInterval && allowedDay) result += date
+            date = date.plusDays(1)
+            offset++
         }
-        return dates
+        return result
     }
 }
 ```
 
-**Reguły i przypadki brzegowe (wymagają testów!):**
+Przypisanie dat do dni robi `assignDays(dates, days, startIndex)`: pierwsza data
+dostaje pierwszy dzień, druga drugi, po wyczerpaniu listy wracamy do początku.
+Jednoelementowa lista = zawsze ten sam dzień; `startIndex` pozwala kontynuować
+rotację po dosypaniu horyzontu.
+
+**Reguły i przypadki brzegowe (pokryte testami):**
 
 | Przypadek | Zachowanie |
 |---|---|
-| `data do` < `data od` | walidacja formularza, blokada zapisu |
-| `co ile dni = 0` / ujemne | walidacja: minimum 1 |
-| Rotacja A→B→C przy 3 dniach planu | `plan_day_id` wybierany jako `planDays[(index) % planDays.size]` |
-| Zmiana czasu (DST) | liczymy **dni kalendarzowe** (`LocalDate.plus(1, DAY)`), nie sekundy → brak przeskoków |
-| Dni pominięte (`skip_dates`) | użytkownik może wykluczyć np. święta; wpis nie jest tworzony |
-| Termin „bez końca” | rozwijamy horyzont (12 mies.) + dosypywanie przy przewijaniu kalendarza do przodu |
-| Kolizja z istniejącym wpisem | `INSERT OR IGNORE` na unikalnym indeksie `(date, plan_day_id)` |
-| Usunięcie planu | kaskada do `plan_days` i `plan_day_exercises`; już rozplanowane daty zostają (status „zaplanowany”, bez planu → „Wolny trening”) |
-| Edycja reguły | przeliczamy: usuwamy wpisy `status='planned'` z `recurrence_id`, zostawiamy `done`/`skipped` (historia!) |
+| `data do` < `data od` | walidacja formularza, blokada zapisu (`END_BEFORE_START`) |
+| `data od` / `data do` poza horyzontem | walidacja: `START_BEYOND_HORIZON` / `END_BEYOND_HORIZON` |
+| `co ile dni = 0` / ujemne | walidacja: minimum 1 (`INTERVAL_TOO_SMALL`) |
+| `data do` puste | horyzont = `dziś + 20 tygodni` |
+| `data od` w przeszłości (edycja starej reguły) | nie błąd: daty sprzed „dziś” są pomijane, a rytm „co N dni” liczy się dalej od pierwotnego startu |
+| Rotacja A→B→C przy 3 dniach planu | `planDayId = planDays[(startIndex + index) % planDays.size]` |
+| Wybrany konkretny dzień | lista dni zwija się do jednego, więc rotacja zawsze trafia w ten dzień |
+| Zmiana czasu (DST) | liczymy dni kalendarzowe (`LocalDate.plusDays`), nie sekundy → brak przeskoków i dubli (test na 29.03.2026) |
+| Brak dni w planie | walidacja `NO_PLAN_DAY`, nie ma czego rozplanować |
+| Kolizja z istniejącym wpisem | `INSERT OR IGNORE` na unikalnym indeksie `(date, plan_day_id)` — istniejący wpis (np. odbyty) wygrywa |
+| Ten sam formularz zapisany dwa razy | `findIdentical` znajduje regułę o tych samych parametrach i **prelicza ją**, zamiast dokładać drugą |
+| Edycja reguły | usuwamy wpisy `status='planned'`, zmieniamy regułę; `done`/`skipped` zostają jako historia (`recurrence_id → NULL`) |
+| Usunięcie reguły | to samo, bez tworzenia nowej reguły |
+| Usunięcie planu | kaskada: reguły znikają, wpisy zostają bez wskazania (`SET NULL`) i da się je nadal rozpocząć („wolny trening” z nazwą dnia) |
 
-**Oznaczanie wykonania:** realizacja sesji (`sessions`) tworzy powiązanie
-`scheduled_sessions.session_id` + `status='done'`. Trening „na dziko” (bez planu)
-też jest dozwolony — tworzy sesję bez `scheduled_session_id`.
+**Statusy wpisu:** `planned` (zaplanowany), `done` (odbyty, ręcznie albo po
+zakończeniu sesji), `skipped` (pominięty). Nie ma osobnego statusu
+„przeniesiony” — przeniesienie to zmiana `date` tego samego wiersza.
+
+**Oznaczanie wykonania:** start treningu z wpisu wiąże go z sesją
+(`scheduled_sessions.session_id`), a **zakończenie** treningu odhacza wpis jako
+`done` — w tej samej transakcji co zamknięcie sesji, żeby nie dało się zakończyć
+treningu i nie odhaczyć dnia. Przerwany trening wpisu nie odhacza. Trening bez
+planu też jest dozwolony (sesja bez ćwiczeń, z nazwą wpisu).
+
 
 ### 6.2 Timer całego treningu
 
@@ -941,30 +1028,108 @@ kombinację dni i **rozpoczynam z niej trening**.
 * źródło planu (`source_url`) i media → M7 (nie mamy jeszcze ekranu, na którym
   miałyby się pokazać).
 
+**M3 ✔ (kalendarz + harmonogram)** — kryterium działa: cykl „co 3 dni, od 1.10 do
+31.12, rotacja A/B/C” generuje poprawne daty (31 wpisów, ostatni 30.12.2026),
+widać je w podglądzie przed zapisem i w kalendarzu.
+
+* **Baza v4**: `recurrences` (reguła: `start_date`, `end_date`, `interval_days`,
+  `weekdays_mask`, `plan_id`, `plan_day_id`) i `scheduled_sessions` (wpis:
+  `date`, `status`, `title`, `plan_id`, `plan_day_id`, `recurrence_id`,
+  `session_id`) + unikalny indeks `(date, plan_day_id)`; migracja 3 → 4 z testem
+  `SchemaMigrationTest` (cała droga 1 → 4),
+* **Horyzont 20 tygodni** (§6.1): formularz zawęża wybór dat
+  (`SelectableDates`), a domena powtarza walidację (`ScheduleError`). Bez
+  planowania bezterminowego, ale z dosypywaniem w przód, gdy horyzont przesuwa
+  się z upływem dni (`refreshHorizon()` przy wejściu w kalendarz),
+* **`RecurrenceExpander`** — czysta funkcja z jawnym „dziś”: `horizon`, `dates`,
+  `assignDays`, `validate`. Liczy dni kalendarzowe (`java.time.LocalDate`), więc
+  zmiana czasu nie gubi ani nie dubluje wpisu; daty sprzed „dziś” pomija (rytm
+  „co N dni” liczy dalej od pierwotnego startu), a rotacja wraca do początku po
+  wyczerpaniu dni i umie kontynuować od `startIndex` po dosypaniu horyzontu,
+* **Kalendarz**: siatka miesiąca z nawigacją i akcją „Dziś”, kropki statusu na
+  dniach z wpisami (do trzech, resztę zwija „+n”), legenda, podgląd wybranego
+  dnia z listą wpisów i menu („rozpocznij”, „przenieś” = zmiana daty tego samego
+  wiersza, „oznacz jako odbyty” / „pominięty”, „przywróć do zaplanowanych”,
+  „usuń wpis”). Ekran „Dziś” z M2 **stał się kalendarzem**, a karta
+  „Kontynuuj trening” została na górze,
+* **Formularz harmonogramu** (trasa `plan/{planId}/schedule`): dwa tryby —
+  reguła (data od, data do, co ile dni, dni tygodnia) albo wybrane dni
+  (multi-select na siatce miesiąca); oba z wyborem konkretnego dnia planu albo
+  rotacją i z **podglądem wygenerowanych dat** (z nazwą dnia) przed zapisem,
+* **Start z wpisu**: `startFromSchedule` tworzy sesję z dnia planu (albo bez
+  ćwiczeń, gdy wpis stracił plan) i wiąże wpis z sesją; **zakończenie** treningu
+  odhacza wpis jako `done` w tej samej transakcji, a przerwanie zostawia
+  `planned`,
+* **Harmonogram pod planem**: sekcja „Harmonogram” w szczegółach planu — lista
+  reguł z opisem („co 3 dni • od 1.10.2026 do 31.12.2026 • rotacja dni • pn., śr., pt.”),
+  zmiana i usunięcie z potwierdzeniem. Usunięcie reguły kasuje wpisy `planned`,
+  a `done`/`skipped` zostają jako historia (`recurrence_id → NULL`); powtórny
+  zapis identycznej reguły przelicza istniejącą, zamiast tworzyć drugą,
+* **Teksty PL (domyślne) + EN**; daty i dni tygodnia z zasobów `Locale`
+  (`CalendarFormat`), więc interfejs po angielsku też pokazuje „Mon, 1 Oct”,
+* **testy JVM: 112** (doszły: `RecurrenceExpanderTest` — kryterium M3, dni
+  tygodnia, rotacja, DST, walidacja, pomijanie przeszłości;
+  `CalendarRepositoryTest` — reguły, idempotencja, dosypywanie horyzontu,
+  przenoszenie i statusy wpisów, edycja i usuwanie reguły, start z wpisu,
+  `planDates`; migracja 1 → 4; `CalendarFormatTest` — siatka miesiąca
+  i konwersje dat z `DatePicker`-a). `:app:lintDebug` i `:app:assembleDebug`
+  bez błędów.
+
+Świadome odstępstwa i odroczenia z M3:
+
+* **`java.time` zamiast `kotlinx-datetime`** (§2) — `minSdk 26` ma już
+  `LocalDate`, `YearMonth` i `DayOfWeek`, więc nie dokładamy zależności,
+  a `YearMonth` daje siatkę miesiąca bez ręcznego liczenia dni. Daty w bazie to
+  ISO `YYYY-MM-DD`, więc wymiana biblioteki nie zmienia schematu,
+* **`skip_dates` nie ma** — zamiast wykluczać dni w regule, użytkownik pomija
+  wpis w kalendarzu (`status = 'skipped'`). Dosypywanie w przód nie wskrzesza
+  wpisów pominiętych ani przeniesionych (§6.1),
+* **`is_active` na regule nie ma** — reguła żyje od `start_date` do `end_date`,
+  a „zawieszenie” to zmiana `end_date` albo usunięcie reguły; wpisy, które się
+  odbyły, zostają jako historia,
+* **`moved` jako status nie istnieje** — przeniesienie to zmiana `date` tego
+  samego wiersza (§4.2, punkt 15),
+* **brak widoku tygodnia** — zakres mówi „miesiąc/tydzień”; miesiąc pokrywa
+  kryterium, a tydzień (przegląd jak w dniu planu) dochodzi z historią
+  i statystykami w M6, gdy ma z czego liczyć podsumowania,
+* **brak przypomnień i wpisu w powiadomieniach** — wpisy kalendarza to na razie
+  tylko dane i UI; powiadomienia o treningu → M9,
+* **kalendarz nie ma „+”** — nowe reguły zakłada się z planu („Zaplanuj
+  treningi” w szczegółach planu), bo reguła bez planu nie ma czego planować.
+  Planowanie z poziomu kalendarza można dodać później bez zmiany modelu,
+* **odhaczenie wpisu tylko przy starcie z kalendarza** — trening rozpoczęty
+  z ekranu planu („Rozpocznij” w dniu) nie jest wiązany z wpisem w kalendarzu,
+  więc wpis zostaje „zaplanowany” i użytkownik odhacza go ręcznie. Dopasowanie
+  po samym dniu planu i dacie mogłoby odhaczyć niewłaściwy wpis (ten sam dzień
+  może być rozplanowany kilka razy), a po przeniesieniu wpisu — żaden. Wracamy
+  do tego w M4/M5, gdy znamy faktyczny dzień treningu (logowanie serii),
+* **pominięcie wpisu nie przenosi treningu** — „pominięty” to informacja
+  w historii; kolejny wpis z reguły zostaje na swoim miejscu.
+
 ---
 
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3), kaskady, unikalne indeksy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie | Room in-memory + `runTest` |
-| UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, start i koniec treningu | Compose UI Test + Robolectric (M3+), teraz scenariusze w `docs/QA.md` |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4), kaskady, unikalne indeksy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3) | Room in-memory + `runTest` |
+| UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
 
-Stan na M2: **72 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M3: **112 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
-przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2
-i przy 2 → 3.
+przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
+2 → 3 i 3 → 4.
 
-Weryfikacja na urządzeniu (emulator API 36) po M2: migracja bazy z M1 bez utraty
-danych, import planu startowego, zbudowanie własnego planu i dnia, cele
-(`5 × 5`, `2 × 8-12`, `3 × 60 s`), alternatywa, superseria, przestawienie
-kolejności (gestem i z menu), start treningu z własnego dnia, przerwanie
-i zakończenie, karta „Kontynuuj trening”. Scenariusze: `docs/QA.md`.
+Weryfikacja na urządzeniu (emulator API 36) po M3: migracja bazy z M2 bez utraty
+danych i historia treningów bez zmian, kryterium M3 („co 3 dni, od 1.10 do 31.12,
+rotacja A/B/C” → 31 poprawnych dat w podglądzie i w kalendarzu), oznaczenie
+wpisu jako odbyty, przeniesienie wpisu, edycja i usunięcie reguły, start
+i zakończenie treningu z wpisu (wpis odhaczony). Scenariusze: `docs/QA.md`.
 
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
