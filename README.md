@@ -6,10 +6,10 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M3 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+Stan: **M0–M4 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
 treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
-„co N dni”).
-Kolejny krok: logowanie serii i timery treningu i przerw (M4–M5).
+„co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką).
+Kolejny krok: timer przerwy między seriami z historią i średnią (M5).
 
 ## Wymagania
 
@@ -97,7 +97,7 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 4.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 5.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -124,11 +124,12 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 4) |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 5) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
 | Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
+| Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
@@ -146,6 +147,9 @@ Gym_app/
   (złożone/izolowane), poziom, 16 linków do filmów na YouTube.
 * **1 plan treningowy** — 3 dni (A / B / C), 25 pozycji, z modyfikatorami serii
   „ramped 5×5” i wyborem „Pull Ups lub Inverted Rows”.
+* Zalogowane serie trafiają do `set_logs` (ciężar, powtórzenia albo czas,
+  znacznik rozgrzewki) i są widoczne na ekranie treningu; przerwy między nimi
+  dochodzą w M5.
 * **Klucz naturalny** `id` (np. `barbell-bench-press`, `squat`) — trafia do kolumny
   `external_id` w bazie i pozwala bezpiecznie re-importować dane bez duplikatów
   oraz bez nadpisywania zmian użytkownika.
@@ -169,6 +173,7 @@ Gym_app/
 | **M1** | katalog ćwiczeń: CRUD, szukanie FTS z polskimi znakami, filtr partii, ulubione, import 23 ćwiczeń | ✔ |
 | **M2** | plany: dni i kolejność (przeciąganie), serie/powtórzenia/czas, superserie, alternatywy, import planu startowego, start i zakończenie treningu z planu, usuwanie ćwiczenia przez archiwizację | ✔ |
 | **M3** | kalendarz miesiąca z wpisami i statusami, harmonogram planu (reguła „co N dni” albo wybrane dni), rotacja dni A/B/C, horyzont 20 tygodni, podgląd dat przed zapisem, start treningu z wpisu i odhaczenie po zakończeniu | ✔ |
+| **M4** | sesja i timer treningu: usługa pierwszoplanowa z notyfikacją, start/pauza/stop, odtwarzanie po ubiciu aplikacji, logowanie serii, notatka do treningu, wiązanie wpisu w kalendarzu przy starcie z planu | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

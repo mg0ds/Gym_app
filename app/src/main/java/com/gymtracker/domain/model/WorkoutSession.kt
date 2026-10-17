@@ -13,7 +13,12 @@ enum class SessionStatus(val wire: String) {
     }
 }
 
-/** Sesja treningowa (w M2: czas i lista ćwiczeń z planu). */
+/**
+ * Sesja treningowa: czas, lista ćwiczeń i notatka.
+ *
+ * Pauzy ([pausedTotalMs], [pausedAtEpochMs]) są częścią sesji, nie tylko stanem
+ * ekranu - patrz `SessionEntity`. `pausedAtEpochMs != null` znaczy „zegar stoi”.
+ */
 data class WorkoutSession(
     val id: Long,
     val planId: Long?,
@@ -23,16 +28,33 @@ data class WorkoutSession(
     val finishedAtEpochMs: Long?,
     val status: SessionStatus,
     val note: String?,
-)
+    val pausedTotalMs: Long = 0L,
+    val pausedAtEpochMs: Long? = null,
+) {
+    /**
+     * Czas treningu bez pauz; `null`, gdy trening jeszcze trwa.
+     *
+     * Dla trwającego treningu zegar prowadzi `WorkoutTimer` (ten sam wzór, ale
+     * z „teraz” i z otwartą pauzą) - dlatego tutaj liczymy tylko zamknięte
+     * treningi, żeby nie było dwóch odpowiedzi na to samo pytanie.
+     */
+    val durationMs: Long?
+        get() = finishedAtEpochMs?.let { finished ->
+            (finished - startedAtEpochMs - pausedTotalMs).coerceAtLeast(0L)
+        }
+}
 
-/** Ćwiczenie w sesji wraz z celem skopiowanym z planu w momencie startu. */
+/**
+ * Ćwiczenie w sesji wraz z celem skopiowanym z planu w momencie startu
+ * oraz zalogowanymi seriami ([logs]).
+ */
 data class SessionExercise(
     val id: Long,
     val exerciseId: Long,
     val exerciseName: String,
     val muscleGroup: String?,
     val position: Int,
-    val sets: Int?,
+    val targetSets: Int?,
     val repsMin: Int?,
     val repsMax: Int?,
     val repsUnit: RepsUnit,
@@ -41,6 +63,7 @@ data class SessionExercise(
     val alternativeGroup: String?,
     val isDefaultChoice: Boolean,
     val note: String?,
+    val logs: List<SetLog> = emptyList(),
 )
 
 /** Sesja z ćwiczeniami - do ekranu treningu. */

@@ -9,6 +9,9 @@ import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.db.entities.RecurrenceEntity
 import com.gymtracker.data.db.entities.ScheduledSessionEntity
+import com.gymtracker.data.db.entities.SessionEntity
+import com.gymtracker.data.db.entities.SessionExerciseEntity
+import com.gymtracker.data.db.entities.SetLogEntity
 import com.gymtracker.data.search.ExerciseSearchQuery
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -23,15 +26,17 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Test migracji schematu: zakłada bazę w wersji 1 (taką, jaką miała użytkownika
- * aplikacja z M0), otwiera ją kodem, który zna wersję 4, i sprawdza, że:
+ * aplikacja z M0), otwiera ją kodem, który zna wersję 5, i sprawdza, że:
  *
  *  * dane użytkownika przetrwały,
  *  * Room zaakceptował schemat po migracji (sam porównuje go z oczekiwanym),
  *  * katalog ćwiczeń działa, łącznie z indeksem wyszukiwania założonym w migracji,
- *  * kalendarz z migracji 3→4 przyjmuje reguły i wpisy.
+ *  * kalendarz z migracji 3→4 przyjmuje reguły i wpisy,
+ *  * logowanie serii i pauza z migracji 4→5 działają na starych sesjach.
  *
  * Gdyby SQL w [DatabaseMigrations] rozjechał się z tym, co generuje Room
- * (np. brakujący `NOT NULL` czy inny tokenizer FTS), ten test to wyłapie.
+ * (np. brakujący `NOT NULL` czy `DEFAULT` przy dodanej kolumnie), ten test
+ * to wyłapie.
  */
 @RunWith(RobolectricTestRunner::class)
 class SchemaMigrationTest {
@@ -49,7 +54,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 4 zachowuje dane i dodaje katalog, plany oraz kalendarz`() = runTest {
+    fun `migracja 1 do 5 zachowuje dane i dodaje katalog, plany, kalendarz i serie`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -135,6 +140,46 @@ class SchemaMigrationTest {
             assertEquals(dayId, scheduled.planDayId)
             assertEquals(recurrenceId, scheduled.recurrenceId)
 
+            // Migracja 4→5: logowanie serii. Sesja z M2 (jeszcze bez kolumn
+            // pauzy) dostaje zero pauz, a serie da się dopisać i odczytać.
+            val sessionId = database.sessionDao().insertSession(
+                SessionEntity(
+                    planId = planId,
+                    planDayId = dayId,
+                    name = "Dzień A",
+                    startedAtEpochMs = 3_000L,
+                    status = SessionEntity.STATUS_ACTIVE,
+                ),
+            )
+            val legacySession = requireNotNull(database.sessionDao().getSession(sessionId))
+            assertEquals("stara sesja startuje z zerem pauz", 0L, legacySession.pausedTotalMs)
+            assertNull(legacySession.pausedAtEpochMs)
+
+            val sessionExerciseId = database.sessionDao().insertSessionExercises(
+                listOf(
+                    SessionExerciseEntity(
+                        sessionId = sessionId,
+                        exerciseId = exerciseId,
+                        position = 1,
+                        targetSets = 5,
+                        targetRepsMin = 5,
+                        targetRepsMax = 5,
+                    ),
+                ),
+            ).single()
+            database.setLogDao().insertSet(
+                SetLogEntity(
+                    sessionExerciseId = sessionExerciseId,
+                    setIndex = 1,
+                    weightKg = 60.0,
+                    reps = 5,
+                    completedAtEpochMs = 3_500L,
+                ),
+            )
+            val sets = database.setLogDao().observeSetsOfSession(sessionId).first()
+            assertEquals(listOf(60.0), sets.map { it.weightKg })
+            assertEquals(listOf(5), sets.map { it.reps })
+
             // Kaskada: usunięcie planu zabiera dni, ćwiczenia dni i reguły,
             // a wpis w kalendarzu zostaje - tylko bez wskazania (SET NULL).
             database.planDao().deletePlan(planId)
@@ -145,6 +190,10 @@ class SchemaMigrationTest {
             assertNull(orphan.planId)
             assertNull(orphan.planDayId)
             assertNull(orphan.recurrenceId)
+
+            // Trening i jego serie przeżywają porządek w planach (sesja traci
+            // tylko wskazania), więc historia zostaje czytelna.
+            assertEquals(1, database.setLogDao().getSetsFrom(sessionExerciseId, 1).size)
         } finally {
             database.close()
         }

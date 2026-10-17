@@ -60,6 +60,7 @@ class CalendarRepositoryTest {
         plans = PlanRepositoryImpl(database.planDao(), database, timeProvider)
         sessions = SessionRepositoryImpl(
             database.sessionDao(),
+            database.setLogDao(),
             database.planDao(),
             database.calendarDao(),
             database,

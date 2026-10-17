@@ -1,7 +1,7 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 4 (2026-10-16)
+-- Wersja: 5 (2026-10-17)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
@@ -9,11 +9,12 @@
 --  * v3 (M2): plans, plan_days, plan_day_exercises, sessions,
 --             session_exercises                                   [WDROZONE]
 --  * v4 (M3): recurrences, scheduled_sessions                      [WDROZONE]
+--  * v5 (M4): set_logs + kolumny pauzy w sessions                  [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
 --
--- Uwaga dla wersji 1-4: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- Uwaga dla wersji 1-5: DDL ponizszy dla tabel [WDROZONE] jest przepisany
 -- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
 -- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
 -- "Migration didn't properly handle ...".
@@ -215,7 +216,7 @@ CREATE INDEX idx_sched_session     ON scheduled_sessions(session_id);
 -- 5. TRENING (realizacja) + TIMERY
 --
 -- sessions / session_exercises                                 [WDROZONE M2]
--- set_logs                                                    [M4]
+-- set_logs (+ kolumny pauzy w sessions)                        [WDROZONE M4]
 -- rest_intervals                                              [M5]
 --
 -- session_exercises to SNAPSHOT celu z planu: brakuje tu plan_day_exercise_id,
@@ -224,14 +225,20 @@ CREATE INDEX idx_sched_session     ON scheduled_sessions(session_id);
 -- kasowanie historii.
 -- -----------------------------------------------------------------------------
 CREATE TABLE sessions (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    plan_id      INTEGER REFERENCES plans(id) ON DELETE SET NULL,
-    plan_day_id  INTEGER REFERENCES plan_days(id) ON DELETE SET NULL,
-    name         TEXT NOT NULL,                 -- np. 'Workout A' (skopiowane z dnia planu)
-    started_at   INTEGER NOT NULL,              -- epoch ms
-    finished_at  INTEGER,                       -- NULL = trening w toku
-    status       TEXT NOT NULL,                 -- 'active' | 'finished' | 'cancelled'
-    note         TEXT
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id          INTEGER REFERENCES plans(id) ON DELETE SET NULL,
+    plan_day_id      INTEGER REFERENCES plan_days(id) ON DELETE SET NULL,
+    name             TEXT NOT NULL,             -- np. 'Workout A' (skopiowane z dnia planu)
+    started_at       INTEGER NOT NULL,          -- epoch ms
+    finished_at      INTEGER,                   -- NULL = trening w toku
+    status           TEXT NOT NULL,             -- 'active' | 'finished' | 'cancelled'
+    note             TEXT,                      -- notatka do treningu (M4)
+    -- Pauza jest ZAPISANA, nie tylko trzymana w procesie: inaczej zabicie apki
+    -- w trakcie pauzy doliczyloby ja do czasu treningu. Czas treningu =
+    -- (paused_at_ms ?: teraz) - started_at - paused_total_ms. Niezmiennik:
+    -- zamknieta sesja ma paused_at_ms = NULL (domykamy pauze przy zamknieciu).
+    paused_total_ms  INTEGER NOT NULL DEFAULT 0, -- suma zamknietych pauz
+    paused_at_ms     INTEGER                    -- poczatek otwartej pauzy
 );
 CREATE INDEX idx_sessions_plan   ON sessions(plan_id);
 CREATE INDEX idx_sessions_day    ON sessions(plan_day_id);
@@ -255,23 +262,26 @@ CREATE TABLE session_exercises (
 CREATE INDEX idx_session_exercises_pos      ON session_exercises(session_id, position);
 CREATE INDEX idx_session_exercises_exercise ON session_exercises(exercise_id);
 
--- Logowane serie. [M4]
--- Uwaga: kolumny duration_s/total_rest_s/active_s z pierwotnego projektu
--- (cache czasu) NIE sa potrzebne: czas liczymy z started_at/finished_at,
+-- Logowane serie - fakt, nie plan: "60 kg x 5", a nie cel z planu. [WDROZONE M4]
+-- Jednostka celu decyduje, co jest wartoscia serii: reps dla powtorzen i dystansu,
+-- duration_s dla cwiczen na czas. weight_kg moze byc NULL (pompki, plank).
+-- Uwaga: kolumn duration_s/total_rest_s/active_s w SESSIONS z pierwotnego
+-- projektu (cache czasu) NIE ma: czas liczymy z started_at/finished_at/paused_*,
 -- a sume przerw - z rest_intervals. Nie dodajemy pol, ktore moga sie rozjechac
 -- z rzeczywistoscia.
 CREATE TABLE set_logs (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
     session_exercise_id   INTEGER NOT NULL REFERENCES session_exercises(id) ON DELETE CASCADE,
-    set_index             INTEGER NOT NULL,     -- 1..n
+    set_index             INTEGER NOT NULL,     -- 1..n, numeracja ciagla (M4)
     weight_kg             REAL,
     reps                  INTEGER,              -- NULL dla serii na czas
     duration_s            INTEGER,              -- dla plank / serii na czas
-    rpe                   REAL,                 -- 1..10, opcjonalne
-    is_warmup             INTEGER NOT NULL DEFAULT 0,
-    is_failure            INTEGER NOT NULL DEFAULT 0,
-    rest_after_s          INTEGER,              -- faktyczna przerwa po tej serii
-    rest_target_s         INTEGER,              -- ile bylo ustawione
+    rpe                   REAL,                 -- 1..10, opcjonalne (M4: bez UI)
+    -- Bez DEFAULT w DDL: wartosci domyslne ustawia model Kotlina (is_warmup = false).
+    is_warmup             INTEGER NOT NULL,
+    is_failure            INTEGER NOT NULL,
+    rest_after_s          INTEGER,              -- faktyczna przerwa po tej serii [M5]
+    rest_target_s         INTEGER,              -- ile bylo ustawione [M5]
     completed_at          INTEGER NOT NULL,
     UNIQUE (session_exercise_id, set_index)
 );

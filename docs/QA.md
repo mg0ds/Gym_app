@@ -11,12 +11,20 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 1.1 | Start treningu, zablokuj ekran, poczekaj 10 min | Po odblokowaniu czas = 10 min (+/- 1 s) |
 | 1.2 | Start, włącz tryb samolotowy, 5 min | Czas leci dalej (brak zależności od sieci) |
 | 1.3 | Start, zamknij aplikację z ostatnich, poczekaj 5 min, otwórz | Propozycja „Kontynuuj trening”, czas poprawny |
-| 1.4 | Start, wymuś zatrzymanie aplikacji (`Ustawienia → Aplikacje → Zatrzymaj`), otwórz | Sesja odzyskana, czas z `startedAt` |
+| 1.4 | Start, wymuś zatrzymanie aplikacji (`Ustawienia → Aplikacje → Zatrzymaj`), otwórz | Sesja odzyskana, czas liczony od `started_at`; serie i notatka na miejscu |
 | 1.5 | Start, zrestartuj telefon, otwórz | Sesja odzyskana |
-| 1.6 | Start, zmień datę/godzinę w systemie do przodu o 1 h, wróć | Czas treningu nie „skacze” (licznik monotoniczny) |
+| 1.6 | Start, zmień datę/godzinę w systemie do przodu o 1 h, wróć | Czas **przesuwa się** o tę godzinę — świadoma cena zegara ściennego (PLAN §4.2 pkt 20); scenariusz kontrolny, nie błąd |
 | 1.7 | Start, obróć ekran 5× | Czas ciągły, brak resetu |
-| 1.8 | Zakończ trening | `finished_at` zapisany; czas całkowity i „pod sztangą” różnią się o sumę przerw |
-| 1.9 | Tryb oszczędzania baterii włączony, 20 min treningu | Notyfikacja ongoing widoczna, czas poprawny |
+| 1.8 | Zakończ trening | `finished_at` zapisany; czas treningu = `finished_at - started_at - pauzy` |
+| 1.9 | Tryb oszczędzania baterii włączony, 20 min treningu przy zgaszonym ekranie | Notyfikacja ongoing widoczna i odlicza dalej, czas poprawny |
+| 1.10 | Start, zablokuj ekran, sprawdź notyfikację | Widoczna nazwa dnia i odliczający czas (chronometr systemowy) |
+| 1.11 | W notyfikacji „Pauza” → czas stoi; „Wznów” → liczy dalej | Licznik na ekranie i w notyfikacji pokazują to samo |
+| 1.12 | Pauza na 5 min, potem zakończ trening | Czas treningu **bez** tych 5 min; `paused_total_ms = 300000`, `paused_at_ms = NULL` |
+| 1.13 | Pauza, potem ubij aplikację i wróć po 10 min | Zegar nadal w pauzie (nie doliczył 10 min do treningu) |
+| 1.14 | Ubij aplikację, potem „Zakończ” z notyfikacji | Trening zamknięty w bazie (`status='finished'`), notyfikacja znika |
+| 1.15 | Ukryj aplikację z listy ostatnich zadań (bez ubijania) | Notyfikacja zostaje (`stopWithTask="false"`), po powrocie czas poprawny |
+| 1.16 | Odmów zgody na powiadomienia (Android 13+), zacznij trening | Zgoda pytana przy pierwszym treningu; bez zgody czas nadal się liczy i zapisuje |
+| 1.17 | Kliknij notyfikację | Otwiera ekran treningu (nie nową kopię aplikacji) |
 
 ## 2. Timer przerwy
 
@@ -59,7 +67,28 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 3.23 | „Usuń” przy regule → potwierdzenie | Reguła znika z listy, wpisy „zaplanowane” znikają z kalendarza, odbyte zostają |
 | 3.24 | Start treningu z wpisu w kalendarzu, potem „Zakończ trening” | Wpis odhaczony jako odbyty (zielona kropka) |
 | 3.25 | Start z wpisu w kalendarzu, potem „Przerwij trening” | Wpis zostaje „zaplanowany” (przerwany trening nie odhacza dnia) |
-| 3.26 | Start z karty dnia planu (M2), gdy dzień jest też zaplanowany | Sesja z dnia planu; wpis w kalendarzu zostaje „zaplanowany” (odhacza go start z kalendarza) |
+| 3.26 | Start z karty dnia planu, gdy ten dzień jest też zaplanowany na dziś | Sesja wiąże się z wpisem; po „Zakończ trening” wpis odhaczony (M4 domyka odroczenie z M3) |
+| 3.27 | Ten sam dzień planu zaplanowany na inny dzień niż dziś, start z planu | Sesja powstaje bez wiązania wpisu (wpis zostaje „zaplanowany”), bez odhaczania czegokolwiek innego |
+| 3.28 | Aktualizacja z M3 (baza v4: plany, kalendarz, sesje, ćw. własne) | Migracja 4→5 bez błędu; treningi i wpisy bez zmian, tabela serii pusta |
+
+## 3a. Logowanie serii i notatka (M4)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 3a.1 | Dodaj serię: ciężar 60, powtórzenia 5 | Wiersz „1  60 kg × 5”, postęp „1 z 5”, pola startują z poprzedniej serii |
+| 3a.2 | Dodaj drugą serię bez wpisywania niczego | Formularz wstępnie wypełniony 60 kg × 5 (poprzednia seria) |
+| 3a.3 | Ćwiczenie na czas (plank `3 × 60 s`) | Pole „Czas (s)”, podsumowanie „60 s”; pole powtórzeń się nie pokazuje |
+| 3a.4 | Zapisz serię bez wartości (albo 0) | „Zapisz” wyszarzony, komunikat o brakującej wartości; seria nie trafia do bazy |
+| 3a.5 | Ćwiczenie bez ciężaru (pompki) | Pusty ciężar jest w porządku — wystarczy liczba powtórzeń |
+| 3a.6 | Kliknij zapisaną serię → zmień ciężar | Wartość poprawiona, numer serii i czas zapisu bez zmian |
+| 3a.7 | Usuń serię ze środka (1, 2, 3 → usuń 2) | Zostają „1” i „2” (przenumerowane), ciężary bez dziur |
+| 3a.8 | Przełącznik „rozgrzewka” | Wiersz oznaczony „rozgrzewka”; seria nadal w historii |
+| 3a.9 | Wejdź na zakończony trening z historii | Serie widoczne, ale bez „+ Dodaj serię” i bez pauzy (historia zamknięta) |
+| 3a.10 | Zapisz notatkę „plecy bolą”, ubij aplikację, wróć | Notatka na ekranie treningu (zapisana od razu) |
+| 3a.11 | „Wyczyść” w notatce | Notatka znika (`note = NULL`), karta pokazuje „Dodaj notatkę” |
+| 3a.12 | Wyjdź z ekranu treningu strzałką, potem wróć z „Kontynuuj trening” | Trening trwa dalej (zegar i notyfikacja nie zostały zatrzymane) |
+| 3a.13 | Interfejs po angielsku | „Set 1: 60 kg × 5”, „Add a set”, „Pause/Resume/Finish” w notyfikacji, „%1$d of %2$d” w postępie |
+
 
 ## 4. Media i YouTube
 

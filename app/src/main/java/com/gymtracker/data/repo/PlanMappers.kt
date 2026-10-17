@@ -3,6 +3,7 @@ package com.gymtracker.data.repo
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.SessionEntity
+import com.gymtracker.data.db.entities.SetLogEntity
 import com.gymtracker.data.db.rows.PlanExerciseRow
 import com.gymtracker.data.db.rows.SessionExerciseRow
 import com.gymtracker.domain.model.Plan
@@ -11,9 +12,11 @@ import com.gymtracker.domain.model.PlanExercise
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.SessionExercise
 import com.gymtracker.domain.model.SessionStatus
+import com.gymtracker.domain.model.SetLog
+import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
 
-/** Wiersz bazy → model domenowy. Bez tego UI musiałoby znać kolumny Room. */
+/** Wiersz bazy → model domenowy (plany, sesje, zalogowane serie). */
 
 internal fun PlanEntity.toDomain(): Plan = Plan(
     id = id,
@@ -64,21 +67,57 @@ internal fun SessionEntity.toDomain(): WorkoutSession = WorkoutSession(
     finishedAtEpochMs = finishedAtEpochMs,
     status = SessionStatus.fromWire(status),
     note = note,
+    pausedTotalMs = pausedTotalMs,
+    pausedAtEpochMs = pausedAtEpochMs,
 )
 
-internal fun SessionExerciseRow.toDomain(): SessionExercise = SessionExercise(
-    id = entry.id,
-    exerciseId = entry.exerciseId,
-    exerciseName = exerciseName,
-    muscleGroup = exerciseMuscleGroup,
-    position = entry.position,
-    sets = entry.targetSets,
-    repsMin = entry.targetRepsMin,
-    repsMax = entry.targetRepsMax,
-    repsUnit = RepsUnit.fromWire(entry.targetRepsUnit),
-    restSeconds = entry.restSeconds,
-    supersetGroup = entry.supersetGroup,
-    alternativeGroup = entry.alternativeGroup,
-    isDefaultChoice = entry.isDefaultChoice,
-    note = entry.note,
+internal fun SessionExerciseRow.toDomain(logs: List<SetLog> = emptyList()): SessionExercise =
+    SessionExercise(
+        id = entry.id,
+        exerciseId = entry.exerciseId,
+        exerciseName = exerciseName,
+        muscleGroup = exerciseMuscleGroup,
+        position = entry.position,
+        targetSets = entry.targetSets,
+        repsMin = entry.targetRepsMin,
+        repsMax = entry.targetRepsMax,
+        repsUnit = RepsUnit.fromWire(entry.targetRepsUnit),
+        restSeconds = entry.restSeconds,
+        supersetGroup = entry.supersetGroup,
+        alternativeGroup = entry.alternativeGroup,
+        isDefaultChoice = entry.isDefaultChoice,
+        note = entry.note,
+        logs = logs,
+    )
+
+internal fun SetLogEntity.toDomain(): SetLog = SetLog(
+    id = id,
+    sessionExerciseId = sessionExerciseId,
+    setIndex = setIndex,
+    weightKg = weightKg,
+    reps = reps,
+    durationS = durationS,
+    isWarmup = isWarmup,
+    isFailure = isFailure,
+    completedAtEpochMs = completedAtEpochMs,
 )
+
+internal fun SetLogDraft.toEntity(
+    sessionExerciseId: Long,
+    setIndex: Int,
+    completedAtEpochMs: Long,
+): SetLogEntity = SetLogEntity(
+    sessionExerciseId = sessionExerciseId,
+    setIndex = setIndex,
+    weightKg = weightKg,
+    reps = reps,
+    durationS = durationS,
+    isWarmup = isWarmup,
+    isFailure = isFailure,
+    completedAtEpochMs = completedAtEpochMs,
+)
+
+/** Serie pogrupowane po ćwiczeniu treningu - klucz to `session_exercise_id`. */
+internal fun List<SetLogEntity>.toDomainByExercise(): Map<Long, List<SetLog>> =
+    groupBy { entity -> entity.sessionExerciseId }
+        .mapValues { (_, sets) -> sets.map { set -> set.toDomain() } }

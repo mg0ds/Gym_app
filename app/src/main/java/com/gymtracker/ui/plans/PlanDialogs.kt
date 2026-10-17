@@ -26,6 +26,8 @@ import com.gymtracker.R
 import com.gymtracker.domain.model.PlanExercise
 import com.gymtracker.domain.model.PlanExerciseTargets
 import com.gymtracker.domain.model.RepsUnit
+import com.gymtracker.ui.components.toDecimalOrNull
+import com.gymtracker.ui.components.toPlainStringOrNull
 
 /**
  * Okna dialogowe planu. Pola liczbowe trzymamy jako tekst - tak je wpisuje
@@ -152,7 +154,7 @@ fun ExerciseTargetDialog(
     var repsMin by rememberSaveable { mutableStateOf(exercise.repsMin?.toString().orEmpty()) }
     var repsMax by rememberSaveable { mutableStateOf(exercise.repsMax?.toString().orEmpty()) }
     var unit by rememberSaveable { mutableStateOf(exercise.repsUnit) }
-    var weight by rememberSaveable { mutableStateOf(exercise.weightKg?.toPlainString().orEmpty()) }
+    var weight by rememberSaveable { mutableStateOf(exercise.weightKg.toPlainStringOrNull().orEmpty()) }
     var rest by rememberSaveable { mutableStateOf(exercise.restSeconds?.toString().orEmpty()) }
     var note by rememberSaveable { mutableStateOf(exercise.note.orEmpty()) }
 
@@ -229,7 +231,7 @@ fun ExerciseTargetDialog(
                             repsMin = repsMin.toIntOrNull(),
                             repsMax = repsMax.toIntOrNull(),
                             repsUnit = unit,
-                            weightKg = weight.toDoubleOrNull(),
+                            weightKg = weight.toDecimalOrNull(),
                             restSeconds = rest.toIntOrNull(),
                             note = note.takeIf { text -> text.isNotBlank() },
                         ),
@@ -303,7 +305,3 @@ private fun repsUnitLabel(unit: RepsUnit): String = when (unit) {
     RepsUnit.SECONDS -> stringResource(R.string.plan_unit_seconds)
     RepsUnit.METERS -> stringResource(R.string.plan_unit_meters)
 }
-
-/** „20.5” bez zbędnych zer końcowych (ciężar w polu tekstowym). */
-private fun Double.toPlainString(): String =
-    if (this % 1.0 == 0.0) toInt().toString() else toString()

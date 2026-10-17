@@ -55,6 +55,21 @@ interface SessionDao {
     @Insert
     suspend fun insertSessionExercises(entries: List<SessionExerciseEntity>): List<Long>
 
+    @Query("SELECT * FROM session_exercises WHERE id = :id")
+    suspend fun getSessionExercise(id: Long): SessionExerciseEntity?
+
+    @Query("UPDATE sessions SET note = :note WHERE id = :sessionId")
+    suspend fun setNote(sessionId: Long, note: String?)
+
+    @Query(
+        """
+        UPDATE sessions
+        SET paused_total_ms = :pausedTotalMs, paused_at_ms = :pausedAtEpochMs
+        WHERE id = :sessionId
+        """,
+    )
+    suspend fun setTimerState(sessionId: Long, pausedTotalMs: Long, pausedAtEpochMs: Long?)
+
     @Query("SELECT COUNT(*) FROM sessions")
     suspend fun count(): Int
 

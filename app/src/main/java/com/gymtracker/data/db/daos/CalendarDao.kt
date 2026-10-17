@@ -38,6 +38,23 @@ interface CalendarDao {
     @Query("SELECT * FROM scheduled_sessions WHERE date = :date ORDER BY id")
     suspend fun getScheduledOn(date: String): List<ScheduledSessionEntity>
 
+    /**
+     * Zaplanowany wpis dla danego dnia planu i daty - używany przy starcie
+     * treningu z planu, żeby powiązać sesję z wpisem w kalendarzu.
+     *
+     * `UNIQUE(date, plan_day_id)` gwarantuje, że taki wpis jest **najwyżej
+     * jeden**, więc dopasowanie po dniu planu i dacie nie wymaga zgadywania
+     * (odroczenie z M3; patrz PLAN.md 8.1).
+     */
+    @Query(
+        """
+        SELECT * FROM scheduled_sessions
+        WHERE date = :date AND plan_day_id = :planDayId AND status = 'planned'
+        LIMIT 1
+        """,
+    )
+    suspend fun findPlannedFor(date: String, planDayId: Long): ScheduledSessionEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertScheduled(entries: List<ScheduledSessionEntity>): List<Long>
 

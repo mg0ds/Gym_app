@@ -283,5 +283,57 @@ object DatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    /**
+     * 4 → 5 (M4): logowanie serii i pauza treningu.
+     *
+     * * `set_logs` - zalogowane serie; `UNIQUE(session_exercise_id, set_index)`
+     *   pilnuje ciągłej numeracji, a `CASCADE` po pozycji treningu zabiera serie
+     *   razem z ćwiczeniem,
+     * * `sessions.paused_total_ms` i `sessions.paused_at_ms` - **pauza jest
+     *   zapisana**, nie tylko trzymana w pamięci procesu: inaczej zabicie
+     *   aplikacji w trakcie pauzy doliczyłoby ją do czasu treningu. Kolumna
+     *   `paused_total_ms` dostaje `DEFAULT 0`, bo `ALTER TABLE` nie umie dodać
+     *   kolumny `NOT NULL` bez wartości domyślnej dla istniejących wierszy.
+     *
+     * Migracja nic nie przelicza: istniejące sesje mają zero pauz i pustą listę
+     * serii, więc treningi z M1-M3 zostają nietknięte.
+     */
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `sessions` ADD COLUMN `paused_total_ms` " +
+                    "INTEGER NOT NULL DEFAULT 0",
+            )
+            db.execSQL("ALTER TABLE `sessions` ADD COLUMN `paused_at_ms` INTEGER")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `set_logs` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`session_exercise_id` INTEGER NOT NULL, " +
+                    "`set_index` INTEGER NOT NULL, " +
+                    "`weight_kg` REAL, " +
+                    "`reps` INTEGER, " +
+                    "`duration_s` INTEGER, " +
+                    "`rpe` REAL, " +
+                    "`is_warmup` INTEGER NOT NULL, " +
+                    "`is_failure` INTEGER NOT NULL, " +
+                    "`rest_after_s` INTEGER, " +
+                    "`rest_target_s` INTEGER, " +
+                    "`completed_at` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`session_exercise_id`) " +
+                    "REFERENCES `session_exercises`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `idx_set_logs_uniq` " +
+                    "ON `set_logs` (`session_exercise_id`, `set_index`)",
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(
+        MIGRATION_1_2,
+        MIGRATION_2_3,
+        MIGRATION_3_4,
+        MIGRATION_4_5,
+    )
 }

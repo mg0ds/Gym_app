@@ -4,12 +4,15 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.entities.ExerciseEntity
+import com.gymtracker.data.db.entities.ScheduledSessionEntity
 import com.gymtracker.domain.model.PlanDayDraft
 import com.gymtracker.domain.model.PlanDraft
 import com.gymtracker.domain.model.PlanExerciseDraft
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.SessionStatus
 import com.gymtracker.domain.time.TimeProvider
+import com.gymtracker.domain.time.today
+import com.gymtracker.domain.timer.WorkoutTimerState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -23,10 +26,12 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Start treningu z planu. Najważniejsze rzeczy do pilnowania:
+ * Cykl życia treningu. Najważniejsze rzeczy do pilnowania:
  *  * do sesji trafiają tylko wybory domyślne (alternatywa to podpowiedź),
  *  * cel jest **kopiowany**, więc późniejsza edycja planu nie przepisuje historii,
- *  * trwa najwyżej jeden trening naraz.
+ *  * trwa najwyżej jeden trening naraz,
+ *  * wpis w kalendarzu wiąże się z sesją (start z planu i z kalendarza),
+ *  * pauza jest zapisana w bazie i nie zamienia się w czas treningu.
  */
 @RunWith(RobolectricTestRunner::class)
 class SessionRepositoryTest {
@@ -37,6 +42,7 @@ class SessionRepositoryTest {
 
     private val exerciseIds = mutableMapOf<String, Long>()
     private var currentTime = 10_000L
+    private lateinit var timeProvider: TimeProvider
 
     @Before
     fun setUp() = runTest {
@@ -44,10 +50,11 @@ class SessionRepositoryTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).build()
-        val timeProvider = TimeProvider { currentTime }
+        timeProvider = TimeProvider { currentTime }
         plans = PlanRepositoryImpl(database.planDao(), database, timeProvider)
         sessions = SessionRepositoryImpl(
             database.sessionDao(),
+            database.setLogDao(),
             database.planDao(),
             database.calendarDao(),
             database,
@@ -90,7 +97,7 @@ class SessionRepositoryTest {
         assertEquals(listOf("Barbell Back Squat", "Barbell Bench Press"), details.exercises.map { it.exerciseName })
         assertEquals(listOf(1, 2), details.exercises.map { it.position })
         val bench = details.exercises[1]
-        assertEquals(3, bench.sets)
+        assertEquals(3, bench.targetSets)
         assertNotNull(bench.alternativeGroup)
     }
 
@@ -135,6 +142,116 @@ class SessionRepositoryTest {
         assertNull("wskazanie na dzień zniknęło, trening został", details.session.planDayId)
         assertTrue("ćwiczenia treningu nadal są", details.exercises.isNotEmpty())
         assertEquals(1, database.sessionDao().count())
+    }
+
+    @Test
+    fun `start z dnia planu wiaze sesje z wpisem zaplanowanym na dzis`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val today = timeProvider.today().toString()
+        val scheduledId = database.calendarDao().insertScheduled(
+            listOf(
+                ScheduledSessionEntity(
+                    date = today,
+                    planId = planId,
+                    planDayId = dayId,
+                    title = "Dzień A",
+                    status = ScheduledSessionEntity.STATUS_PLANNED,
+                    createdAtEpochMs = currentTime,
+                ),
+            ),
+        ).single()
+
+        val sessionId = requireNotNull(sessions.startFromPlanDay(dayId))
+        assertEquals(
+            "wpis pamięta sesję, z której powstał",
+            sessionId,
+            requireNotNull(database.calendarDao().getScheduled(scheduledId)).sessionId,
+        )
+
+        // Zakończony trening odhacza wpis (odroczenie z M3 domknięte w M4).
+        sessions.finishSession(sessionId)
+        assertEquals(
+            ScheduledSessionEntity.STATUS_DONE,
+            requireNotNull(database.calendarDao().getScheduled(scheduledId)).status,
+        )
+    }
+
+    @Test
+    fun `trening bez wpisu w kalendarzu startuje normalnie`() = runTest {
+        val dayId = seedDay()
+
+        val sessionId = requireNotNull(sessions.startFromPlanDay(dayId))
+
+        sessions.finishSession(sessionId)
+        assertEquals(SessionStatus.FINISHED, requireNotNull(sessions.observeSession(sessionId).first()).session.status)
+    }
+
+    @Test
+    fun `notatka zapisuje sie i pusta wartosc ja czysci`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+
+        sessions.setNote(sessionId, "  plecy bolaly, nastepnym razem lzej  ")
+        assertEquals(
+            "notatka przycina sie z brzegow",
+            "plecy bolaly, nastepnym razem lzej",
+            requireNotNull(sessions.observeSession(sessionId).first()).session.note,
+        )
+
+        sessions.setNote(sessionId, "   ")
+        assertNull(requireNotNull(sessions.observeSession(sessionId).first()).session.note)
+    }
+
+    @Test
+    fun `pauza zapisuje sie od razu i wchodzi w sume pauz`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+
+        currentTime = 10_000L + 60_000L
+        sessions.persistTimer(
+            sessionId,
+            WorkoutTimerState(startedAtEpochMs = 10_000L, pausedAtEpochMs = currentTime),
+        )
+
+        val paused = requireNotNull(sessions.getActiveSession())
+        assertEquals(currentTime, paused.pausedAtEpochMs)
+        assertEquals(0L, paused.pausedTotalMs)
+    }
+
+    @Test
+    fun `zakonczenie w trakcie pauzy dolicza ja i nie liczy do treningu`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+
+        // Zegar idzie 10 minut, potem pauza na 5 minut.
+        val pausedAt = 10_000L + 10 * 60_000L
+        sessions.persistTimer(
+            sessionId,
+            WorkoutTimerState(startedAtEpochMs = 10_000L, pausedTotalMs = 0L, pausedAtEpochMs = pausedAt),
+        )
+        currentTime = pausedAt + 5 * 60_000L
+        sessions.finishSession(sessionId)
+
+        val finished = requireNotNull(sessions.observeSession(sessionId).first()).session
+        assertNull("zamkniety trening nie ma otwartej pauzy", finished.pausedAtEpochMs)
+        assertEquals(5 * 60_000L, finished.pausedTotalMs)
+        assertEquals("czas treningu to 10 minut, nie 15", 10 * 60_000L, finished.durationMs)
+    }
+
+    @Test
+    fun `nowy start zamyka poprzedni trening razem z otwarta pauza`() = runTest {
+        val dayId = seedDay()
+        val first = requireNotNull(sessions.startFromPlanDay(dayId))
+        sessions.persistTimer(
+            first,
+            WorkoutTimerState(startedAtEpochMs = 10_000L, pausedAtEpochMs = 40_000L),
+        )
+
+        currentTime = 100_000L
+        val second = requireNotNull(sessions.startFromPlanDay(dayId))
+
+        val cancelled = requireNotNull(sessions.observeSession(first).first()).session
+        assertEquals(SessionStatus.CANCELLED, cancelled.status)
+        assertNull(cancelled.pausedAtEpochMs)
+        assertEquals(60_000L, cancelled.pausedTotalMs)
+        assertEquals(second, requireNotNull(sessions.getActiveSession()).id)
     }
 
     /** Plan z jednym dniem: przysiad 5×5, wyciskanie 3×10 albo wojskowe. */

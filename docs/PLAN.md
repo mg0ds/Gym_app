@@ -76,7 +76,7 @@ treningowy z `data/seed/` (patrz §7).
 | Obraz/wideo | Coil (miniatury), ExoPlayer/Media3 (odtwarzanie) | — |
 | Galeria | `PickVisualMedia` (Photo Picker) | Od Android 13 bez uprawnień; fallback SAF. |
 | YouTube | Intent / Custom Tabs + miniatura z `img.youtube.com` | **YouTube Android Player API jest przestarzałe i wycofywane** — nie używamy. |
-| Timer | `ForegroundService` + `startedAt` (epoch) + `SystemClock.elapsedRealtime()` | Monotoniczny licznik odporny na zmianę czasu w systemie. |
+| Timer | `ForegroundService` + `startedAt` i pauzy w bazie (epoch) | Licznik wstaje sam po ubiciu aplikacji; notyfikacja z chronometrem systemowym (M4). **Odstąpiliśmy od `elapsedRealtime`** — uzasadnienie w §6.2 i §8.1. |
 | WorkManager | autozapis/dokończenie sesji, przypomnienia | — |
 | Testy | JUnit4 + Truth, Turbine, Room in-memory, Compose UI Test, Robolectric | — |
 | CI | GitHub Actions: lint, testy jednostkowe, build (docelowo też detekt i assembleRelease) | — |
@@ -143,12 +143,13 @@ com.gymtracker
 ├─ domain
 │  ├─ model (Exercise, Plan, PlanDay, ScheduledSession, Session, SetLog, RestInterval, MetricType, BodyEntry)
 │  ├─ schedule (ScheduleGenerator, RecurrenceExpander)
+│  ├─ timer (WorkoutTimerState)             # czysty model zegara treningu (M4)
 │  └─ stats (RestStats, OneRepMax, VolumeStats)
 ├─ ui
 │  ├─ theme, components
 │  ├─ calendar, exercises, plans, session, rest, history, body, settings
-├─ service (WorkoutTimerService, RestTimerService)
-└─ di (DatabaseModule, RepositoryModule, TimeModule)
+├─ timer (WorkoutTimer, WorkoutTimerService)   # zegar + usluga pierwszoplanowa (M4)
+└─ di (DatabaseModule, RepositoryModule, TimeModule, TimerModule)
 ```
 
 ---
@@ -232,21 +233,52 @@ metric_types 1─* body_entries          (karta postaci)
     indeksów, a SQLite traktuje `NULL` jako różne wartości — dzięki temu wpisy
     bez dnia planu (po jego usunięciu) nie kolidują ze sobą, a powtórzone
     planowanie jest idempotentne przez `INSERT OR IGNORE` (M3).
+17. **Zalogowana seria to fakt, nie plan.** `set_logs` zapisuje to, co się
+    wydarzyło („60 kg × 5”), a nie cel z planu — cel jest w `session_exercises`
+    i oba mogą się różnić bez sprzeczności. Jednostka celu decyduje, co jest
+    wartością serii: `reps` dla powtórzeń i dystansu, `duration_s` dla ćwiczeń
+    na czas; ciężar jest opcjonalny (pompki, plank) (M4).
+18. **Numeracja serii jest ciągła.** `set_index` + `UNIQUE(session_exercise_id,
+    set_index)` pilnują, żeby dwa zapisy nie nadpisały się nawzajem, a usunięcie
+    serii **przenumerowuje** resztę w jednej transakcji — użytkownik widzi
+    „seria 1, 2, 3”, a nie dziury po skasowanych (M4).
+19. **Pauza treningu jest zapisana, nie tylko trzymana w pamięci.**
+    `sessions.paused_total_ms` to suma zamkniętych pauz, `paused_at_ms` to
+    otwarta pauza. Gdyby pauza żyła tylko w procesie, zabicie aplikacji w trakcie
+    pauzy doliczyłoby ją do czasu treningu. **Niezmiennik:** sesja zakończona
+    lub przerwana nie ma otwartej pauzy (domykamy ją przy zamykaniu sesji) (M4).
+20. **Zegar liczy się z zegara ściennego**, nie z `elapsedRealtime` (odstępstwo od
+    pierwotnego §6.2): kotwica monotoniczna żyje tylko w procesie, a pauza jest
+    zapisana w epochach — dwa wzory na ten sam czas rozjechałyby się przy
+    pierwszej pauzie (M4, szczegóły §6.2).
+21. **Usługa timera nie ma własnego stanu.** `WorkoutTimerService` pokazuje to, co
+    widzi `WorkoutTimer` (`StateFlow`), a czas w notyfikacji odmierza systemowy
+    chronometr. Brak tykania w usłudze = brak wybudzeń przy zgaszonym ekranie
+    i brak możliwości rozjechania się ekranu z notyfikacją (M4).
+22. **Historia jest zamknięta.** Serię dopiszemy i poprawimy tylko w **trwającym**
+    treningu; zakończony (i przerwany) jest zapisem faktów, a nie brudnopisem (M4).
 
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
 * Migracje pisane ręcznie + test `MigrationTestHelper` (żadnego `fallbackToDestructiveMigration` w produkcji).
 * Test: migracja z v1 → vN na kopii bazy z danymi.
-* Stan: **v4** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
-  ćwiczenia dnia i sesje, v4 → reguły harmonogramu i wpisy w kalendarzu).
-  `SchemaMigrationTest` przechodzi całą drogę 1 → 4, a migracje sprawdzamy także
+* Stan: **v5** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
+  ćwiczenia dnia i sesje, v4 → reguły harmonogramu i wpisy w kalendarzu,
+  v5 → logowanie serii i pauza treningu).
+  `SchemaMigrationTest` przechodzi całą drogę 1 → 5, a migracje sprawdzamy także
   na urządzeniu z bazą z poprzedniego etapu (2 → 3: 24 ćwiczenia, w tym własne,
-  zostały na miejscu; 3 → 4: plany, sesje i historia bez zmian).
+  zostały na miejscu; 3 → 4: plany, sesje i historia bez zmian; 4 → 5: treningi
+  i kalendarz bez zmian, tabela serii pusta).
 * Migracje v4 dodają dwie tabele (`recurrences`, `scheduled_sessions`) i trzy
   indeksy; nie zmieniają istniejących kolumn, więc dane z M2 przechodzą bez
   przepisywania. `MigrationTestHelper` porównuje wynikowy schemat z plikiem
   `app/schemas/…/4.json`, więc rozjazd SQL-u wychwyci test, nie użytkownik.
+* Migracje v5 dodają `set_logs` (+ `UNIQUE(session_exercise_id, set_index)`)
+  i dwie kolumny w `sessions` (`paused_total_ms` z `DEFAULT 0`, `paused_at_ms`).
+  `DEFAULT 0` nie jest ozdobnikiem: `ALTER TABLE` nie umie dodać kolumny
+  `NOT NULL` bez wartości domyślnej dla istniejących wierszy, a stare sesje mają
+  zero pauz i pustą listę serii — nic nie przeliczamy.
 
 ---
 
@@ -355,19 +387,27 @@ Tryb „Wybrane dni” zamienia regułę na siatkę miesiąca z wielokrotnym wyb
 (poza oknem 20 tygodni dni są nieaktywne), a rotacja działa tak samo — daty
 dostają kolejne dni planu w kolejności chronologicznej.
 
-**Sesja treningowa (live)**
+**Sesja treningowa (live, M4)**
 ```
 ┌───────────────────────────────────────────┐
-│ Trening A            ⏱ 01:12:45   [■ Stop]│  <- timer w nagłówku, zawsze widoczny
-│ Przerwa: ⏳ 00:47  [−15s][+15s][Pomiń]     │  <- pasek przerwy po zalogowaniu serii
+│ ‹  Trening A                              │
 ├───────────────────────────────────────────┤
-│ 1. Squats                      5 × 5      │
-│    ✓ 60 kg ×5   ✓ 80 kg ×5   ✓ 100 kg ×5  │
-│    [ + Dodaj serię ]  ⏱ cel przerwy 2:00  │
-│    Średnia przerwa: 1:54 (12 treningów)   │
+│ Trening w toku               [ Pauza ]    │
+│ 1:12:45                                   │  <- cały trening, w pauzie stoi
+│ Start o 18:42                             │
+├───────────────────────────────────────────┤
+│ Notatka: dodaj notatkę                    │  <- notatka do treningu (M4)
+│ 1. Squats             5 × 5 · przerwa 2:00│
+│    1   60 kg × 5                          │  <- klik = popraw lub usuń
+│    2   80 kg × 5  rozgrzewka              │
+│    [ + Dodaj serię ]             2 z 5    │
 │ 2. Bench Press                 5 × 5      │
 └───────────────────────────────────────────┘
 ```
+Formularz serii startuje z **poprzedniej serii** tego ćwiczenia (albo z celu
+z planu), więc powtarzanie tego samego ciężaru to dwa kliknięcia. Timer przerwy,
+średnia przerwa i historia wykonań dochodzą w M5/M6 — makieta z §5.2 opisuje stan
+docelowy, nie zakres M4.
 
 **Szczegóły ćwiczenia**
 ```
@@ -472,31 +512,58 @@ planu też jest dozwolony (sesja bez ćwiczeń, z nazwą wpisu).
 
 ### 6.2 Timer całego treningu
 
-Wymagania: widoczny w nagłówku, liczy czas, zapisuje start i koniec, wlicza przerwy,
-jest odporny na ubicie procesu.
+Wymagania: widoczny w nagłówku, liczy czas, zapisuje start i koniec, wlicza
+przerwy między seriami (M5), jest odporny na zgaszenie ekranu i ubicie procesu.
 
-**Model:** nie tykamy licznika w UI. Trzymamy:
-* `startedAt: Long` (wall clock, epoch) — **do wyświetlania i zapisu**,
-* `baseElapsedRealtime: Long` (`SystemClock.elapsedRealtime()`) — **monotoniczny**,
-* `pausedTotalMs`.
+**Model (M4).** Zegar to trzy liczby, które leżą w `sessions` — i to jest cała
+pamięć timera:
 
-Wyświetlany czas = `if (running) (elapsedRealtime - baseElapsedRealtime) - pausedTotal else lastElapsed`.
-Dzięki temu zmiana godziny w telefonie nie psuje pomiaru, a po restarcie procesu
-czas odtwarzamy z `startedAt`.
+* `started_at` — wall clock (epoch); **wyświetlanie i zapis**,
+* `paused_total_ms` — suma zamkniętych pauz,
+* `paused_at_ms` — początek otwartej pauzy (`NULL`, gdy zegar idzie).
 
-**Implementacja:**
-* `WorkoutTimerService` (`foregroundServiceType="specialUse"` / `dataSync`) z
-  notyfikacją ongoing (akcje: „Pauza”, „Zakończ”, „Pokaż przerwę”). Service
-  publikuje stan do `StateFlow` konsumowanego przez UI.
-* `Session` zapisywana w bazie **od razu** przy starcie (`finished_at = NULL`).
-  To jest też mechanizm odzyskiwania: apka po restarcie widzi sesję bez końca
-  i proponuje „Kontynuuj / Zakończ”.
-* Autozapis: `WorkManager` co 60 s aktualizuje `duration_s` (żeby po nagłej śmierci
-  procesu dane nie zniknęły).
-* Po zakończeniu: `finished_at`, `duration_s = finished - started`,
-  `total_rest_s` (suma z `rest_intervals`), `active_s = duration_s - total_rest_s`.
-* `WorkoutTimerService` używa `Handler`/`ticker` tylko do odświeżania UI raz na
-  sekundę — stan nigdy nie zależy od tykania.
+Czas treningu `= (paused_at_ms ?: teraz) - started_at - paused_total_ms`,
+nigdy poniżej zera. Cała arytmetyka siedzi w jednej czystej klasie
+(`WorkoutTimerState`, testy w §9), bo ten sam wzór liczy się w trzech miejscach:
+na ekranie, w notyfikacji i — po restarcie procesu — z tego, co jest w bazie.
+
+Czas liczymy z **zegara ściennego**, a nie z `SystemClock.elapsedRealtime()`,
+jak zakładał pierwotny plan (odstępstwo w §8.1). Powód jest praktyczny: kotwica
+monotoniczna żyje tylko w procesie, więc po restarcie i tak trzeba wrócić do
+`started_at`, a **pauza jest zapisana w epochach** — dwa różne wzory na ten sam
+czas rozjechałyby się przy pierwszej pauzie. Cena jest jedna i znana: ręczna
+zmiana godziny w telefonie przesuwa licznik (o tyle samo myli się zapisany
+`started_at`).
+
+**Implementacja (M4):**
+
+* `WorkoutTimer` (`@Singleton`) — jedno źródło prawdy dla ekranu i usługi.
+  Trzyma `TrackedWorkout` (id sesji, nazwa, `WorkoutTimerState`) w `StateFlow`,
+  a **pauzę zapisuje do bazy od razu po jej rozpoczęciu**, nie dopiero przy końcu
+  treningu — inaczej zabicie aplikacji w pauzie doliczyłoby ją do czasu treningu,
+* `WorkoutTimerService` — usługa pierwszoplanowa
+  (`foregroundServiceType="specialUse"`) z notyfikacją ongoing (akcje „Pauza” /
+  „Wznów”, „Zakończ”; kliknięcie otwiera ekran treningu). Usługa **nie ma
+  własnego stanu i nie tyka**: pokazuje to, co widzi w `WorkoutTimer`, a czas
+  w notyfikacji odmierza systemowy chronometr (w pauzie zamrożony tekst).
+  Zgaszony ekran nie kosztuje więc ani jednego wybudzenia, a ekran nie może się
+  rozjechać z notyfikacją. Akcje z notyfikacji działają też po ubiciu aplikacji:
+  usługa odtwarza wtedy zegar z bazy (`restoreIfNeeded`),
+* `WorkoutTimer.attach(lifecycleScope)` w `MainActivity` — jedno miejsce, które
+  pilnuje aktywnej sesji: nowy trening, trening odtworzony po ubiciu aplikacji
+  i powrót z tła obsługuje ten sam strumień z bazy. Ekrany nie muszą o niczym
+  pamiętać, więc nie da się „zapomnieć” o włączeniu timera,
+* sesja jest w bazie **od razu** przy starcie (`finished_at = NULL`), a seria
+  i notatka zapisują się na bieżąco — dlatego odzyskiwanie nie potrzebuje
+  żadnego autozapisu: po ubiciu procesu zegar wstaje z `started_at` i `paused_*`,
+  a karta „Kontynuuj trening” czeka w kalendarzu,
+* **`duration_s`/`total_rest_s`/`active_s` nie są cache'owane.** Po zakończeniu
+  czas to `finished_at - started_at - paused_total_ms`, a suma przerw policzy się
+  z `rest_intervals`, gdy powstanie (M5). Trzy kolumny, które mogą się rozjechać
+  z faktami, byłyby proszeniem się o kłamstwo w historii treningów,
+* zakończenie treningu **domyka otwartą pauzę** i czyści `paused_at_ms`
+  (niezmiennik z §4.2, punkt 19), a zakończenie z wpisu w kalendarzu odhacza ten
+  wpis (§6.1) w tej samej transakcji.
 
 ### 6.3 Timer przerwy
 
@@ -1101,10 +1168,86 @@ widać je w podglądzie przed zapisem i w kalendarzu.
   z ekranu planu („Rozpocznij” w dniu) nie jest wiązany z wpisem w kalendarzu,
   więc wpis zostaje „zaplanowany” i użytkownik odhacza go ręcznie. Dopasowanie
   po samym dniu planu i dacie mogłoby odhaczyć niewłaściwy wpis (ten sam dzień
-  może być rozplanowany kilka razy), a po przeniesieniu wpisu — żaden. Wracamy
-  do tego w M4/M5, gdy znamy faktyczny dzień treningu (logowanie serii),
+  może być rozplanowany kilka razy), a po przeniesieniu wpisu — żaden.
+  **Domknięte w M4**: `UNIQUE(date, plan_day_id)` gwarantuje, że wpis tego dnia
+  planu na daną datę jest najwyżej jeden, więc dopasowanie „dzień planu + dziś”
+  jest jednoznaczne (szczegóły w opisie M4),
 * **pominięcie wpisu nie przenosi treningu** — „pominięty” to informacja
   w historii; kolejny wpis z reguły zostaje na swoim miejscu.
+
+**M4 ✔ (sesja + timer treningu)** — kryterium działa: timer liczy czas przy
+zgaszonym ekranie (notyfikacja z systemowym chronometrem), a po ubiciu aplikacji
+wstaje z zapisanej sesji bez utraty sekundy; serie i notatka zapisują się
+w trakcie treningu, a zakończenie wpisu z planu odhacza dzień w kalendarzu.
+
+* **Baza v5**: `set_logs` (ciężar, powtórzenia, czas, RPE, rozgrzewka, upadek,
+  przerwa po serii) z `UNIQUE(session_exercise_id, set_index)` i `CASCADE` po
+  pozycji treningu oraz `sessions.paused_total_ms` / `paused_at_ms`; migracja
+  4 → 5 z testem `SchemaMigrationTest` (cała droga 1 → 5),
+* **`WorkoutTimerState`** — czysty model zegara (start + suma pauz + otwarta
+  pauza) z jednym wzorem na czas treningu, więc ekran, notyfikacja i odtworzenie
+  po restarcie liczą dokładnie to samo (§6.2, decyzja 20 z §4.2),
+* **`WorkoutTimer` + `WorkoutTimerService`**: usługa pierwszoplanowa
+  (`specialUse`, `stopWithTask="false"`) z notyfikacją „Pauza”/„Wznów”,
+  „Zakończ” i chronometrem systemowym. Usługa nie tyka i nie trzyma stanu,
+  a akcje z notyfikacji działają też po ubiciu aplikacji — zegar odtwarza się
+  wtedy z bazy (`restoreIfNeeded`),
+* **`WorkoutTimer.attach`** w `MainActivity` — jedno miejsce, które pilnuje
+  aktywnej sesji: nowy trening, trening po ubiciu aplikacji i powrót z tła
+  obsługuje ten sam strumień z bazy, więc ekrany nie muszą o timerze pamiętać,
+* **Start z dnia planu wiąże wpis w kalendarzu**: gdy na dziś jest zaplanowany
+  wpis tego dnia, sesja wiąże się z nim w tej samej transakcji, a jej zakończenie
+  odhacza wpis jako `done`. Dopasowanie jest jednoznaczne dzięki
+  `UNIQUE(date, plan_day_id)` — odroczenie z M3 zniknęło razem z powodem,
+  dla którego istniało,
+* **Logowanie serii**: `addSet`/`updateSet`/`deleteSet` z walidacją po jednostce
+  celu (powtórzenia i dystans → `reps`, czas → `duration_s`) i przenumerowaniem
+  po usunięciu w jednej transakcji; serie dopiszemy wyłącznie do trwającego
+  treningu (historia jest zamknięta),
+* **Pauza** w nagłówku ekranu i w notyfikacji: zapisywana do bazy od razu,
+  domykana przy zakończeniu, a zakończenie w pauzie **nie** dolicza jej do czasu
+  treningu,
+* **Notatka treningu** — edytowalna, czyszczona, przycinana z brzegów; trafia do
+  bazy od razu, więc przeżywa ubicie aplikacji (na ekranie treningu jest kartą),
+* **UI ekranu treningu**: nagłówek z zegarem i pauzą, karta notatki, lista
+  ćwiczeń z celem i postępem („2 z 5”), wiersze zalogowanych serii (klik =
+  popraw albo usuń) oraz formularz serii startujący z poprzedniej serii tego
+  ćwiczenia (albo z celu z planu) i z przełącznikiem „rozgrzewka”,
+* **Zgoda na powiadomienia** (Android 13+) pytana przy pierwszym treningu,
+  nie na starcie aplikacji; odmowa nie psuje pomiaru czasu (zegar liczy się
+  z bazy). Po udzieleniu zgody usługa dostaje `ACTION_REFRESH` i od razu pokazuje
+  notyfikację - inaczej trzeba by czekać na pierwszą pauzę,
+* **testy JVM: 132** (doszły: `WorkoutTimerStateTest` — pauzy, wznowienie,
+  odtworzenie z zapisanych liczb i format czasu; `SetLogRepositoryTest` —
+  numeracja, przenumerowanie po usunięciu, walidacja po jednostce, zamknięta
+  historia; a w istniejących zestawach: wiązanie wpisu z sesją, notatka, zapis
+  pauzy i jej domknięcie przy zakończeniu, migracja 1 → 5). `:app:lintDebug`
+  i `:app:assembleDebug` bez błędów.
+
+Świadome odstępstwa i odroczenia z M4:
+
+* **zegar ścienny, a nie `elapsedRealtime`** (§4.2 punkt 20, §6.2) — kotwica
+  monotoniczna nie przeżyłaby restartu procesu, a pauza jest zapisana w epochach;
+  ceną jest wrażliwość na ręczną zmianę godziny w telefonie,
+* **brak autozapisu `WorkManager`** z pierwotnego §6.2 — nie ma czego zapisywać:
+  start, pauzy, serie i notatka są w bazie od razu, więc nagła śmierć procesu
+  nie gubi niczego,
+* **`duration_s`/`total_rest_s`/`active_s` nie istnieją** jako kolumny — czas
+  liczy się z `started_at`/`finished_at`/`paused_total_ms`, a suma przerw
+  z `rest_intervals`, gdy powstanie (M5),
+* **`rest_intervals` i timer przerwy → M5** — M4 zbiera serie i ciężary, ale nie
+  mierzy przerw między nimi; kolumny `set_logs.rest_after_s` i `rest_target_s`
+  są już w schemacie, żeby M5 nie musiał zmieniać tabeli,
+* **RPE i „do upadku” bez UI** — kolumny (i `is_failure` w domenie) są gotowe,
+  ale nie zbieramy ich na ekranie: pokażą swoją wartość w statystykach i przy
+  rekordach (M6), gdzie trzeba odsiać serie rozgrzewkowe,
+* **brak ręcznego odhaczania wpisu z ekranu treningu** — wpis odhacza
+  zakończenie treningu, a „pominięty” zostaje akcją kalendarza (M3),
+* **usługa nie wstaje sama z tła** po zabiciu procesu (Android 12+ ogranicza
+  start usługi z tła) — licznik tego nie potrzebuje, bo dane są w bazie,
+  a notyfikacja wraca przy następnym wejściu do aplikacji,
+* **historia wykonań, statystyki i archiwum → M6/M9**, a widok tygodnia i wykresy
+  → M6 (jak w M2/M3).
 
 ---
 
@@ -1112,24 +1255,31 @@ widać je w podglądzie przed zapisem i w kalendarzu.
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4), kaskady, unikalne indeksy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3) | Room in-memory + `runTest` |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5), kaskady, unikalne indeksy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
 
-Stan na M3: **112 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M4: **132 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3 i 3 → 4.
+2 → 3, 3 → 4 i 4 → 5.
 
 Weryfikacja na urządzeniu (emulator API 36) po M3: migracja bazy z M2 bez utraty
 danych i historia treningów bez zmian, kryterium M3 („co 3 dni, od 1.10 do 31.12,
 rotacja A/B/C” → 31 poprawnych dat w podglądzie i w kalendarzu), oznaczenie
 wpisu jako odbyty, przeniesienie wpisu, edycja i usunięcie reguły, start
 i zakończenie treningu z wpisu (wpis odhaczony). Scenariusze: `docs/QA.md`.
+
+Weryfikacja na urządzeniu (emulator API 36) po M4: migracja 4 → 5 na żywej bazie
+z M3 (treningi, kalendarz i plany bez zmian, `user_version = 5`), logowanie serii
+z ciężarem i na czas, poprawa i usunięcie serii z przenumerowaniem, notatka
+przeżywająca zabicie aplikacji, pauza (zamrożony licznik i notyfikacja), timer
+przy zgaszonym ekranie i po ubiciu aplikacji oraz odhaczenie wpisu w kalendarzu
+po treningu rozpoczętym z planu. Scenariusze: `docs/QA.md`.
 
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
@@ -1140,7 +1290,7 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 
 | # | Ryzyko | Wpływ | Mitygacja |
 |---|---|---|---|
-| R1 | Timer ubijany przez system (agresywne zarządzanie energią na Xiomi/Huawei) | wysoki | ForegroundService + odtwarzanie z `startedAt` + autozapis WorkManager + ekran „Poproś o wyłączenie optymalizacji baterii” |
+| R1 | Timer ubijany przez system (agresywne zarządzanie energią na Xiomi/Huawei) | wysoki | usługa pierwszoplanowa (M4) + czas i serie zapisane w bazie na bieżąco, więc licznik wstaje sam (M4); w backlogu: ekran „Poproś o wyłączenie optymalizacji baterii” |
 | R2 | Utrata danych (reinstalacja, awaria telefonu) | wysoki | eksport ZIP od M9, przypomnienie o backupie, „auto-backup do Documents” co tydzień (SAF) |
 | R3 | Złożoność reguł cyklicznych rośnie | średni | trzymamy prosty model (od/do/co ile dni + opcjonalna rotacja), rozwijamy do dat; `RRULE` dopiero jeśli naprawdę potrzebny |
 | R4 | Duże filmy zapychają pamięć | średni | limit rozmiaru, licznik zajętości, kompresja zdjęć, sprzątanie osieroconych plików |

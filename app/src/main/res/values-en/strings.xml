@@ -274,6 +274,46 @@
     <string name="session_finished">Workout finished</string>
     <string name="session_started_at">Started at %1$s</string>
 
+    <!-- Workout: pause, note and logged sets (M4) -->
+    <string name="session_pause">Pause</string>
+    <string name="session_resume">Resume</string>
+    <string name="session_paused_hint">The clock is stopped - pause time is not counted into the workout.</string>
+    <string name="session_note_title">Note</string>
+    <string name="session_note_add">Add a note</string>
+    <string name="session_note_hint">How did it go? What to change next time?</string>
+    <string name="session_note_edit_title">Workout note</string>
+    <string name="session_note_clear">Clear</string>
+    <string name="session_sets_title">Sets</string>
+    <string name="session_sets_progress">%1$d of %2$d</string>
+    <string name="session_set_add">Add a set</string>
+    <string name="session_set_add_title">New set</string>
+    <string name="session_set_edit_title">Set %1$d</string>
+    <string name="session_set_weight">Weight (kg)</string>
+    <string name="session_set_reps">Reps</string>
+    <string name="session_set_time">Time (s)</string>
+    <string name="session_set_distance">Distance (m)</string>
+    <string name="session_set_warmup">Warm-up</string>
+    <string name="session_set_warmup_tag">warm-up</string>
+    <string name="session_set_delete">Delete set</string>
+    <string name="session_set_required">Enter the set value.</string>
+    <string name="session_set_summary_weight_value">%1$s kg × %2$s</string>
+    <string name="session_set_summary_weight">%1$s kg</string>
+    <string name="session_set_summary_reps">%1$d reps</string>
+    <string name="session_set_summary_time">%1$d s</string>
+    <string name="session_set_summary_distance">%1$d m</string>
+    <string name="session_set_summary_warmup">%1$s (warm-up)</string>
+
+    <!-- Workout timer notification (M4) -->
+    <string name="timer_channel_name">Workout in progress</string>
+    <string name="timer_channel_description">Notification with the time of the running workout</string>
+    <string name="timer_notification_title">Workout</string>
+    <string name="timer_notification_starting">Starting the timer…</string>
+    <string name="timer_notification_running">Workout in progress</string>
+    <string name="timer_notification_paused">Paused • %1$s</string>
+    <string name="timer_action_pause">Pause</string>
+    <string name="timer_action_resume">Resume</string>
+    <string name="timer_action_finish">Finish</string>
+
     <!-- Weekdays -->
     <string name="weekday_monday">Monday</string>
     <string name="weekday_tuesday">Tuesday</string>
@@ -306,6 +346,10 @@
     <plurals name="schedule_preview_count">
         <item quantity="one">%1$d workout will be planned.</item>
         <item quantity="other">%1$d workouts will be planned.</item>
+    </plurals>
+    <plurals name="session_sets_count">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
     </plurals>
     <plurals name="schedule_selected_days">
         <item quantity="one">%1$d day picked</item>

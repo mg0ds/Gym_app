@@ -278,6 +278,46 @@
     <string name="session_finished">Trening zakończony</string>
     <string name="session_started_at">Start o %1$s</string>
 
+    <!-- Trening: pauza, notatka i zalogowane serie (M4) -->
+    <string name="session_pause">Pauza</string>
+    <string name="session_resume">Wznów</string>
+    <string name="session_paused_hint">Zegar stoi - czas pauzy nie liczy się do treningu.</string>
+    <string name="session_note_title">Notatka</string>
+    <string name="session_note_add">Dodaj notatkę</string>
+    <string name="session_note_hint">Jak poszło? Co zmienić następnym razem?</string>
+    <string name="session_note_edit_title">Notatka do treningu</string>
+    <string name="session_note_clear">Wyczyść</string>
+    <string name="session_sets_title">Serie</string>
+    <string name="session_sets_progress">%1$d z %2$d</string>
+    <string name="session_set_add">Dodaj serię</string>
+    <string name="session_set_add_title">Nowa seria</string>
+    <string name="session_set_edit_title">Seria %1$d</string>
+    <string name="session_set_weight">Ciężar (kg)</string>
+    <string name="session_set_reps">Powtórzenia</string>
+    <string name="session_set_time">Czas (s)</string>
+    <string name="session_set_distance">Dystans (m)</string>
+    <string name="session_set_warmup">Rozgrzewka</string>
+    <string name="session_set_warmup_tag">rozgrzewka</string>
+    <string name="session_set_delete">Usuń serię</string>
+    <string name="session_set_required">Podaj wartość serii.</string>
+    <string name="session_set_summary_weight_value">%1$s kg × %2$s</string>
+    <string name="session_set_summary_weight">%1$s kg</string>
+    <string name="session_set_summary_reps">%1$d powt.</string>
+    <string name="session_set_summary_time">%1$d s</string>
+    <string name="session_set_summary_distance">%1$d m</string>
+    <string name="session_set_summary_warmup">%1$s (rozgrzewka)</string>
+
+    <!-- Timer treningu w powiadomieniu (M4) -->
+    <string name="timer_channel_name">Trening w toku</string>
+    <string name="timer_channel_description">Powiadomienie z czasem trwającego treningu</string>
+    <string name="timer_notification_title">Trening</string>
+    <string name="timer_notification_starting">Uruchamiam timer…</string>
+    <string name="timer_notification_running">Trening w toku</string>
+    <string name="timer_notification_paused">Pauza • %1$s</string>
+    <string name="timer_action_pause">Pauza</string>
+    <string name="timer_action_resume">Wznów</string>
+    <string name="timer_action_finish">Zakończ</string>
+
     <!-- Dni tygodnia -->
     <string name="weekday_monday">Poniedziałek</string>
     <string name="weekday_tuesday">Wtorek</string>
@@ -324,6 +364,12 @@
         <item quantity="few">Wybrane %1$d dni</item>
         <item quantity="many">Wybranych %1$d dni</item>
         <item quantity="other">Wybranych %1$d dni</item>
+    </plurals>
+    <plurals name="session_sets_count">
+        <item quantity="one">%1$d seria</item>
+        <item quantity="few">%1$d serie</item>
+        <item quantity="many">%1$d serii</item>
+        <item quantity="other">%1$d serii</item>
     </plurals>
 
     <!-- Dostępność -->
