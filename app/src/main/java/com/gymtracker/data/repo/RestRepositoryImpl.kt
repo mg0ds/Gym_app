@@ -110,12 +110,14 @@ class RestRepositoryImpl @Inject constructor(
 
     private companion object {
         /**
-         * Ile najnowszych przerw wchodzi do statystyk jednego ćwiczenia.
+         * Ile najnowszych przerw wchodzi do statystyk ćwiczeń z ekranu.
          *
          * Statystyki liczymy w Kotlinie (mediana, ostatnie treningi), więc
-         * potrzebujemy wierszy, a nie agregatów - stąd limit. 1000 przerw to
-         * kilka lat treningu; starsze i tak nie zmieniają średniej w sposób,
-         * który dałoby się zauważyć na ekranie.
+         * potrzebujemy wierszy, a nie agregatów - stąd limit. Dotyczy całego
+         * zapytania (`LIMIT` w SQL-u), nie każdego ćwiczenia z osobna: limit
+         * dzielą między siebie pozycje jednego treningu. 1000 przerw to kilka
+         * lat treningu; starsze i tak nie zmieniają średniej w sposób, który
+         * dałoby się zauważyć na ekranie.
          */
         const val STATS_ROW_LIMIT = 1_000
     }

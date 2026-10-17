@@ -722,10 +722,12 @@ a filtry i agregaty liczy czysty `RestStatsCalculator` (§4.2, punkt 29):
 * do próby wchodzą tylko `completed`/`extended` i czasy 10–900 s — 3 s to
   przypadkowe dotknięcie, pół godziny to telefon zostawiony na ławce,
 * `samples`, `sessions` (liczba różnych treningów), średnia, mediana, min, max,
-* `last` (najnowsza przerwa) oraz średnia z **ostatnich 5 treningów**, bo
-  pokazuje aktualną formę lepiej niż średnia z całej historii.
+* `last` (najnowsza przerwa) oraz średnia z **ostatnich 5 treningów** — policzona
+  już teraz, ale pokaże ją dopiero ekran statystyk (M6): druga średnia na karcie
+  ćwiczenia byłaby zagadką, a nie informacją.
 
-Ekran pokazuje te dwie rzeczy osobno: „Przerwy: 3 • śr. 1:48” (ten trening)
+Karta ćwiczenia pokazuje natomiast średnią z całej historii, bo tę użytkownik
+zestawia z liczbą treningów: „Przerwy: 3 • śr. 1:48” (ten trening)
 i „Średnia przerwa: 1:45 • ostatnio 2:05 (12 treningów)” (historia ćwiczenia),
 plus „przerwa 1:40” w wierszu serii, której dotyczyła.
 

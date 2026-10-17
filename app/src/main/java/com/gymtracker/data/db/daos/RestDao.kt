@@ -57,6 +57,10 @@ interface RestDao {
      * odpowiadała na pytanie „co wchodzi do średniej”. Tutaj tylko ograniczamy
      * ilość danych - najnowsze wiersze są tym bardziej użyteczne, im dalej
      * w historię.
+     *
+     * `LIMIT` dotyczy całego zapytania, a nie każdego ćwiczenia: na ekranie
+     * treningu dzielą go między siebie ćwiczenia tego dnia (kilka do kilkunastu
+     * pozycji), a to i tak więcej, niż potrzeba do średniej.
      */
     @Query(
         """
