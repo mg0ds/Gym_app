@@ -38,7 +38,6 @@ Wszystkie trzy kroki uruchamia CI na GitHub Actions dla każdego pusha i PR-a
 ```bash
 brew install --cask android-studio                  # IDE + SDK Manager + Device Manager
 brew install --cask android-commandlinetools        # sdkmanager, avdmanager
-brew install --cask android-platform-tools          # adb, fastboot
 brew install openjdk@21                             # JDK 21 (formuła — bez sudo)
 
 export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
@@ -54,6 +53,12 @@ sdkmanager --sdk_root="$ANDROID_HOME" "cmdline-tools;latest" "platform-tools" \
 > z `ANDROID_HOME`. Dlatego instalujemy `cmdline-tools` w naszym SDK i w `PATH` stawiamy
 > `$ANDROID_HOME/cmdline-tools/latest/bin` przed `/opt/homebrew/bin`. Oba te narzędzia
 > przyjmują też `--sdk_root="$ANDROID_HOME"`.
+>
+> `adb` i `fastboot` bierzemy z tego samego `platform-tools` w SDK — **nie** z caska
+> `android-platform-tools`. Emulator po starcie podnosi serwer adb, szukając go w `PATH`,
+> a pliki z caska Homebrew są znaczone przez macOS jako „pobrane z internetu”, więc system
+> pyta wtedy o zgodę na ich uruchomienie. Jedna kopia = brak pytania (i brak ryzyka, że
+> Gradle i emulator użyją dwóch różnych wersji adb).
 >
 > Wygodny skrót do `~/.zshrc` (JDK 21 zgodny z CI + narzędzia Androida):
 >
