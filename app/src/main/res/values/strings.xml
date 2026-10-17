@@ -97,6 +97,11 @@
     <string name="settings_theme_system">Zgodny z systemem</string>
     <string name="settings_theme_light">Jasny</string>
     <string name="settings_theme_dark">Ciemny</string>
+    <string name="settings_section_training">Trening</string>
+    <string name="settings_default_rest">Domyślna przerwa między seriami</string>
+    <string name="settings_default_rest_description">Brana tylko wtedy, gdy plan ani karta ćwiczenia nie mówią, ile przerwy zrobić.</string>
+    <string name="settings_default_rest_dialog_title">Domyślna przerwa</string>
+    <string name="settings_default_rest_hint">Sekundy</string>
     <string name="settings_section_data">Dane</string>
     <string name="settings_import_description">Wczytuje brakujące ćwiczenia z katalogu startowego. Twoich zmian i własnych ćwiczeń nie nadpisuje.</string>
     <string name="settings_import_action">Wczytaj katalog startowy</string>
@@ -307,6 +312,28 @@
     <string name="session_set_summary_distance">%1$d m</string>
     <string name="session_set_summary_warmup">%1$s (rozgrzewka)</string>
 
+    <!-- Przerwy między seriami (M5) -->
+    <string name="session_rest_title">Przerwa • %1$s</string>
+    <string name="session_rest_target">cel %1$s</string>
+    <string name="session_rest_chip">przerwa %1$s</string>
+    <string name="session_rest_extend">+15 s</string>
+    <string name="session_rest_shrink">-15 s</string>
+    <string name="session_rest_skip">Pomiń</string>
+    <string name="session_rest_edit_title">Przerwa po serii</string>
+    <string name="session_rest_edit_hint">Ile sekund przerwy po każdej serii tego ćwiczenia?</string>
+    <string name="session_rest_seconds_label">Sekundy</string>
+    <string name="session_rest_reset">Domyślna</string>
+    <string name="session_rest_session_summary">Przerwy: %1$d • śr. %2$s</string>
+    <string name="session_rest_history_summary">Średnia przerwa: %1$s • ostatnio %2$s</string>
+    <string name="session_rest_under_bar">Pod sztangą %1$s • przerwy %2$s</string>
+    <string name="session_set_rest_after">przerwa %1$s</string>
+    <plurals name="session_rest_sessions">
+        <item quantity="one">%1$d trening</item>
+        <item quantity="few">%1$d treningi</item>
+        <item quantity="many">%1$d treningów</item>
+        <item quantity="other">%1$d treningów</item>
+    </plurals>
+
     <!-- Timer treningu w powiadomieniu (M4) -->
     <string name="timer_channel_name">Trening w toku</string>
     <string name="timer_channel_description">Powiadomienie z czasem trwającego treningu</string>
@@ -317,6 +344,14 @@
     <string name="timer_action_pause">Pauza</string>
     <string name="timer_action_resume">Wznów</string>
     <string name="timer_action_finish">Zakończ</string>
+
+    <!-- Przerwa w powiadomieniu (M5) -->
+    <string name="rest_channel_name">Koniec przerwy</string>
+    <string name="rest_channel_description">Dźwięk i wibracja, gdy skończy się przerwa między seriami</string>
+    <string name="rest_notification_running">Przerwa</string>
+    <string name="rest_notification_finished_title">Przerwa skończona</string>
+    <string name="rest_action_extend">+15 s</string>
+    <string name="rest_action_skip">Pomiń</string>
 
     <!-- Dni tygodnia -->
     <string name="weekday_monday">Poniedziałek</string>

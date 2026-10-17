@@ -78,4 +78,13 @@ interface SessionRepository {
      * („seria 1, 2, 3”, a nie „1, 3”).
      */
     suspend fun deleteSet(setLogId: Long)
+
+    /**
+     * Ustawia cel przerwy dla pozycji treningu („zmień przerwę” na karcie
+     * ćwiczenia). `null` wraca do domyślnej przerwy z karty ćwiczenia.
+     *
+     * Cel zapisujemy w sesji, a nie w planie: to korekta na dzisiejszy trening,
+     * nie zmiana planu na przyszłość.
+     */
+    suspend fun setExerciseRest(sessionExerciseId: Long, restSeconds: Int?)
 }

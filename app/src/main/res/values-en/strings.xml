@@ -93,6 +93,11 @@
     <string name="settings_theme_system">Follow system</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_section_training">Workout</string>
+    <string name="settings_default_rest">Default rest between sets</string>
+    <string name="settings_default_rest_description">Used only when neither the plan nor the exercise card says how long to rest.</string>
+    <string name="settings_default_rest_dialog_title">Default rest</string>
+    <string name="settings_default_rest_hint">Seconds</string>
     <string name="settings_section_data">Data</string>
     <string name="settings_import_description">Loads the exercises that are missing from the starter catalogue. It never overwrites your changes or your own exercises.</string>
     <string name="settings_import_action">Load starter catalogue</string>
@@ -303,6 +308,26 @@
     <string name="session_set_summary_distance">%1$d m</string>
     <string name="session_set_summary_warmup">%1$s (warm-up)</string>
 
+    <!-- Rest between sets (M5) -->
+    <string name="session_rest_title">Rest • %1$s</string>
+    <string name="session_rest_target">target %1$s</string>
+    <string name="session_rest_chip">rest %1$s</string>
+    <string name="session_rest_extend">+15 s</string>
+    <string name="session_rest_shrink">-15 s</string>
+    <string name="session_rest_skip">Skip</string>
+    <string name="session_rest_edit_title">Rest after a set</string>
+    <string name="session_rest_edit_hint">How many seconds to rest after each set of this exercise?</string>
+    <string name="session_rest_seconds_label">Seconds</string>
+    <string name="session_rest_reset">Default</string>
+    <string name="session_rest_session_summary">Rests: %1$d • avg %2$s</string>
+    <string name="session_rest_history_summary">Average rest: %1$s • last %2$s</string>
+    <string name="session_rest_under_bar">Under the bar %1$s • rests %2$s</string>
+    <string name="session_set_rest_after">rest %1$s</string>
+    <plurals name="session_rest_sessions">
+        <item quantity="one">%1$d workout</item>
+        <item quantity="other">%1$d workouts</item>
+    </plurals>
+
     <!-- Workout timer notification (M4) -->
     <string name="timer_channel_name">Workout in progress</string>
     <string name="timer_channel_description">Notification with the time of the running workout</string>
@@ -313,6 +338,14 @@
     <string name="timer_action_pause">Pause</string>
     <string name="timer_action_resume">Resume</string>
     <string name="timer_action_finish">Finish</string>
+
+    <!-- Rest notification (M5) -->
+    <string name="rest_channel_name">Rest finished</string>
+    <string name="rest_channel_description">Sound and vibration when the rest between sets is over</string>
+    <string name="rest_notification_running">Rest</string>
+    <string name="rest_notification_finished_title">Rest finished</string>
+    <string name="rest_action_extend">+15 s</string>
+    <string name="rest_action_skip">Skip</string>
 
     <!-- Weekdays -->
     <string name="weekday_monday">Monday</string>

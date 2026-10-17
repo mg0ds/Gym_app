@@ -207,6 +207,14 @@ class SessionRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun setExerciseRest(sessionExerciseId: Long, restSeconds: Int?) {
+        val exercise = sessionDao.getSessionExercise(sessionExerciseId) ?: return
+        if (!isEditable(exercise.sessionId)) return
+        // Zero i wartości ujemne znaczą „bez przerwy”, a nie „przerwa ujemna” -
+        // do bazy idzie wtedy NULL, czyli powrót do domyślnej.
+        sessionDao.setExerciseRest(sessionExerciseId, restSeconds?.takeIf { seconds -> seconds > 0 })
+    }
+
     /** Wspólny start: zamyka poprzedni trening i kopiuje cel ćwiczeń do sesji. */
     private suspend fun createSession(
         name: String,

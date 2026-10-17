@@ -3,6 +3,7 @@ package com.gymtracker.di
 import android.content.Context
 import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.domain.time.TimeProvider
+import com.gymtracker.timer.RestTimer
 import com.gymtracker.timer.WorkoutTimer
 import dagger.Module
 import dagger.Provides
@@ -25,5 +26,6 @@ object TimerModule {
         @ApplicationContext context: Context,
         sessions: SessionRepository,
         timeProvider: TimeProvider,
-    ): WorkoutTimer = WorkoutTimer(context, sessions, timeProvider)
+        restTimer: RestTimer,
+    ): WorkoutTimer = WorkoutTimer(context, sessions, timeProvider, restTimer)
 }

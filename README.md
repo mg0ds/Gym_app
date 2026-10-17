@@ -6,10 +6,11 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M4 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+Stan: **M0–M5 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
 treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
-„co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką).
-Kolejny krok: timer przerwy między seriami z historią i średnią (M5).
+„co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką,
+timer przerwy z alarmem, celem na ćwiczenie i średnimi).
+Kolejny krok: historia wykonań i statystyki ćwiczenia oraz widok tygodnia (M6).
 
 ## Wymagania
 
@@ -97,7 +98,7 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 5.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 6.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -124,12 +125,13 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 5) |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 6) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
 | Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
 | Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
+| Przerwy | przerwa rusza po zalogowanej serii: cel na ćwiczenie (sesja → karta ćwiczenia → ustawienie globalne 90 s), pasek z odliczaniem i akcjami „-15 s” / „+15 s” / „Pomiń”, notyfikacja odliczająca w dół, alarm z dźwiękiem i wibracją na końcu, historia i średnia per ćwiczenie; przerwa liczy się do czasu treningu, a obok widać „pod sztangą” |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
@@ -148,8 +150,10 @@ Gym_app/
 * **1 plan treningowy** — 3 dni (A / B / C), 25 pozycji, z modyfikatorami serii
   „ramped 5×5” i wyborem „Pull Ups lub Inverted Rows”.
 * Zalogowane serie trafiają do `set_logs` (ciężar, powtórzenia albo czas,
-  znacznik rozgrzewki) i są widoczne na ekranie treningu; przerwy między nimi
-  dochodzą w M5.
+  znacznik rozgrzewki) i są widoczne na ekranie treningu; przerwy między nimi —
+  do `rest_intervals` (z powodem zakończenia), a ich skrót do wiersza serii
+  (`rest_after_s`), więc karta ćwiczenia pokazuje średnią z tego treningu
+  i z historii.
 * **Klucz naturalny** `id` (np. `barbell-bench-press`, `squat`) — trafia do kolumny
   `external_id` w bazie i pozwala bezpiecznie re-importować dane bez duplikatów
   oraz bez nadpisywania zmian użytkownika.
@@ -174,6 +178,7 @@ Gym_app/
 | **M2** | plany: dni i kolejność (przeciąganie), serie/powtórzenia/czas, superserie, alternatywy, import planu startowego, start i zakończenie treningu z planu, usuwanie ćwiczenia przez archiwizację | ✔ |
 | **M3** | kalendarz miesiąca z wpisami i statusami, harmonogram planu (reguła „co N dni” albo wybrane dni), rotacja dni A/B/C, horyzont 20 tygodni, podgląd dat przed zapisem, start treningu z wpisu i odhaczenie po zakończeniu | ✔ |
 | **M4** | sesja i timer treningu: usługa pierwszoplanowa z notyfikacją, start/pauza/stop, odtwarzanie po ubiciu aplikacji, logowanie serii, notatka do treningu, wiązanie wpisu w kalendarzu przy starcie z planu | ✔ |
+| **M5** | timer przerwy: start po zalogowanej serii, cel przerwy na ćwiczenie (sesja → karta ćwiczenia → 90 s z ustawień), alarm z dźwiękiem i wibracją przy końcu (także po ubiciu aplikacji), „-15 s” / „+15 s” / „Pomiń”, wliczanie w czas treningu i „pod sztangą”, średnia oraz historia przerw per ćwiczenie | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

@@ -8,10 +8,19 @@
       "specialUse" jest dla funkcji, które nie pasują do gotowych kategorii
       (użytkownik sam pilnuje swojego treningu), a POST_NOTIFICATIONS pozwala
       pokazać tę notyfikację na Androidzie 13+.
+
+      Koniec przerwy pilnuje budzik systemowy (AlarmManager), bo tylko on obudzi
+      telefon przy zgaszonym ekranie. SCHEDULE_EXACT_ALARM pozwala odmierzyć go
+      co do sekundy, gdy użytkownik zgodzi się na "Alarmy i przypomnienia";
+      bez zgody przerwa kończy się z dokładnością, na jaką pozwala system.
+      VIBRATE jest potrzebne, żeby koniec przerwy dał się poczuć, nie tylko
+      usłyszeć.
     -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".GymTrackerApplication"
@@ -52,6 +61,15 @@
                 android:value="workout_timer"
                 tools:targetApi="31" />
         </service>
+
+        <!--
+          Budzik końca przerwy. Nie jest eksportowany: budzi go wyłącznie
+          PendingIntent utworzony przez aplikację, więc żaden inny proces nie
+          może nam wstrzyknąć "końca przerwy".
+        -->
+        <receiver
+            android:name=".timer.RestAlarmReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

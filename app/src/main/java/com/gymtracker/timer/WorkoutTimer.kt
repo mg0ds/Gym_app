@@ -35,6 +35,7 @@ class WorkoutTimer(
     private val context: Context,
     private val sessions: SessionRepository,
     private val timeProvider: TimeProvider,
+    private val restTimer: RestTimer,
 ) {
 
     private val _tracked = MutableStateFlow<TrackedWorkout?>(null)
@@ -53,7 +54,17 @@ class WorkoutTimer(
     fun attach(scope: CoroutineScope) {
         scope.launch {
             sessions.observeActiveSessionHead().collect { session ->
-                if (session == null) stop() else track(session)
+                if (session == null) {
+                    // Sesja zniknęła (skończona, przerwana) - przerwa nie ma
+                    // czego dotyczyć, a jej otwarty wiersz nie może zostać.
+                    restTimer.cancel()
+                    stop()
+                } else {
+                    track(session)
+                    // Ta sama sesja = jedyne miejsce, które pilnuje treningu,
+                    // więc też jedyne, które ma odtworzyć przerwę po restarcie.
+                    restTimer.restoreIfNeeded()
+                }
             }
         }
     }
@@ -97,6 +108,9 @@ class WorkoutTimer(
     /** Wstrzymuje zegar i zapisuje pauzę od razu (patrz opis klasy). */
     suspend fun pause() {
         val current = _tracked.value ?: return
+        // Trening w pauzie nie ma przerwy między seriami - przerwa jest częścią
+        // pracy, a nie przerwy od pracy.
+        restTimer.cancel()
         val paused = current.copy(timer = current.timer.paused(timeProvider.nowEpochMs()))
         _tracked.value = paused
         sessions.persistTimer(paused.sessionId, paused.timer)
@@ -113,6 +127,7 @@ class WorkoutTimer(
     /** Kończy trening (jak „Zakończ trening” w aplikacji) i gasi usługę. */
     suspend fun finish() {
         val sessionId = _tracked.value?.sessionId ?: return
+        restTimer.cancel()
         sessions.finishSession(sessionId)
         stop()
     }

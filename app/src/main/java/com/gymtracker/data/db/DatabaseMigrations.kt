@@ -330,10 +330,63 @@ object DatabaseMigrations {
         }
     }
 
+    /**
+     * 5 → 6 (M5): przerwy między seriami.
+     *
+     * `rest_intervals` trzyma każde odliczanie przerwy razem z **powodem**
+     * zakończenia - dzięki temu średnia liczy tylko przerwy, które coś mówią
+     * o formie (pominięte i przerwane odpadają w `RestStatsCalculator`).
+     * `set_log_id` jest `SET NULL`, więc usunięcie serii nie kasuje historii
+     * przerw; `CASCADE` po ćwiczeniu i sesji sprząta razem z nimi.
+     *
+     * `CHECK` na `ended_reason` nie jest ozdobnikiem: to jedyne miejsce, gdzie
+     * baza pilnuje słownika powodów (Room nie umie go wygenerować z encji).
+     *
+     * Migracja nic nie przelicza - treningi z M1-M4 nie mają przerw, a tabela
+     * startuje pusta.
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `rest_intervals` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`exercise_id` INTEGER NOT NULL, " +
+                    "`session_id` INTEGER, " +
+                    "`set_log_id` INTEGER, " +
+                    "`started_at` INTEGER NOT NULL, " +
+                    "`ended_at` INTEGER, " +
+                    "`planned_s` INTEGER, " +
+                    "`actual_s` INTEGER, " +
+                    "`ended_reason` TEXT CHECK (`ended_reason` IN " +
+                    "('completed','skipped','extended','cancelled')), " +
+                    "`is_auto` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`exercise_id`) REFERENCES `exercises`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                    "FOREIGN KEY(`session_id`) REFERENCES `sessions`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                    "FOREIGN KEY(`set_log_id`) REFERENCES `set_logs`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE SET NULL )",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_rest_exercise` " +
+                    "ON `rest_intervals` (`exercise_id`, `started_at`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_rest_session` " +
+                    "ON `rest_intervals` (`session_id`)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_rest_set` " +
+                    "ON `rest_intervals` (`set_log_id`)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
         MIGRATION_3_4,
         MIGRATION_4_5,
+        MIGRATION_5_6,
     )
 }

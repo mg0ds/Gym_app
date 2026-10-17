@@ -6,6 +6,7 @@ import com.gymtracker.data.db.daos.AppMetaDao
 import com.gymtracker.data.db.daos.CalendarDao
 import com.gymtracker.data.db.daos.ExerciseDao
 import com.gymtracker.data.db.daos.PlanDao
+import com.gymtracker.data.db.daos.RestDao
 import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.db.daos.SetLogDao
 import com.gymtracker.data.db.entities.AppMetaEntity
@@ -15,6 +16,7 @@ import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.db.entities.RecurrenceEntity
+import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.ScheduledSessionEntity
 import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SessionExerciseEntity
@@ -28,6 +30,8 @@ import com.gymtracker.data.db.entities.SetLogEntity
  * Wersja 3: plany treningowe (dni i ćwiczenia dni) oraz sesje treningowe (M2).
  * Wersja 4: kalendarz - reguły powtarzania i rozplanowane wpisy (M3).
  * Wersja 5: logowanie serii (`set_logs`) i pauza treningu w `sessions` (M4).
+ * Wersja 6: przerwy między seriami (`rest_intervals`) z celem i powodem
+ * zakończenia (M5).
  *
  * Każda zmiana schematu = podbicie wersji + migracja w [DatabaseMigrations]
  * (bez `fallbackToDestructiveMigration`) + wyeksportowany schemat w `app/schemas/`.
@@ -45,8 +49,9 @@ import com.gymtracker.data.db.entities.SetLogEntity
         SetLogEntity::class,
         RecurrenceEntity::class,
         ScheduledSessionEntity::class,
+        RestIntervalEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,6 +65,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
     abstract fun setLogDao(): SetLogDao
+
+    abstract fun restDao(): RestDao
 
     abstract fun calendarDao(): CalendarDao
 

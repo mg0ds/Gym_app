@@ -54,4 +54,18 @@ interface SetLogDao {
 
     @Delete
     suspend fun deleteSet(set: SetLogEntity)
+
+    /**
+     * Dopisuje do serii faktyczną przerwę, która po niej nastąpiła.
+     *
+     * To kopia wygodna dla wiersza serii - źródłem prawdy o przerwach jest
+     * `rest_intervals` (tam widać powód zakończenia).
+     */
+    @Query(
+        """
+        UPDATE set_logs SET rest_after_s = :actualSeconds, rest_target_s = :targetSeconds
+        WHERE id = :setLogId
+        """,
+    )
+    suspend fun setRest(setLogId: Long, actualSeconds: Int, targetSeconds: Int)
 }

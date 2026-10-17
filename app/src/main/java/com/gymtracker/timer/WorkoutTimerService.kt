@@ -17,6 +17,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.gymtracker.MainActivity
 import com.gymtracker.R
+import com.gymtracker.domain.timer.ActiveRest
 import com.gymtracker.domain.timer.TrackedWorkout
 import com.gymtracker.domain.timer.formatElapsed
 import dagger.hilt.android.AndroidEntryPoint
@@ -25,6 +26,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -32,22 +34,30 @@ import kotlinx.coroutines.launch
  *
  * Po co usługa, skoro czas i tak liczy się z bazy? Bo **notyfikacja nie może
  * zniknąć**: dzięki niej trening widać przy zgaszonym ekranie, a użytkownik
- * może go wstrzymać albo zakończyć bez wracania do aplikacji. Proces w tle
- * z samą notyfikacją zostałby uśpiony razem z ekranem.
+ * może go wstrzymać, zakończyć albo skrócić przerwę bez wracania do aplikacji.
+ * Proces w tle z samą notyfikacją zostałby uśpiony razem z ekranem.
  *
  * Usługa **nie liczy czasu i nie trzyma stanu** - pokazuje tylko to, co widzi
- * w [WorkoutTimer]. Nie ma tu tykania: czas w notyfikacji odmierza systemowy
- * chronometr, a stan zmienia się wyłącznie w reakcji na akcję użytkownika.
- * Dzięki temu usługa nie zużywa baterii i nie da się rozjechać z ekranem.
+ * w [WorkoutTimer] i [RestTimer]. Nie ma tu tykania: czas treningu odmierza
+ * systemowy chronometr, a przerwę - ten sam chronometr, tylko odliczający
+ * w drugą stronę. Dzięki temu usługa nie zużywa baterii i nie da się rozjechać
+ * z ekranem.
+ *
+ * Ta sama notyfikacja pokazuje dwie rzeczy, bo w treningu jest miejsce tylko na
+ * jedną: gdy trwa przerwa, pokazuje przerwę (z akcjami „+15 s” i „Pomiń”),
+ * a poza nią - czas treningu. Użytkownik nie musi się domyślać, czego dotyczy.
  *
  * Akcje z notyfikacji działają także wtedy, gdy proces wstał od nowa (aplikacja
- * była ubita) - wtedy usługa odtwarza zegar z bazy przez [WorkoutTimer.restoreIfNeeded].
+ * była ubita) - wtedy usługa odtwarza zegar i przerwę z bazy.
  */
 @AndroidEntryPoint
 class WorkoutTimerService : Service() {
 
     @Inject
     lateinit var timer: WorkoutTimer
+
+    @Inject
+    lateinit var restTimer: RestTimer
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -59,13 +69,14 @@ class WorkoutTimerService : Service() {
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
-            buildNotification(null),
+            buildNotification(null, null),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
         scope.launch {
-            timer.tracked.collect { tracked ->
-                if (tracked != null) updateNotification(tracked)
-            }
+            combine(timer.tracked, restTimer.active) { tracked, rest -> tracked to rest }
+                .collect { (tracked, rest) ->
+                    if (tracked != null) updateNotification(tracked, rest)
+                }
         }
     }
 
@@ -73,14 +84,17 @@ class WorkoutTimerService : Service() {
         scope.launch {
             // Każda akcja najpierw się upewnia, że wiemy, czego dotyczy.
             timer.restoreIfNeeded()
+            restTimer.restoreIfNeeded()
             when (intent?.action) {
                 ACTION_PAUSE -> timer.pause()
                 ACTION_RESUME -> timer.resume()
                 ACTION_FINISH -> timer.finish()
+                ACTION_REST_EXTEND -> restTimer.extend()
+                ACTION_REST_SKIP -> restTimer.skip()
             }
             // Stan się zmienił (albo dopiero dostaliśmy zgodę na powiadomienia,
             // ACTION_REFRESH) - upewniamy się, że notyfikacja nadąża.
-            timer.tracked.value?.let { updateNotification(it) }
+            timer.tracked.value?.let { tracked -> updateNotification(tracked, restTimer.active.value) }
         }
         return START_STICKY
     }
@@ -92,7 +106,7 @@ class WorkoutTimerService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun updateNotification(tracked: TrackedWorkout?) {
+    private fun updateNotification(tracked: TrackedWorkout?, rest: ActiveRest?) {
         // Bez zgody na powiadomienia (Android 13+) aktualizacja notyfikacji jest
         // zabroniona. Usługa działa dalej - czas treningu liczy się z bazy,
         // a nie z tego, czy system pokazuje notyfikację.
@@ -103,10 +117,10 @@ class WorkoutTimerService : Service() {
 
         tracked ?: return
         NotificationManagerCompat.from(this)
-            .notify(NOTIFICATION_ID, buildNotification(tracked))
+            .notify(NOTIFICATION_ID, buildNotification(tracked, rest))
     }
 
-    private fun buildNotification(tracked: TrackedWorkout?): Notification {
+    private fun buildNotification(tracked: TrackedWorkout?, rest: ActiveRest?): Notification {
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_timer_notification)
             .setContentIntent(openAppIntent())
@@ -119,6 +133,22 @@ class WorkoutTimerService : Service() {
             return builder
                 .setContentTitle(getString(R.string.timer_notification_title))
                 .setContentText(getString(R.string.timer_notification_starting))
+                .build()
+        }
+
+        if (rest != null) {
+            return builder
+                .setContentTitle(rest.exerciseName)
+                .setContentText(getString(R.string.rest_notification_running))
+                .setSubText(tracked.name)
+                // Chronometr w dół: system pokazuje „ile jeszcze” i sam się
+                // przeładowuje - usługa nie musi tykać ani razu na sekundę.
+                .setWhen(rest.endsAtEpochMs)
+                .setShowWhen(true)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .addAction(0, getString(R.string.rest_action_extend), actionIntent(ACTION_REST_EXTEND))
+                .addAction(0, getString(R.string.rest_action_skip), actionIntent(ACTION_REST_SKIP))
                 .build()
         }
 
@@ -184,6 +214,10 @@ class WorkoutTimerService : Service() {
         const val ACTION_PAUSE = "com.gymtracker.timer.PAUSE"
         const val ACTION_RESUME = "com.gymtracker.timer.RESUME"
         const val ACTION_FINISH = "com.gymtracker.timer.FINISH"
+
+        /** Przerwa: „+15 s” i „Pomiń” prosto z notyfikacji. */
+        const val ACTION_REST_EXTEND = "com.gymtracker.timer.REST_EXTEND"
+        const val ACTION_REST_SKIP = "com.gymtracker.timer.REST_SKIP"
 
         /** Bez zmiany stanu - tylko ponowienie notyfikacji (np. po zgodzie na powiadomienia). */
         const val ACTION_REFRESH = "com.gymtracker.timer.REFRESH"

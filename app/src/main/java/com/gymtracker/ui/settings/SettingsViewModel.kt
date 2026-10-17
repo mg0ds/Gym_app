@@ -56,8 +56,19 @@ class SettingsViewModel @Inject constructor(
     private val _programImportState = MutableStateFlow<ProgramImportState>(ProgramImportState.Idle)
     val programImportState: StateFlow<ProgramImportState> = _programImportState.asStateFlow()
 
+    /** Domyślna przerwa między seriami - ostatni fallback celu przerwy (M5). */
+    val defaultRestSeconds: StateFlow<Int> = settings.defaultRestSeconds.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        initialValue = SettingsDataStore.DEFAULT_REST_SECONDS,
+    )
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
+    }
+
+    fun setDefaultRestSeconds(seconds: Int) {
+        viewModelScope.launch { settings.setDefaultRestSeconds(seconds) }
     }
 
     /**

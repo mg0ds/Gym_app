@@ -26,17 +26,27 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 1.16 | Odmów zgody na powiadomienia (Android 13+), zacznij trening | Zgoda pytana przy pierwszym treningu; bez zgody czas nadal się liczy i zapisuje |
 | 1.17 | Kliknij notyfikację | Otwiera ekran treningu (nie nową kopię aplikacji) |
 
-## 2. Timer przerwy
+## 2. Timer przerwy (M5)
 
 | # | Scenariusz | Oczekiwany wynik |
 |---|---|---|
-| 2.1 | Zaloguj serię, poczekaj do końca przerwy | Dźwięk + wibracja + notyfikacja w momencie 0 |
-| 2.2 | „+15 s” w połowie przerwy | Odliczanie wydłużone, `ended_reason='extended'` |
-| 2.3 | „Pomiń” | Przerwa zapisana jako `cancelled`, **nie wliczona** do średniej |
-| 2.4 | Zablokuj ekran na czas przerwy | Alarm odpala punktualnie (±2 s) |
-| 2.5 | Otwórz szczegóły ćwiczenia po 3 treningach | „Średnia przerwa” i „Ostatnio” zgodne z tym, co było ustawiane |
-| 2.6 | Ustaw przerwę 10 min, przerwij po 20 s | Wartość odfiltrowana ze statystyk (poza zakresem 10–900 s) |
-| 2.7 | Odrzuć uprawnienie „Alarmy i przypomnienia” | Przerwa nadal działa (z tolerancją), w Ustawieniach widoczna informacja |
+| 2.1 | Zaloguj serię w ćwiczeniu z celem 90 s | Przerwa rusza sama, pasek pokazuje „cel 1:30”; w bazie wiersz `rest_intervals` z `planned_s = 90`, `is_auto = 1`, `ended_at = NULL` |
+| 2.2 | Poczekaj do zera, patrząc na ekran | Dźwięk + wibracja + heads-up „Koniec przerwy” w momencie 0 (±0,5 s); pasek znika; `ended_reason = 'completed'` |
+| 2.3 | Zablokuj ekran na czas przerwy (proces żyje) | To samo co 2.2 (±0,5 s) — przerwę domyka tyknięcie ekranu, a nie budzik, ale **i tak dzwoni** |
+| 2.4 | Ubij aplikację w trakcie przerwy i nie budź ekranu | Przerwa domknięta jako `completed`; **budzik może się spóźnić do ~22 s** (okno `setAndAllowWhileIdle`, gdy system nie dał zgody na dokładne alarmy). Po włączeniu „Alarmy i przypomnienia” dla aplikacji — co do sekundy |
+| 2.5 | „+15 s” w połowie przerwy | Odliczanie dłuższe o 15 s, `planned_s` rośnie, `ended_reason = 'extended'`, przerwa **wchodzi** do średniej |
+| 2.6 | „-15 s” kilka razy | Cel nie schodzi poniżej 5 s (`ActiveRest.MIN_PLANNED_SECONDS`) |
+| 2.7 | „Pomiń” | `ended_reason = 'skipped'`, `rest_after_s` puste, wiersz serii bez „przerwa …”, **poza** statystykami |
+| 2.8 | Zaloguj kolejną serię przed końcem przerwy | Poprzednia przerwa `completed` z faktycznym czasem, wiersz serii pokazuje „przerwa 0:45”, bez dzwonienia (użytkownik właśnie wrócił do pracy) |
+| 2.9 | Po 3 treningach spójrz na kartę ćwiczenia | „Przerwy: 3 • śr. 1:48” (ten trening) i „Średnia przerwa: 1:45 • ostatnio 2:05 (12 treningów)” — obie z pominięciem `skipped`/`cancelled` i czasów poza 10–900 s |
+| 2.10 | Ustaw cel przerwy 10 min, przerwij po 20 s | Wartość **nie** wchodzi do średniej (poza zakresem 10–900 s) |
+| 2.11 | Kliknij chip „przerwa 1:30” na karcie ćwiczenia | Dialog z efektywnym celem; zapis zmienia `session_exercises.rest_seconds` (kolejne przerwy w tym treningu), a nie kartę ćwiczenia ani ustawienie globalne |
+| 2.12 | Zakończ trening przy trwającej przerwie | Przerwa `cancelled`, **poza** statystykami i bez dzwonienia |
+| 2.13 | Pauza treningu przy trwającej przerwie | To samo co 2.12 |
+| 2.14 | Nagłówek treningu w trakcie przerwy | „Pod sztangą 58:20 • przerwy 14:25” — suma przerw rośnie, gdy przerwa trwa |
+| 2.15 | Po zakończeniu treningu: kalendarz → wpis → „Otwórz trening” | Sesja tylko do czytania, z tymi samymi średnimi przerw na kartach ćwiczeń |
+| 2.16 | Notyfikacja usługi w trakcie przerwy | Tytuł = nazwa ćwiczenia, tekst „Przerwa”, odliczanie w dół, akcje „+15 s” i „Pomiń”; po przerwie tytuł wraca do nazwy dnia |
+| 2.17 | Odmów zgody na powiadomienia (Android 13+) | Przerwa liczy się i zapisuje dalej; brak dzwonienia (system nie pozwala pokazać notyfikacji) — bez crasha |
 
 ## 3. Kalendarz, reguły i harmonogram (M3)
 

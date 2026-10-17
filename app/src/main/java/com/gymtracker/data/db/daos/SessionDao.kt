@@ -40,7 +40,8 @@ interface SessionDao {
 
     @Query(
         """
-        SELECT se.*, e.name AS exercise_name, e.muscle_group AS exercise_muscle_group
+        SELECT se.*, e.name AS exercise_name, e.muscle_group AS exercise_muscle_group,
+               e.default_rest_s AS exercise_default_rest_s
         FROM session_exercises se
         JOIN exercises e ON e.id = se.exercise_id
         WHERE se.session_id = :sessionId
@@ -60,6 +61,13 @@ interface SessionDao {
 
     @Query("UPDATE sessions SET note = :note WHERE id = :sessionId")
     suspend fun setNote(sessionId: Long, note: String?)
+
+    /**
+     * Cel przerwy dla pozycji treningu („zmień przerwę” na karcie ćwiczenia).
+     * `NULL` = wróć do domyślnej z katalogu.
+     */
+    @Query("UPDATE session_exercises SET rest_seconds = :restSeconds WHERE id = :sessionExerciseId")
+    suspend fun setExerciseRest(sessionExerciseId: Long, restSeconds: Int?)
 
     @Query(
         """

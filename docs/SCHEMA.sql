@@ -1,7 +1,7 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 5 (2026-10-17)
+-- Wersja: 6 (2026-10-17)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
@@ -10,11 +10,12 @@
 --             session_exercises                                   [WDROZONE]
 --  * v4 (M3): recurrences, scheduled_sessions                      [WDROZONE]
 --  * v5 (M4): set_logs + kolumny pauzy w sessions                  [WDROZONE]
+--  * v6 (M5): rest_intervals + indeksy                              [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
 --
--- Uwaga dla wersji 1-5: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- Uwaga dla wersji 1-6: DDL ponizszy dla tabel [WDROZONE] jest przepisany
 -- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
 -- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
 -- "Migration didn't properly handle ...".
@@ -28,6 +29,10 @@
 --  * Wartosci "enum" (jednostka powtorzen, status sesji) walidujemy w warstwie
 --    domeny (RepsUnit.fromWire, SessionStatus), a nie CHECK-iem w bazie: latwiej
 --    dodac nowa wartosc bez migracji, a baza i tak nie jest dostepna z zewnatrz.
+--    Wyjatek: rest_intervals.ended_reason ma CHECK (patrz tabela) - powod
+--    przerwy decyduje o tym, czy wpis wchodzi do statystyk, wiec literowka
+--    nie moze przejsc po cichu. Room sam takiego CHECK-a nie generuje, ale
+--    TableInfo go ignoruje, wiec walidacja schematu po migracji przechodzi.
 -- =============================================================================
 
 PRAGMA foreign_keys = ON;
@@ -280,13 +285,18 @@ CREATE TABLE set_logs (
     -- Bez DEFAULT w DDL: wartosci domyslne ustawia model Kotlina (is_warmup = false).
     is_warmup             INTEGER NOT NULL,
     is_failure            INTEGER NOT NULL,
-    rest_after_s          INTEGER,              -- faktyczna przerwa po tej serii [M5]
-    rest_target_s         INTEGER,              -- ile bylo ustawione [M5]
+    rest_after_s          INTEGER,              -- faktyczna przerwa po tej serii (M5)
+    rest_target_s         INTEGER,              -- ile bylo ustawione (M5)
     completed_at          INTEGER NOT NULL,
     UNIQUE (session_exercise_id, set_index)
 );
 
--- Historia przerw: zrodlo podsumowan i srednich per cwiczenie. [M5]
+-- Historia przerw: zrodlo podsumowan i srednich per cwiczenie. [WDROZONE M5]
+-- Zrodlo prawdy o przerwach - set_logs.rest_after_s to tylko kopia wygodna dla
+-- wiersza serii (dopisuje ja domkniecie przerwy). Dlatego set_log_id jest
+-- ON DELETE SET NULL: usuniecie serii nie zabiera statystyk cwiczenia.
+-- Powod (ended_reason) decyduje, czy przerwa wchodzi do sredniej: completed
+-- i extended tak, skipped i cancelled nie (szczegoly: PLAN.md 4.2 pkt 24).
 CREATE TABLE rest_intervals (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     exercise_id      INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
@@ -294,12 +304,17 @@ CREATE TABLE rest_intervals (
     set_log_id       INTEGER REFERENCES set_logs(id) ON DELETE SET NULL,
     started_at       INTEGER NOT NULL,
     ended_at         INTEGER,
-    planned_s        INTEGER,
-    actual_s         INTEGER,
+    planned_s        INTEGER,                   -- cel po korektach ("+15 s" przesuwa to pole)
+    actual_s         INTEGER,                   -- faktyczny czas, liczony przy domknieciu
     ended_reason     TEXT CHECK (ended_reason IN ('completed','skipped','extended','cancelled')),
-    is_auto          INTEGER NOT NULL DEFAULT 0 -- czy odliczanie ruszylo automatycznie po serii
+    is_auto          INTEGER NOT NULL           -- bez DEFAULT: wartosc ustawia model Kotlina
 );
+-- Trzy indeksy, wszystkie po kluczach obcych: tabela rosnie najszybciej w bazie
+-- (kilkanascie wierszy na trening), a statystyki pytaja o przerwy jednego
+-- cwiczenia i jednej sesji.
 CREATE INDEX idx_rest_exercise ON rest_intervals(exercise_id, started_at);
+CREATE INDEX idx_rest_session ON rest_intervals(session_id);
+CREATE INDEX idx_rest_set ON rest_intervals(set_log_id);
 
 -- -----------------------------------------------------------------------------
 -- 6. KARTA POSTACI (waga + customowe wskazniki)                           [M8]

@@ -1,6 +1,7 @@
 package com.gymtracker.ui.settings
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,26 +12,36 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
+import com.gymtracker.data.prefs.SettingsDataStore
 import com.gymtracker.domain.model.ThemeMode
+import com.gymtracker.domain.timer.formatElapsed
 import com.gymtracker.ui.theme.GymTrackerTheme
 
 @Composable
@@ -41,14 +52,17 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val seedImportState by viewModel.seedImportState.collectAsStateWithLifecycle()
     val programImportState by viewModel.programImportState.collectAsStateWithLifecycle()
+    val defaultRestSeconds by viewModel.defaultRestSeconds.collectAsStateWithLifecycle()
 
     SettingsContent(
         themeMode = themeMode,
         seedImportState = seedImportState,
         programImportState = programImportState,
+        defaultRestSeconds = defaultRestSeconds,
         onThemeModeChange = viewModel::setThemeMode,
         onImportSeedData = viewModel::importSeedData,
         onImportProgramData = viewModel::importProgramData,
+        onDefaultRestChange = viewModel::setDefaultRestSeconds,
         modifier = modifier,
     )
 }
@@ -59,11 +73,15 @@ internal fun SettingsContent(
     themeMode: ThemeMode,
     seedImportState: SeedImportState,
     programImportState: ProgramImportState,
+    defaultRestSeconds: Int,
     onThemeModeChange: (ThemeMode) -> Unit,
     onImportSeedData: () -> Unit,
     onImportProgramData: () -> Unit,
+    onDefaultRestChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showRestDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -92,6 +110,31 @@ internal fun SettingsContent(
                         onSelect = { onThemeModeChange(mode) },
                     )
                 }
+            }
+
+            SectionTitle(text = stringResource(R.string.settings_section_training))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showRestDialog = true }
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_default_rest),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text = formatElapsed(defaultRestSeconds * 1_000L),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(R.string.settings_default_rest_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             SectionTitle(text = stringResource(R.string.settings_section_data))
@@ -129,6 +172,54 @@ internal fun SettingsContent(
             ProgramImportStatus(state = programImportState)
         }
     }
+
+    if (showRestDialog) {
+        DefaultRestDialog(
+            initialSeconds = defaultRestSeconds,
+            onDismiss = { showRestDialog = false },
+            onSave = { seconds ->
+                onDefaultRestChange(seconds)
+                showRestDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun DefaultRestDialog(
+    initialSeconds: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit,
+) {
+    var text by remember { mutableStateOf(initialSeconds.toString()) }
+    val seconds = text.toIntOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.settings_default_rest_dialog_title)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value -> text = value.filter { char -> char.isDigit() } },
+                label = { Text(text = stringResource(R.string.settings_default_rest_hint)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(seconds ?: initialSeconds) },
+                enabled = seconds != null && seconds > 0,
+            ) {
+                Text(text = stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.action_cancel))
+            }
+        },
+    )
 }
 
 @Composable
@@ -224,9 +315,11 @@ private fun SettingsContentPreview() {
             themeMode = ThemeMode.SYSTEM,
             seedImportState = SeedImportState.Idle,
             programImportState = ProgramImportState.Idle,
+            defaultRestSeconds = SettingsDataStore.DEFAULT_REST_SECONDS,
             onThemeModeChange = {},
             onImportSeedData = {},
             onImportProgramData = {},
+            onDefaultRestChange = {},
         )
     }
 }

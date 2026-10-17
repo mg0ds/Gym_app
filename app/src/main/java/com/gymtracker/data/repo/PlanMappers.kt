@@ -2,6 +2,7 @@ package com.gymtracker.data.repo
 
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
+import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SetLogEntity
 import com.gymtracker.data.db.rows.PlanExerciseRow
@@ -10,6 +11,8 @@ import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.PlanExercise
 import com.gymtracker.domain.model.RepsUnit
+import com.gymtracker.domain.model.RestEndReason
+import com.gymtracker.domain.model.RestInterval
 import com.gymtracker.domain.model.SessionExercise
 import com.gymtracker.domain.model.SessionStatus
 import com.gymtracker.domain.model.SetLog
@@ -83,6 +86,7 @@ internal fun SessionExerciseRow.toDomain(logs: List<SetLog> = emptyList()): Sess
         repsMax = entry.targetRepsMax,
         repsUnit = RepsUnit.fromWire(entry.targetRepsUnit),
         restSeconds = entry.restSeconds,
+        exerciseDefaultRestSeconds = exerciseDefaultRestSeconds,
         supersetGroup = entry.supersetGroup,
         alternativeGroup = entry.alternativeGroup,
         isDefaultChoice = entry.isDefaultChoice,
@@ -100,6 +104,8 @@ internal fun SetLogEntity.toDomain(): SetLog = SetLog(
     isWarmup = isWarmup,
     isFailure = isFailure,
     completedAtEpochMs = completedAtEpochMs,
+    restAfterS = restAfterS,
+    restTargetS = restTargetS,
 )
 
 internal fun SetLogDraft.toEntity(
@@ -121,3 +127,16 @@ internal fun SetLogDraft.toEntity(
 internal fun List<SetLogEntity>.toDomainByExercise(): Map<Long, List<SetLog>> =
     groupBy { entity -> entity.sessionExerciseId }
         .mapValues { (_, sets) -> sets.map { set -> set.toDomain() } }
+
+internal fun RestIntervalEntity.toDomain(): RestInterval = RestInterval(
+    id = id,
+    exerciseId = exerciseId,
+    sessionId = sessionId,
+    setLogId = setLogId,
+    startedAtEpochMs = startedAtEpochMs,
+    endedAtEpochMs = endedAtEpochMs,
+    plannedSeconds = plannedSeconds,
+    actualSeconds = actualSeconds,
+    reason = RestEndReason.fromWire(endedReason),
+    isAuto = isAuto,
+)

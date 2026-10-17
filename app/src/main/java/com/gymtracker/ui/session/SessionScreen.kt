@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -38,20 +40,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
 import com.gymtracker.domain.model.RepsUnit
+import com.gymtracker.domain.model.RestInterval
 import com.gymtracker.domain.model.SessionExercise
 import com.gymtracker.domain.model.SetLog
 import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
+import com.gymtracker.domain.stats.RestStats
+import com.gymtracker.domain.timer.ActiveRest
 import com.gymtracker.domain.timer.TrackedWorkout
 import com.gymtracker.domain.timer.WorkoutTimerState
 import com.gymtracker.domain.timer.formatElapsed
-import com.gymtracker.ui.plans.restText
 import com.gymtracker.ui.plans.targetText
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -83,6 +88,11 @@ fun SessionScreen(
         onAddSet = viewModel::addSet,
         onUpdateSet = viewModel::updateSet,
         onDeleteSet = viewModel::deleteSet,
+        onEditRest = viewModel::setExerciseRest,
+        onExtendRest = viewModel::extendRest,
+        onShrinkRest = viewModel::shrinkRest,
+        onSkipRest = viewModel::skipRest,
+        onRestDue = viewModel::restDue,
         onFinish = { viewModel.finishSession(onFinished) },
         onCancel = { viewModel.cancelSession(onFinished) },
     )
@@ -99,12 +109,18 @@ private fun SessionContent(
     onAddSet: (sessionExerciseId: Long, draft: SetLogDraft) -> Unit,
     onUpdateSet: (setLogId: Long, draft: SetLogDraft) -> Unit,
     onDeleteSet: (setLogId: Long) -> Unit,
+    onEditRest: (sessionExerciseId: Long, restSeconds: Int?) -> Unit,
+    onExtendRest: () -> Unit,
+    onShrinkRest: () -> Unit,
+    onSkipRest: () -> Unit,
+    onRestDue: () -> Unit,
     onFinish: () -> Unit,
     onCancel: () -> Unit,
 ) {
     var showCancelConfirm by remember { mutableStateOf(false) }
     var showNoteDialog by remember { mutableStateOf(false) }
     var setDialog by remember { mutableStateOf<SetDialogTarget?>(null) }
+    var restDialog by remember { mutableStateOf<SessionExercise?>(null) }
     val session = uiState.session
 
     Scaffold(
@@ -166,9 +182,22 @@ private fun SessionContent(
                 session = session,
                 tracked = uiState.tracked,
                 isActive = uiState.isActive,
+                rests = uiState.rests,
                 onPause = onPause,
                 onResume = onResume,
             )
+
+            // Przerwa jest najbardziej „działającą” rzeczą na ekranie, więc
+            // stoi nad notatką: widać ją i można ją skorygować bez przewijania.
+            uiState.rest?.takeIf { uiState.isActive }?.let { rest ->
+                SessionRestBar(
+                    rest = rest,
+                    onShrink = onShrinkRest,
+                    onExtend = onExtendRest,
+                    onSkip = onSkipRest,
+                    onDue = onRestDue,
+                )
+            }
 
             SessionNoteCard(
                 note = session.note,
@@ -188,6 +217,8 @@ private fun SessionContent(
                     SessionExerciseCard(
                         position = index + 1,
                         exercise = exercise,
+                        restStats = uiState.restStats[exercise.exerciseId],
+                        defaultRestSeconds = uiState.defaultRestSeconds,
                         editable = uiState.isActive,
                         onAddSet = {
                             setDialog = SetDialogTarget(exercise = exercise, log = null)
@@ -195,6 +226,7 @@ private fun SessionContent(
                         onEditSet = { log ->
                             setDialog = SetDialogTarget(exercise = exercise, log = log)
                         },
+                        onEditRest = { restDialog = exercise },
                     )
                 }
             }
@@ -240,6 +272,18 @@ private fun SessionContent(
         )
     }
 
+    restDialog?.let { exercise ->
+        SessionRestDialog(
+            exerciseName = exercise.exerciseName,
+            initialSeconds = exercise.restTargetSeconds(uiState.defaultRestSeconds),
+            onDismiss = { restDialog = null },
+            onSave = { seconds ->
+                onEditRest(exercise.id, seconds)
+                restDialog = null
+            },
+        )
+    }
+
     if (showCancelConfirm) {
         AlertDialog(
             onDismissRequest = { showCancelConfirm = false },
@@ -275,11 +319,15 @@ private fun SessionTimerHeader(
     session: WorkoutSession,
     tracked: TrackedWorkout?,
     isActive: Boolean,
+    rests: List<RestInterval>,
     onPause: () -> Unit,
     onResume: () -> Unit,
 ) {
-    val elapsedMs = rememberSessionElapsedMs(session = session, tracked = tracked)
     val isPaused = isActive && isSessionPaused(session, tracked)
+    val frozen = isPaused || session.finishedAtEpochMs != null
+    val nowMs = rememberTickingNow(frozen = frozen)
+    val elapsedMs = sessionElapsedMs(session, tracked, nowMs)
+    val restTotalMs = rests.sumOf { interval -> interval.elapsedMs(nowMs) }
 
     Card(
         modifier = Modifier
@@ -318,6 +366,19 @@ private fun SessionTimerHeader(
                 text = formatElapsed(elapsedMs),
                 style = MaterialTheme.typography.headlineMedium,
             )
+            // Druga liczba dopiero wtedy, gdy jest co pokazać: przerwy to część
+            // treningu, ale nie każdy trening je ma.
+            if (restTotalMs > 0 || rests.isNotEmpty()) {
+                Text(
+                    text = stringResource(
+                        R.string.session_rest_under_bar,
+                        formatElapsed((elapsedMs - restTotalMs).coerceAtLeast(0L)),
+                        formatElapsed(restTotalMs),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (isPaused) {
                 Text(
                     text = stringResource(R.string.session_paused_hint),
@@ -335,6 +396,133 @@ private fun SessionTimerHeader(
             )
         }
     }
+}
+
+/**
+ * Pasek przerwy: ile zostało, ile wynosi cel i trzy decyzje użytkownika.
+ *
+ * Gdy licznik dojdzie do zera, ekran sam zgłasza koniec przerwy - bez tego
+ * odliczanie czekałoby na budzik, który przy braku zgody na dokładne alarmy
+ * może się spóźnić o minuty.
+ */
+@Composable
+private fun SessionRestBar(
+    rest: ActiveRest,
+    onShrink: () -> Unit,
+    onExtend: () -> Unit,
+    onSkip: () -> Unit,
+    onDue: () -> Unit,
+) {
+    val nowMs = rememberTickingNow(frozen = false)
+    val remainingMs = rest.remainingMs(nowMs)
+    if (remainingMs == 0L) {
+        LaunchedEffect(rest.intervalId) { onDue() }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.session_rest_title, rest.exerciseName),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = formatElapsed(remainingMs),
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            Text(
+                text = stringResource(
+                    R.string.session_rest_target,
+                    formatElapsed(rest.plannedSeconds * 1_000L),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(onClick = onShrink) {
+                    Text(text = stringResource(R.string.session_rest_shrink))
+                }
+                OutlinedButton(onClick = onExtend) {
+                    Text(text = stringResource(R.string.session_rest_extend))
+                }
+                TextButton(onClick = onSkip) {
+                    Text(text = stringResource(R.string.session_rest_skip))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Cel przerwy dla jednego ćwiczenia.
+ *
+ * Dialog dostaje **efektywną** wartość (plan → karta ćwiczenia → ustawienie
+ * globalne), żeby użytkownik widział, ile faktycznie odlicza, a nie puste pole.
+ */
+@Composable
+private fun SessionRestDialog(
+    exerciseName: String,
+    initialSeconds: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int?) -> Unit,
+) {
+    var text by remember { mutableStateOf(initialSeconds.toString()) }
+    val seconds = text.toIntOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.session_rest_edit_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = exerciseName,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(R.string.session_rest_edit_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { value -> text = value.filter { char -> char.isDigit() } },
+                    label = { Text(text = stringResource(R.string.session_rest_seconds_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(seconds) },
+                enabled = seconds != null && seconds > 0,
+            ) {
+                Text(text = stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { onSave(null) }) {
+                    Text(text = stringResource(R.string.session_rest_reset))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -414,12 +602,16 @@ private fun SessionNoteDialog(
 private fun SessionExerciseCard(
     position: Int,
     exercise: SessionExercise,
+    restStats: RestStats?,
+    defaultRestSeconds: Int,
     editable: Boolean,
     onAddSet: () -> Unit,
     onEditSet: (SetLog) -> Unit,
+    onEditRest: () -> Unit,
 ) {
     val target = targetText(exercise.targetSets, exercise.repsMin, exercise.repsMax, exercise.repsUnit)
-    val rest = restText(exercise.restSeconds)
+    val restTarget = exercise.restTargetSeconds(defaultRestSeconds)
+    val sessionRests = exercise.logs.mapNotNull { log -> log.restAfterS }.filter { seconds -> seconds > 0 }
 
     Card(
         modifier = Modifier
@@ -442,7 +634,6 @@ private fun SessionExerciseCard(
                     Text(
                         text = listOfNotNull(
                             target,
-                            rest,
                             exercise.supersetGroup?.let { groupNumber ->
                                 stringResource(R.string.plan_superset_chip, groupNumber)
                             },
@@ -460,6 +651,13 @@ private fun SessionExerciseCard(
                 }
                 SetProgressChip(exercise = exercise)
             }
+
+            RestTargetChip(
+                seconds = restTarget,
+                editable = editable,
+                onClick = onEditRest,
+                modifier = Modifier.padding(top = 8.dp),
+            )
 
             if (exercise.logs.isEmpty()) {
                 Text(
@@ -480,6 +678,28 @@ private fun SessionExerciseCard(
                 }
             }
 
+            if (sessionRests.isNotEmpty()) {
+                Text(
+                    text = stringResource(
+                        R.string.session_rest_session_summary,
+                        sessionRests.size,
+                        formatElapsed((sessionRests.average() * 1_000L).toLong()),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+
+            restStats?.takeIf { stats -> stats.hasSamples }?.let { stats ->
+                Text(
+                    text = restHistorySummary(stats),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+
             if (editable) {
                 TextButton(onClick = onAddSet) {
                     Text(text = stringResource(R.string.session_set_add))
@@ -487,6 +707,47 @@ private fun SessionExerciseCard(
             }
         }
     }
+}
+
+/** „przerwa 1:30” - klikalna, gdy trening trwa; pokazuje efektywny cel. */
+@Composable
+private fun RestTargetChip(
+    seconds: Int,
+    editable: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = modifier,
+    ) {
+        Text(
+            text = stringResource(R.string.session_rest_chip, formatElapsed(seconds * 1_000L)),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier
+                .then(if (editable) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+    }
+}
+
+/**
+ * „Średnia przerwa: 1:45 • ostatnio 2:05 (12 treningów)”.
+ *
+ * Liczba treningów idzie przez `plurals`, bo polski ma trzy formy mnogie -
+ * sklejanie tego w jednym napisie dałoby „1 treningów”.
+ */
+@Composable
+private fun restHistorySummary(stats: RestStats): String {
+    val average = formatElapsed((stats.averageSeconds ?: 0) * 1_000L)
+    val last = formatElapsed((stats.lastSeconds ?: 0) * 1_000L)
+    val workouts = pluralStringResource(
+        R.plurals.session_rest_sessions,
+        stats.sessions,
+        stats.sessions,
+    )
+    return stringResource(R.string.session_rest_history_summary, average, last) + " ($workouts)"
 }
 
 /** „2 z 5” albo sama liczba serii, gdy plan nie mówi, ile ich ma być. */
@@ -532,7 +793,17 @@ private fun SessionSetRow(
             modifier = Modifier.padding(end = 12.dp),
         )
         Text(
-            text = setSummary(log, unit),
+            text = listOfNotNull(
+                setSummary(log, unit),
+                log.restAfterS
+                    ?.takeIf { seconds -> seconds > 0 }
+                    ?.let { seconds ->
+                        stringResource(
+                            R.string.session_set_rest_after,
+                            formatElapsed(seconds * 1_000L),
+                        )
+                    },
+            ).joinToString(separator = " • "),
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f),
         )
@@ -547,25 +818,13 @@ private fun SessionSetRow(
 }
 
 /**
- * Czas treningu: tyka tylko wtedy, gdy zegar idzie.
+ * Zegar ekranu: tyka tylko wtedy, gdy coś naprawdę się zmienia.
  *
- * Zakończony trening liczymy z `finished_at`, a wstrzymany stoi na momencie
- * pauzy - w obu przypadkach tykanie byłoby kłamstwem, a nie odświeżaniem.
+ * Zakończony trening i pauza to wartości zamrożone - tykanie byłoby wtedy
+ * kłamstwem, a nie odświeżaniem.
  */
 @Composable
-private fun rememberSessionElapsedMs(
-    session: WorkoutSession,
-    tracked: TrackedWorkout?,
-): Long {
-    val finishedAt = session.finishedAtEpochMs
-    val timer = tracked?.takeIf { it.sessionId == session.id }?.timer
-        ?: WorkoutTimerState(
-            startedAtEpochMs = session.startedAtEpochMs,
-            pausedTotalMs = session.pausedTotalMs,
-            pausedAtEpochMs = session.pausedAtEpochMs,
-        )
-    val frozen = timer.isPaused || finishedAt != null
-
+private fun rememberTickingNow(frozen: Boolean): Long {
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(frozen) {
         while (!frozen) {
@@ -573,12 +832,26 @@ private fun rememberSessionElapsedMs(
             delay(TICK_MS)
         }
     }
+    return nowMs
+}
 
-    return if (finishedAt != null) {
-        (finishedAt - session.startedAtEpochMs - session.pausedTotalMs).coerceAtLeast(0L)
-    } else {
-        timer.elapsedMs(nowMs)
+/** Czas treningu o [nowMs]: z zegara w pamięci albo z zamkniętej sesji. */
+private fun sessionElapsedMs(
+    session: WorkoutSession,
+    tracked: TrackedWorkout?,
+    nowMs: Long,
+): Long {
+    val finishedAt = session.finishedAtEpochMs
+    if (finishedAt != null) {
+        return (finishedAt - session.startedAtEpochMs - session.pausedTotalMs).coerceAtLeast(0L)
     }
+    val timer = tracked?.takeIf { it.sessionId == session.id }?.timer
+        ?: WorkoutTimerState(
+            startedAtEpochMs = session.startedAtEpochMs,
+            pausedTotalMs = session.pausedTotalMs,
+            pausedAtEpochMs = session.pausedAtEpochMs,
+        )
+    return timer.elapsedMs(nowMs)
 }
 
 private fun isSessionPaused(session: WorkoutSession, tracked: TrackedWorkout?): Boolean =

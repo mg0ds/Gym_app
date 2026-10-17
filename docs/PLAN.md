@@ -257,19 +257,66 @@ metric_types 1─* body_entries          (karta postaci)
     i brak możliwości rozjechania się ekranu z notyfikacją (M4).
 22. **Historia jest zamknięta.** Serię dopiszemy i poprawimy tylko w **trwającym**
     treningu; zakończony (i przerwany) jest zapisem faktów, a nie brudnopisem (M4).
+23. **`rest_intervals` jest źródłem prawdy o przerwach**, a `set_logs.rest_after_s`
+    to tylko kopia wygodna dla wiersza serii (dopisuje ją domknięcie przerwy).
+    Dzięki temu usunięcie serii nie zabiera statystyk ćwiczenia (FK `SET NULL`),
+    a jedna przerwa może istnieć bez serii (np. przerwana pauzą treningu) (M5).
+24. **Powód zakończenia decyduje, czy przerwa coś mówi o formie.** `completed`
+    (odbyta) i `extended` (odbyta po „+15 s”) wchodzą do średniej, `skipped`
+    („Pomiń”) i `cancelled` (pauza, koniec treningu, nowa przerwa) — nie.
+    Słownika pilnuje `CHECK` w bazie, żeby literówka nie wypadła ze statystyk
+    po cichu. Statystyki odsiewają też czasy spoza 10–900 s: 3 s to pomyłka
+    w dotknięciu, pół godziny to telefon zostawiony na ławce (M5).
+25. **Przerwę domyka ten, kto pierwszy: alarm, ekran albo kolejna seria.**
+    Domknięcie jest idempotentne (`UPDATE … WHERE ended_at IS NULL`) i liczy
+    faktyczny czas w jednym miejscu (`RestRepository`), więc kolejność zdarzeń
+    nie ma znaczenia, a wyścig nie zrobi krzywdy (M5).
+26. **Alarm końca przerwy idzie przez `AlarmManager`, nie przez `delay`.**
+    `delay` liczy czas, który nie płynie, gdy telefon śpi, a budzik systemowy
+    wstaje nawet z ubitego procesu. Gdy system pozwala na dokładne alarmy,
+    używamy `setExactAndAllowWhileIdle`; gdy nie (a na Androidzie 12+ domyślnie
+    nie pozwala), `setAndAllowWhileIdle`, czyli ten sam moment, ale z oknem,
+    w którym system może go odłożyć — zmierzone na API 36: do ~22 s.
+    Nie nagabujemy o zgodę `SCHEDULE_EXACT_ALARM`: aplikacja fitness nie ma
+    prawa wymagać „Alarmów i przypomnień”, a budzik nie jest jedynym
+    mechanizmem — przy żywym procesie przerwę domyka ekran (M5, szczegóły §6.3).
+27. **Cel przerwy ma trzy poziomy:** `session_exercises.rest_seconds` (korekta na
+    dzisiejszy trening) → `exercises.default_rest_s` (karta ćwiczenia) →
+    ustawienie globalne z DataStore (domyślnie 90 s). Plan dnia nie ma własnego
+    celu, bo przerwa jest cechą ćwiczenia, a nie dnia (M5).
+28. **Przerwa liczy się do czasu treningu, ale pokazujemy też „pod sztangą”.**
+    Czas treningu zostaje czasem treningu (M4), a obok pojawia się
+    `elapsed − Σ przerw`; na ekranie, nie w bazie, bo to jedna linia arytmetyki,
+    a nie dana, której ktoś miałby szukać w SQL-u (M5).
+29. **Statystyki przerw liczymy w Kotlinie, nie w SQL-u.**
+    `RestStatsCalculator` to czysta funkcja (mediana, ostatnie 5 treningów,
+    filtry), a DAO zwraca tylko zamknięte przerwy z `LIMIT`. Dzięki temu logikę
+    da się przetestować bez bazy, a zapytanie zostaje proste (M5).
+30. **Jedna notyfikacja, dwa tryby.** Notyfikacja usługi pokazuje w trakcie
+    przerwy odliczanie w dół (systemowy chronometr) z akcjami „+15 s” i „Pomiń”,
+    a poza nią — czas treningu. Osobna notyfikacja pojawia się tylko raz:
+    jako heads-up z dźwiękiem i wibracją, gdy przerwa się skończy (M5).
+31. **Koniec przerwy dzwoni dlatego, że przerwa się skończyła, a nie dlatego,
+    że zrobił to alarm.** Domknąć przerwę może alarm, ekran albo kolejna seria;
+    dźwięk i wibracja idą z dwóch pierwszych dróg, a „Pomiń” i koniec treningu
+    milczą (to nie są przerwy odbyte). Podwójnego sygnału nie ma, bo obie drogi
+    domykają ten sam wiersz i anulują ten sam budzik — wygrywa ta pierwsza.
+    Bez tej zasady telefon leżący w kieszeni milczałby: gdy proces żyje, ekran
+    domyka przerwę szybciej niż budzik — i domykał ją bez słowa (M5).
 
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
 * Migracje pisane ręcznie + test `MigrationTestHelper` (żadnego `fallbackToDestructiveMigration` w produkcji).
 * Test: migracja z v1 → vN na kopii bazy z danymi.
-* Stan: **v5** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
+* Stan: **v6** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
   ćwiczenia dnia i sesje, v4 → reguły harmonogramu i wpisy w kalendarzu,
-  v5 → logowanie serii i pauza treningu).
-  `SchemaMigrationTest` przechodzi całą drogę 1 → 5, a migracje sprawdzamy także
+  v5 → logowanie serii i pauza treningu, v6 → przerwy między seriami).
+  `SchemaMigrationTest` przechodzi całą drogę 1 → 6, a migracje sprawdzamy także
   na urządzeniu z bazą z poprzedniego etapu (2 → 3: 24 ćwiczenia, w tym własne,
   zostały na miejscu; 3 → 4: plany, sesje i historia bez zmian; 4 → 5: treningi
-  i kalendarz bez zmian, tabela serii pusta).
+  i kalendarz bez zmian, tabela serii pusta; 5 → 6: treningi, serie i kalendarz
+  bez zmian, tabela przerw pusta).
 * Migracje v4 dodają dwie tabele (`recurrences`, `scheduled_sessions`) i trzy
   indeksy; nie zmieniają istniejących kolumn, więc dane z M2 przechodzą bez
   przepisywania. `MigrationTestHelper` porównuje wynikowy schemat z plikiem
@@ -279,6 +326,14 @@ metric_types 1─* body_entries          (karta postaci)
   `DEFAULT 0` nie jest ozdobnikiem: `ALTER TABLE` nie umie dodać kolumny
   `NOT NULL` bez wartości domyślnej dla istniejących wierszy, a stare sesje mają
   zero pauz i pustą listę serii — nic nie przeliczamy.
+* Migracje v6 dodają jedną tabelę (`rest_intervals`) i trzy indeksy, wszystkie
+  na kolumnach kluczy obcych. To nie ozdobnik: `rest_intervals` rośnie najszybciej
+  z całej bazy (kilkanaście wierszy na trening), a statystyki pytają o przerwy
+  jednego ćwiczenia i jednej sesji. Założenie indeksu od razu w migracji jest
+  tańsze niż czekanie, aż zapytanie zwolni u użytkownika z roczną historią.
+  Kolumna `ended_reason` ma `CHECK` ze słownikiem powodów — Room sam takiego
+  ograniczenia nie generuje, ale `TableInfo` go ignoruje, więc walidacja
+  schematu po migracji przechodzi.
 
 ---
 
@@ -387,27 +442,39 @@ Tryb „Wybrane dni” zamienia regułę na siatkę miesiąca z wielokrotnym wyb
 (poza oknem 20 tygodni dni są nieaktywne), a rotacja działa tak samo — daty
 dostają kolejne dni planu w kolejności chronologicznej.
 
-**Sesja treningowa (live, M4)**
+**Sesja treningowa (live, M4 + przerwy z M5)**
 ```
 ┌───────────────────────────────────────────┐
 │ ‹  Trening A                              │
 ├───────────────────────────────────────────┤
 │ Trening w toku               [ Pauza ]    │
 │ 1:12:45                                   │  <- cały trening, w pauzie stoi
+│ Pod sztangą 58:20 · przerwy 14:25         │  <- czas bez przerw (M5)
 │ Start o 18:42                             │
 ├───────────────────────────────────────────┤
+│ Przerwa · Squats                          │  <- pasek przerwy, gdy odlicza (M5)
+│ 1:12                                      │
+│ cel 2:00                                  │
+│ [ -15 s ] [ +15 s ] [ Pomiń ]             │
+├───────────────────────────────────────────┤
 │ Notatka: dodaj notatkę                    │  <- notatka do treningu (M4)
-│ 1. Squats             5 × 5 · przerwa 2:00│
+│ 1. Squats                                 │
+│    5 × 5 · superset 1                     │
+│    [ przerwa 2:00 ]                       │  <- klik = zmień cel (M5)
 │    1   60 kg × 5                          │  <- klik = popraw lub usuń
-│    2   80 kg × 5  rozgrzewka              │
+│    2   80 kg × 5  rozgrzewka · przerwa 1:40│
+│    Przerwy: 3 · śr. 1:48                  │  <- z tego treningu (M5)
+│    Średnia przerwa: 1:45 · ostatnio 2:05 (12 treningów)│  <- historia
 │    [ + Dodaj serię ]             2 z 5    │
 │ 2. Bench Press                 5 × 5      │
 └───────────────────────────────────────────┘
 ```
 Formularz serii startuje z **poprzedniej serii** tego ćwiczenia (albo z celu
-z planu), więc powtarzanie tego samego ciężaru to dwa kliknięcia. Timer przerwy,
-średnia przerwa i historia wykonań dochodzą w M5/M6 — makieta z §5.2 opisuje stan
-docelowy, nie zakres M4.
+z planu), więc powtarzanie tego samego ciężaru to dwa kliknięcia. Po zapisaniu
+serii przerwa rusza sama — z celem wziętym z sesji, karty ćwiczenia albo
+z ustawień. `rest_intervals` jest źródłem prawdy o przerwach, a „pod sztangą”
+to `elapsed − Σ przerw` policzone na ekranie. Historia wykonań ćwiczenia
+dochodzi w M6.
 
 **Szczegóły ćwiczenia**
 ```
@@ -558,47 +625,109 @@ zmiana godziny w telefonie przesuwa licznik (o tyle samo myli się zapisany
   żadnego autozapisu: po ubiciu procesu zegar wstaje z `started_at` i `paused_*`,
   a karta „Kontynuuj trening” czeka w kalendarzu,
 * **`duration_s`/`total_rest_s`/`active_s` nie są cache'owane.** Po zakończeniu
-  czas to `finished_at - started_at - paused_total_ms`, a suma przerw policzy się
-  z `rest_intervals`, gdy powstanie (M5). Trzy kolumny, które mogą się rozjechać
-  z faktami, byłyby proszeniem się o kłamstwo w historii treningów,
+  czas to `finished_at - started_at - paused_total_ms`, suma przerw liczy się
+  z `rest_intervals` (M5), a „czas pod sztangą” = czas treningu − suma przerw —
+  na ekranie. Trzy kolumny, które mogą się rozjechać z faktami, byłyby
+  proszeniem się o kłamstwo w historii treningów,
 * zakończenie treningu **domyka otwartą pauzę** i czyści `paused_at_ms`
   (niezmiennik z §4.2, punkt 19), a zakończenie z wpisu w kalendarzu odhacza ten
   wpis (§6.1) w tej samej transakcji.
 
 ### 6.3 Timer przerwy
 
-**Przepływ:** użytkownik loguje serię → startuje odliczanie przerwy (`rest_intervals`
-row) → koniec: dźwięk + wibracja + notyfikacja → użytkownik loguje kolejną serię
-albo „Pomiń”/„+15 s”.
+Wymagania: cel przerwy per ćwiczenie, alarm, dźwięk/wibracja, „Pomiń”/„+15 s”,
+wliczanie w czas treningu, średnia i historia.
 
-* Cel przerwy brany z `plan_day_exercises.rest_seconds` → `exercises.default_rest_s`
-  → ustawienie globalne (np. 90 s).
-* **Uwzględniany w czasie treningu**: suma `actual_s` ląduje w `sessions.total_rest_s`,
-  a ekran treningu pokazuje dwie liczby: *czas całkowity* i *czas pod sztangą*.
-* Powiązanie z ćwiczeniem: `rest_intervals.exercise_id` (+ `set_log_id`).
-* „+15 s” → `ended_reason='extended'`; przerwanie → `'cancelled'` (nie liczone do średniej).
-* Ekran przerwy pokazuje na żywo: `Średnia przerwa: 1:54 (12 treningów)`,
-  `Ostatnio: 2:05`, `Dziś: 3 × 1:50`.
-* Alarm końca przerwy: `AlarmManager.setExactAndAllowWhileIdle` (potrzebne
-  uprawnienie `SCHEDULE_EXACT_ALARM` — z fallbackiem na `set()` gdy odmówione)
-  + notyfikacja full-screen-nie, wystarczy heads-up z dźwiękiem.
+**Przepływ:** użytkownik loguje serię → startuje przerwa (`rest_intervals`) →
+koniec: dźwięk + wibracja + heads-up → użytkownik loguje kolejną serię, „Pomiń”
+albo „+15 s”.
 
-**Statystyki przerw (jedno zapytanie do bazy):**
+**Model (M5).** Przerwa to **wiersz w `rest_intervals`**, nie pole w serii
+(§4.2, punkt 23). Wiersz zawiera wszystko, co trzeba, żeby odtworzyć odliczanie
+po restarcie procesu:
 
-```sql
-SELECT COUNT(*)                                       AS samples,
-       AVG(actual_s)                                  AS avg_s,
-       MIN(actual_s)                                  AS min_s,
-       MAX(actual_s)                                  AS max_s
-FROM rest_intervals
-WHERE exercise_id = :exerciseId
-  AND ended_reason IN ('completed','extended')          -- pomijamy przerwane
-  AND actual_s BETWEEN 10 AND 900                        -- odsiewamy artefakty
-  AND started_at >= :from;
-```
-Mediana i percentyle liczone w Kotlinie z posortowanej listy (SQLite nie ma mediany).
-Dodatkowo „średnia z ostatnich 5 treningów” — bardziej użyteczna niż średnia
-z całej historii (odzwierciedla aktualną formę).
+* `started_at` — wall clock (epoch); ten sam wybór co przy treningu (§4.2, punkt 20),
+* `planned_s` — cel **po korektach**; koniec przerwy jest liczony
+  (`started_at + planned_s`), więc „+15 s” nie potrzebuje własnego pola,
+* `exercise_id` (+ `session_id` i `set_log_id`) — powiązanie z ćwiczeniem i serią,
+* `ended_at`, `actual_s`, `ended_reason` — dopisywane przy domknięciu.
+
+Arytmetyka końca przerwy siedzi w czystej klasie `ActiveRest` (`endsAtEpochMs`,
+`remainingMs`, `isOver`), bo liczy ją ekran, notyfikacja i powrót po restarcie.
+
+**Cel przerwy** ma trzy poziomy (§4.2, punkt 27): korekta w sesji → domyślna
+z karty ćwiczenia → ustawienie globalne (domyślnie 90 s). Zero i wartości ujemne
+znaczą „bez przerwy”, więc efektywny cel nigdy nie jest pusty.
+
+**Kto kończy przerwę.** Każdy, kto pierwszy — i to jest cała odporność mechanizmu:
+
+| Zdarzenie | Powód | Liczy się do średniej | Dzwoni |
+|---|---|---|---|
+| alarm (proces ubity albo śpiący) | `completed` / `extended` | tak | tak |
+| ekran zobaczył zero na liczniku | `completed` / `extended` | tak | tak |
+| kolejna seria zalogowana | `completed` / `extended` | tak | nie — użytkownik właśnie wrócił do pracy |
+| „Pomiń” | `skipped` | nie | nie |
+| pauza, koniec lub przerwanie treningu, nowa przerwa | `cancelled` | nie | nie |
+
+Domknięcie jest **idempotentne** (`UPDATE … WHERE ended_at IS NULL`) i w jednej
+transakcji dopisuje `rest_after_s`/`rest_target_s` do wiersza serii — ale tylko dla
+przerw, które coś mówią o formie (te pola są kopią wygodną dla UI, nie źródłem
+prawdy). Druga próba nic nie zmienia, więc kolejność zdarzeń nie ma znaczenia.
+
+**Dzwoni ten, kto kończy — o ile przerwa się skończyła.** Alarm i ekran wołają
+`RestNotifier`, „Pomiń” i przerwanie treningu milczą (§4.2, punkt 31). Podwójnego
+sygnału nie ma z dwóch powodów: obie drogi domykają ten sam wiersz (druga
+zobaczy `ended_at`), a obie anulują ten sam budzik. Gdyby alarm był jedynym
+dzwoniącym, telefon leżący w kieszeni milczałby — bo ekran wygrywa z budzikiem
+o ułamki sekundy (patrz niżej).
+
+**Alarm.** `AlarmManager.setExactAndAllowWhileIdle`, gdy system pozwala na
+dokładne alarmy, a `setAndAllowWhileIdle`, gdy nie. Uprawnienie
+`SCHEDULE_EXACT_ALARM` jest w manifeście, ale **nie nagabujemy o nie**: aplikacja
+fitness nie ma prawa wymagać „Alarmów i przypomnień”, a ekran i tak odlicza na
+żywo. Budzik jest jeden — każda zmiana celu („+15 s”, „-15 s”, odtworzenie po
+restarcie) przepisuje ten sam `PendingIntent`. `RestAlarmReceiver` wstaje nawet
+po ubiciu procesu, domyka przerwę i pokazuje heads-up na osobnym kanale
+o wysokiej ważności (dźwięk + wibracja).
+
+**Ile to trwa w praktyce (zmierzone na API 36).** Zależy od tego, czy proces
+żyje — i dlatego budzik nie jest jedynym mechanizmem:
+
+| Sytuacja | Kto domyka | Ile po zerze |
+|---|---|---|
+| aplikacja żyje (także ze zgaszonym ekranem) | ekran (tyknięcie licznika) | ~0,4 s |
+| proces ubity, bez zgody na dokładne alarmy | budzik systemowy, okno do ~22 s | raz 18,7 s |
+| proces ubity, ze zgodą na dokładne alarmy | budzik `setExactAndAllowWhileIdle` | co do sekundy |
+
+Do tego dochodzi przypadek „proces wstał już po czasie”: przerwa jest wtedy
+domykana jako `completed`, ale **bez dzwonienia** — dzwonek po fakcie jest gorszy
+niż milczenie. Po odtworzeniu przerwy powód jest zawsze `completed`, bo „+15 s”
+nie jest zapisane w wierszu; oba powody liczą się do średniej tak samo, więc
+różnica jest kosmetyczna.
+
+**Notyfikacja.** Ta sama usługa i ta sama notyfikacja co przy treningu (§6.2):
+w trakcie przerwy pokazuje odliczanie **w dół** (systemowy chronometr,
+`setChronometerCountDown(true)`) z akcjami „+15 s” i „Pomiń”, a poza przerwą —
+czas treningu. Jedna notyfikacja, jeden kanał i nadal zero tykania w procesie.
+
+**Wliczanie w trening.** Suma `actual_s` wszystkich przerw to „przerwy”,
+a „pod sztangą” = czas treningu − przerwy. Liczone na ekranie z listy przerw
+(bieżąca przerwa liczy się do teraz), bez kolumn cache w `sessions`
+(§4.2, punkt 28). Powód: kolumny cache rozjeżdżają się z faktami przy pierwszej
+poprawce serii, a różnica to jedna linia arytmetyki.
+
+**Statystyki przerw.** DAO zwraca zamknięte przerwy wskazanych ćwiczeń z `LIMIT`,
+a filtry i agregaty liczy czysty `RestStatsCalculator` (§4.2, punkt 29):
+
+* do próby wchodzą tylko `completed`/`extended` i czasy 10–900 s — 3 s to
+  przypadkowe dotknięcie, pół godziny to telefon zostawiony na ławce,
+* `samples`, `sessions` (liczba różnych treningów), średnia, mediana, min, max,
+* `last` (najnowsza przerwa) oraz średnia z **ostatnich 5 treningów**, bo
+  pokazuje aktualną formę lepiej niż średnia z całej historii.
+
+Ekran pokazuje te dwie rzeczy osobno: „Przerwy: 3 • śr. 1:48” (ten trening)
+i „Średnia przerwa: 1:45 • ostatnio 2:05 (12 treningów)” (historia ćwiczenia),
+plus „przerwa 1:40” w wierszu serii, której dotyczyła.
 
 ### 6.4 Historia i wykresy
 
@@ -1235,9 +1364,10 @@ w trakcie treningu, a zakończenie wpisu z planu odhacza dzień w kalendarzu.
 * **`duration_s`/`total_rest_s`/`active_s` nie istnieją** jako kolumny — czas
   liczy się z `started_at`/`finished_at`/`paused_total_ms`, a suma przerw
   z `rest_intervals`, gdy powstanie (M5),
-* **`rest_intervals` i timer przerwy → M5** — M4 zbiera serie i ciężary, ale nie
-  mierzy przerw między nimi; kolumny `set_logs.rest_after_s` i `rest_target_s`
-  są już w schemacie, żeby M5 nie musiał zmieniać tabeli,
+* **`rest_intervals` i timer przerwy dołożył M5** — M4 zbierał serie i ciężary,
+  ale nie mierzył przerw między nimi; kolumny `set_logs.rest_after_s`
+  i `rest_target_s` były już w schemacie v5, więc M5 nie musiał zmieniać tabeli
+  serii (§8.1, M5),
 * **RPE i „do upadku” bez UI** — kolumny (i `is_failure` w domenie) są gotowe,
   ale nie zbieramy ich na ekranie: pokażą swoją wartość w statystykach i przy
   rekordach (M6), gdzie trzeba odsiać serie rozgrzewkowe,
@@ -1246,8 +1376,62 @@ w trakcie treningu, a zakończenie wpisu z planu odhacza dzień w kalendarzu.
 * **usługa nie wstaje sama z tła** po zabiciu procesu (Android 12+ ogranicza
   start usługi z tła) — licznik tego nie potrzebuje, bo dane są w bazie,
   a notyfikacja wraca przy następnym wejściu do aplikacji,
-* **historia wykonań, statystyki i archiwum → M6/M9**, a widok tygodnia i wykresy
-  → M6 (jak w M2/M3).
+* **historia wykonań, statystyki ciężaru i archiwum → M6/M9**, a widok tygodnia
+  i wykresy → M6 (jak w M2/M3). Historia przerw jest już w M5.
+
+**M5 ✔ (timer przerwy)** — kryterium działa: po sesji widać średnią przerwę dla
+każdego ćwiczenia, a przerwa odlicza się i dzwoni przy zgaszonym ekranie.
+
+* **Baza v6**: `rest_intervals` (ćwiczenie, sesja, seria, start, cel, koniec,
+  faktyczny czas, powód, `is_auto`) z `CASCADE` po ćwiczeniu i sesji, `SET NULL`
+  po serii i trzema indeksami; `CHECK` na słowniku powodów; migracja 5 → 6
+  z testem `SchemaMigrationTest` (cała droga 1 → 6) i testem odrzucenia powodu
+  spoza słownika,
+* **`RestInterval` + `RestStats`** — modele domenowe i czysta arytmetyka:
+  `countsToStats` (czy przerwa wchodzi do średniej), `elapsedMs`,
+  `RestStatsCalculator` (średnia, mediana, min/max, ostatnia przerwa, średnia
+  z 5 ostatnich treningów) oraz `ActiveRest` (koniec przerwy liczony z początku
+  i celu, więc „+15 s” nie potrzebuje własnego pola),
+* **`RestTimer` + `RestRepository`**: start przerwy zapisuje wiersz od razu,
+  a domknięcie jest idempotentne i liczy faktyczny czas w jednym miejscu; cel
+  przerwy: sesja → karta ćwiczenia → ustawienie globalne (90 s),
+* **Alarm i notyfikacja**: `RestAlarmScheduler` (dokładny alarm, gdy system
+  pozwala) + `RestAlarmReceiver` (`@AndroidEntryPoint`, `goAsync`) domykający
+  przerwę także po ubiciu procesu oraz `RestNotifier` z kanałem o wysokiej
+  ważności (dźwięk + wibracja). Notyfikacja usługi pokazuje w trakcie przerwy
+  odliczanie w dół z akcjami „+15 s” i „Pomiń”,
+* **Ekran treningu**: pasek przerwy z odliczaniem i trzema decyzjami, klikalny
+  cel przerwy na karcie ćwiczenia (dialog), „przerwa 1:40” w wierszu serii,
+  „Przerwy: 3 • śr. 1:48” (ten trening) i „Średnia przerwa: 1:45 • ostatnio 2:05
+  (12 treningów)” (historia), a w nagłówku „Pod sztangą 58:20 • przerwy 14:25”,
+* **Ustawienia**: domyślna przerwa między seriami (90 s) jako ostatni poziom celu,
+* **Pauza treningu anuluje przerwę** (`cancelled`, więc nie liczy się do średniej):
+  przerwa jest częścią pracy, a nie przerwy od pracy,
+* **testy JVM: 156** (doszły: `RestStatsCalculatorTest` — co wchodzi do próby,
+  mediana, ostatnie treningi; `RestTimerStateTest` — koniec przerwy, „+15 s”,
+  minimum; `RestRepositoryTest` — start, idempotentne domknięcie, kopia przerwy
+  w wierszu serii, statystyki per ćwiczenie, czytelna nazwa po archiwizacji,
+  korekta celu w sesji; w istniejących zestawach: migracja 1 → 6 i odrzucenie
+  powodu spoza słownika). `:app:lintDebug` i `:app:assembleDebug` bez błędów,
+* **Weryfikacja na urządzeniu (emulator API 36)**: migracja 5 → 6 na żywej bazie
+  i cała ścieżka przerwy — start po zalogowanej serii, „+15 s”/„-15 s”, „Pomiń”,
+  domknięcie kolejną serią z `rest_after_s` w wierszu serii, „Pod sztangą”,
+  średnie na karcie i w sesji otwartej z kalendarza, `cancelled` przy końcu
+  treningu, notyfikacja w trybie przerwy oraz alert „Koniec przerwy”. Pomiary
+  i szczegóły: §9 (weryfikacja po M5).
+
+Świadome odstępstwa i odroczenia z M5:
+
+* **powód po odtworzeniu przerwy to zawsze `completed`** — po restarcie procesu
+  nie da się odtworzyć, czy użytkownik użył „+15 s”; oba powody liczą się do
+  średniej tak samo, więc różnica jest kosmetyczna,
+* **alarm bez wymuszania zgody na dokładne alarmy** (§4.2 punkt 26) — przy braku
+  zgody system może przesunąć koniec przerwy w Doze; ekran i tak odlicza na żywo,
+* **statystyki przerw bez percentyli** — mediana i średnia mówią o przerwach
+  wszystko, czego użytkownik szuka w jednej linii na karcie ćwiczenia,
+* **brak ręcznego startu przerwy z karty ćwiczenia** — przerwa startuje po
+  zalogowanej serii; kolumna `is_auto` czeka na ten wariant,
+* **historia wykonań i wykresy → M6**, archiwum i eksport → M9 (jak w M4).
 
 ---
 
@@ -1255,18 +1439,18 @@ w trakcie treningu, a zakończenie wpisu z planu odhacza dzień w kalendarzu.
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5), kaskady, unikalne indeksy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4) | Room in-memory + `runTest` |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6), kaskady, unikalne indeksy, słownik powodów przerwy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
-| Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
+| Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
 
-Stan na M4: **132 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M5: **156 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3, 3 → 4 i 4 → 5.
+2 → 3, 3 → 4, 4 → 5 i 5 → 6.
 
 Weryfikacja na urządzeniu (emulator API 36) po M3: migracja bazy z M2 bez utraty
 danych i historia treningów bez zmian, kryterium M3 („co 3 dni, od 1.10 do 31.12,
@@ -1280,6 +1464,24 @@ z ciężarem i na czas, poprawa i usunięcie serii z przenumerowaniem, notatka
 przeżywająca zabicie aplikacji, pauza (zamrożony licznik i notyfikacja), timer
 przy zgaszonym ekranie i po ubiciu aplikacji oraz odhaczenie wpisu w kalendarzu
 po treningu rozpoczętym z planu. Scenariusze: `docs/QA.md`.
+
+Weryfikacja na urządzeniu (emulator API 36) po M5: migracja 5 → 6 na żywej bazie
+z M4 (treningi, serie i kalendarz bez zmian, `user_version = 6`, tabela przerw
+pusta), przerwa startująca po zalogowanej serii (`planned_s` i `is_auto`
+w wierszu), „+15 s” i „-15 s” przesuwające `planned_s`, „Pomiń”
+(`ended_reason = 'skipped'`, bez wpisu w wierszu serii), kolejna seria domykająca
+poprzednią przerwę (`completed` + `rest_after_s`/`rest_target_s` w `set_logs`),
+„Pod sztangą … • przerwy …” i „Przerwy: 7 • śr. 0:43” na karcie ćwiczenia,
+zakończenie treningu przy trwającej przerwie (`cancelled`, poza statystykami),
+odczyt zakończonej sesji z kalendarza („Otwórz trening”) ze średnimi przerwami,
+notyfikacja usługi w trybie przerwy (tytuł = ćwiczenie, chronometr w dół, akcje)
+oraz notyfikacja „Koniec przerwy” na kanale `rest_timer`
+(`IMPORTANCE_HIGH`, wibracja `[0, 300, 150, 300]`, kategoria `alarm`).
+Zmierzone przy okazji: przy żywym procesie przerwę domyka ekran w ~0,4 s od
+zera i sama dzwoni, a budzik systemowy jest siatką bezpieczeństwa dla ubitego
+procesu — bez zgody na dokładne alarmy ma okno do ~22 s (raz spóźnił się
+18,7 s po ubiciu procesu); to cena opisana w §4.2 pkt 26 i §6.3.
+Scenariusze: `docs/QA.md`.
 
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
@@ -1296,7 +1498,7 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 | R4 | Duże filmy zapychają pamięć | średni | limit rozmiaru, licznik zajętości, kompresja zdjęć, sprzątanie osieroconych plików |
 | R5 | Danych startowych nie da się „odświeżyć” automatycznie | niski | katalog jest wersjonowany w repo i importowany raz do `assets/`; użytkownik może w każdej chwili dodać własne ćwiczenia |
 | R6 | Chęć na iOS w przyszłości | średni | jeśli to realne — Kotlin Multiplatform (logika + Room w `:shared`), UI natywne. Decyzję trzeba podjąć **przed M1**, bo później to kosztowny refaktor |
-| R7 | Uprawnienie `SCHEDULE_EXACT_ALARM` odmówione | niski | fallback `set()` (z tolerancją kilku sekund) + informacja w Ustawieniach, że przerwa może się spóźnić |
+| R7 | Uprawnienie `SCHEDULE_EXACT_ALARM` odmówione (domyślnie na Androidzie 12+) | niski | budzik to siatka bezpieczeństwa, a nie jedyny mechanizm: przy żywym procesie przerwę domyka ekran i **też dzwoni** (§6.3); budzik bez zgody ma okno do ~22 s (zmierzone), a z zgodą jest co do sekundy; scenariusz 2.4 w `docs/QA.md` opisuje oba przypadki |
 | R8 | Użytkownik „przeskakuje” ćwiczenia w planie podczas treningu | niski | sesja jest kopią planu, można dodać/pominąć/zmienić kolejność bez wpływu na plan |
 
 ---

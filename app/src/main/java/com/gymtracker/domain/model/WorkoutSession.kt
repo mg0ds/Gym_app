@@ -58,13 +58,32 @@ data class SessionExercise(
     val repsMin: Int?,
     val repsMax: Int?,
     val repsUnit: RepsUnit,
+    /** Cel przerwy z planu (to on ma pierwszeństwo). */
     val restSeconds: Int?,
+    /**
+     * Domyślna przerwa z karty ćwiczenia - druga w kolejności, a przed
+     * ustawieniem globalnym. Katalog nie jest kopiowany do sesji, więc to
+     * jedyny ślad jego preferencji na ekranie treningu.
+     */
+    val exerciseDefaultRestSeconds: Int? = null,
     val supersetGroup: Int?,
     val alternativeGroup: String?,
     val isDefaultChoice: Boolean,
     val note: String?,
     val logs: List<SetLog> = emptyList(),
-)
+) {
+
+    /**
+     * Cel przerwy po tej serii: plan → karta ćwiczenia → ustawienie globalne.
+     *
+     * Zero i wartości ujemne traktujemy jak brak celu - inaczej „przerwa 0 s”
+     * z planu wyglądałaby jak przerwa, a nie jak jej brak.
+     */
+    fun restTargetSeconds(globalDefaultSeconds: Int): Int =
+        listOfNotNull(restSeconds, exerciseDefaultRestSeconds)
+            .firstOrNull { seconds -> seconds > 0 }
+            ?: globalDefaultSeconds
+}
 
 /** Sesja z ćwiczeniami - do ekranu treningu. */
 data class SessionDetails(

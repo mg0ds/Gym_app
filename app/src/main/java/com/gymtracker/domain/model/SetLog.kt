@@ -19,6 +19,14 @@ data class SetLog(
     val isWarmup: Boolean,
     val isFailure: Boolean,
     val completedAtEpochMs: Long,
+    /**
+     * Przerwa, która nastąpiła po tej serii (kopia z `rest_intervals`, w sekundach).
+     * Źródłem prawdy o przerwach jest timer przerwy - tutaj trzymamy ją dla
+     * wygody wiersza serii („60 kg × 5 • przerwa 1:40”).
+     */
+    val restAfterS: Int? = null,
+    /** Ile przerwy było ustawione, gdy seria się kończyła. */
+    val restTargetS: Int? = null,
 )
 
 /**

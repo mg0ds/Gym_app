@@ -8,6 +8,7 @@ import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.db.entities.RecurrenceEntity
+import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.ScheduledSessionEntity
 import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SessionExerciseEntity
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -26,13 +28,15 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Test migracji schematu: zakłada bazę w wersji 1 (taką, jaką miała użytkownika
- * aplikacja z M0), otwiera ją kodem, który zna wersję 5, i sprawdza, że:
+ * aplikacja z M0), otwiera ją kodem, który zna wersję 6, i sprawdza, że:
  *
  *  * dane użytkownika przetrwały,
  *  * Room zaakceptował schemat po migracji (sam porównuje go z oczekiwanym),
  *  * katalog ćwiczeń działa, łącznie z indeksem wyszukiwania założonym w migracji,
  *  * kalendarz z migracji 3→4 przyjmuje reguły i wpisy,
- *  * logowanie serii i pauza z migracji 4→5 działają na starych sesjach.
+ *  * logowanie serii i pauza z migracji 4→5 działają na starych sesjach,
+ *  * przerwy z migracji 5→6 da się zapisać i domknąć, a baza pilnuje słownika
+ *    powodów zakończenia.
  *
  * Gdyby SQL w [DatabaseMigrations] rozjechał się z tym, co generuje Room
  * (np. brakujący `NOT NULL` czy `DEFAULT` przy dodanej kolumnie), ten test
@@ -54,7 +58,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 5 zachowuje dane i dodaje katalog, plany, kalendarz i serie`() = runTest {
+    fun `migracja 1 do 6 zachowuje dane i dodaje katalog, plany, kalendarz, serie i przerwy`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -180,6 +184,50 @@ class SchemaMigrationTest {
             assertEquals(listOf(60.0), sets.map { it.weightKg })
             assertEquals(listOf(5), sets.map { it.reps })
 
+            // Migracja 5→6: przerwy między seriami. Przerwa startuje otwarta,
+            // domyka się raz (drugie domknięcie nic nie zmienia), a wiersz serii
+            // dostaje faktyczny czas przerwy.
+            val setLogId = sets.single().id
+            val restId = database.restDao().insert(
+                RestIntervalEntity(
+                    exerciseId = exerciseId,
+                    sessionId = sessionId,
+                    setLogId = setLogId,
+                    startedAtEpochMs = 4_000L,
+                    plannedSeconds = 90,
+                ),
+            )
+            assertEquals(restId, requireNotNull(database.restDao().getOpen()).id)
+            assertEquals(
+                1,
+                database.restDao().close(
+                    intervalId = restId,
+                    endedAtEpochMs = 4_094L,
+                    actualSeconds = 94,
+                    plannedSeconds = 90,
+                    reason = RestIntervalEntity.REASON_COMPLETED,
+                ),
+            )
+            assertEquals(
+                0,
+                database.restDao().close(
+                    intervalId = restId,
+                    endedAtEpochMs = 4_100L,
+                    actualSeconds = 100,
+                    plannedSeconds = 90,
+                    reason = RestIntervalEntity.REASON_SKIPPED,
+                ),
+            )
+            val rest = requireNotNull(database.restDao().get(restId))
+            assertEquals(94, rest.actualSeconds)
+            assertEquals(RestIntervalEntity.REASON_COMPLETED, rest.endedReason)
+            assertNull(database.restDao().getOpen())
+
+            database.setLogDao().setRest(setLogId, actualSeconds = 94, targetSeconds = 90)
+            val setWithRest = requireNotNull(database.setLogDao().getSet(setLogId))
+            assertEquals(94, setWithRest.restAfterS)
+            assertEquals(90, setWithRest.restTargetS)
+
             // Kaskada: usunięcie planu zabiera dni, ćwiczenia dni i reguły,
             // a wpis w kalendarzu zostaje - tylko bez wskazania (SET NULL).
             database.planDao().deletePlan(planId)
@@ -194,6 +242,54 @@ class SchemaMigrationTest {
             // Trening i jego serie przeżywają porządek w planach (sesja traci
             // tylko wskazania), więc historia zostaje czytelna.
             assertEquals(1, database.setLogDao().getSetsFrom(sessionExerciseId, 1).size)
+
+            // Przerwa jest kopią wygodną: usunięcie serii nie zabiera historii
+            // przerw (SET NULL), więc statystyki ćwiczenia zostają czytelne.
+            database.setLogDao().deleteSet(setWithRest)
+            assertNull(requireNotNull(database.restDao().get(restId)).setLogId)
+        } finally {
+            database.close()
+        }
+    }
+
+    /**
+     * Słownik powodów zakończenia przerwy pilnuje sam SQL (`CHECK` w migracji),
+     * a nie tylko kod Kotlina - inaczej „powód” z literówki wszedłby do bazy
+     * i wypadł ze statystyk po cichu.
+     */
+    @Test
+    fun `baza odrzuca nieznany powod zakonczenia przerwy`() = runTest {
+        createVersion1Database()
+
+        val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+            .addMigrations(*DatabaseMigrations.ALL)
+            .build()
+
+        try {
+            val exerciseId = database.exerciseDao().insert(
+                ExerciseEntity(
+                    name = "Plank",
+                    createdAtEpochMs = 1_000L,
+                    updatedAtEpochMs = 1_000L,
+                ),
+            )
+            val restId = database.restDao().insert(
+                RestIntervalEntity(
+                    exerciseId = exerciseId,
+                    startedAtEpochMs = 1_000L,
+                    plannedSeconds = 60,
+                ),
+            )
+            val raw = database.openHelper.writableDatabase
+
+            val rejected = runCatching {
+                raw.execSQL("UPDATE rest_intervals SET ended_reason = 'bogus' WHERE id = $restId")
+            }.exceptionOrNull()
+            assertNotNull("nieznany powód nie może wejść do bazy", rejected)
+
+            // Powód ze słownika przechodzi.
+            raw.execSQL("UPDATE rest_intervals SET ended_reason = 'skipped' WHERE id = $restId")
+            assertEquals("skipped", requireNotNull(database.restDao().get(restId)).endedReason)
         } finally {
             database.close()
         }

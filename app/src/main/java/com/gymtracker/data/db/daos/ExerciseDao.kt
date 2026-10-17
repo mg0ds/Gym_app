@@ -48,6 +48,14 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercises WHERE id = :id AND is_archived = 0")
     suspend fun getById(id: Long): ExerciseEntity?
 
+    /**
+     * Jak wyżej, ale bez pomijania archiwum. Historia treningów ma zostać
+     * czytelna także po usunięciu ćwiczenia z katalogu (M5: notyfikacja końca
+     * przerwy mówi, czego dotyczyła).
+     */
+    @Query("SELECT * FROM exercises WHERE id = :id")
+    suspend fun getAnyById(id: Long): ExerciseEntity?
+
     @Query("SELECT * FROM exercises WHERE external_id = :externalId LIMIT 1")
     suspend fun getByExternalId(externalId: String): ExerciseEntity?
 
