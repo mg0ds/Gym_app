@@ -56,6 +56,7 @@ fun ExerciseEditScreen(
         onLevelChange = viewModel::onLevelChange,
         onSecondaryMuscleToggle = viewModel::onSecondaryMuscleToggle,
         onYoutubeUrlChange = viewModel::onYoutubeUrlChange,
+        onInstructionsChange = viewModel::onInstructionsChange,
         onNotesChange = viewModel::onNotesChange,
         onSetsChange = viewModel::onSetsChange,
         onRepsMinChange = viewModel::onRepsMinChange,
@@ -77,6 +78,7 @@ private fun ExerciseEditContent(
     onLevelChange: (String?) -> Unit,
     onSecondaryMuscleToggle: (String) -> Unit,
     onYoutubeUrlChange: (String) -> Unit,
+    onInstructionsChange: (String) -> Unit,
     onNotesChange: (String) -> Unit,
     onSetsChange: (String) -> Unit,
     onRepsMinChange: (String) -> Unit,
@@ -229,6 +231,15 @@ private fun ExerciseEditContent(
                 onValueChange = onRestSecondsChange,
                 label = stringResource(R.string.exercise_field_rest),
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedTextField(
+                value = uiState.instructions,
+                onValueChange = onInstructionsChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.exercise_field_instructions)) },
+                supportingText = { Text(stringResource(R.string.exercise_field_instructions_hint)) },
+                minLines = 3,
             )
 
             OutlinedTextField(

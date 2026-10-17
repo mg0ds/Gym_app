@@ -7,6 +7,7 @@ import com.gymtracker.data.db.DatabaseMigrations
 import com.gymtracker.data.db.daos.AppMetaDao
 import com.gymtracker.data.db.daos.CalendarDao
 import com.gymtracker.data.db.daos.ExerciseDao
+import com.gymtracker.data.db.daos.MediaDao
 import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.RestDao
 import com.gymtracker.data.db.daos.SessionDao
@@ -53,4 +54,7 @@ object DatabaseModule {
 
     @Provides
     fun provideStatsDao(database: AppDatabase): StatsDao = database.statsDao()
+
+    @Provides
+    fun provideMediaDao(database: AppDatabase): MediaDao = database.mediaDao()
 }

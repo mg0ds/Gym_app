@@ -382,11 +382,58 @@ object DatabaseMigrations {
         }
     }
 
+    /**
+     * 6 → 7 (M7): instrukcja wykonania i załączniki ćwiczenia.
+     *
+     * `exercises.instructions` to JSON z krokami techniki (`["1. ...","2. ..."]`).
+     * Dodajemy **kolumnę**, a nie tabelę - tak samo jak `secondary_muscles`:
+     * kroków jest kilka, zawsze czytamy je w całości i nigdy nie filtrujemy
+     * pojedynczo.
+     *
+     * `exercise_media` trzyma **wskazania** do plików w galerii, nie ich kopie:
+     * aplikacja nie zarządza cudzymi plikami, a usunięcie zdjęcia w galerii ma
+     * je po prostu przestać pokazywać (decyzja w §4.2). Własne są tylko miniatury
+     * (`thumbnail_path`), więc sprzątanie nigdy nie dotyka galerii.
+     *
+     * `CHECK` na `kind` jest jedynym miejscem, gdzie baza pilnuje słownika
+     * rodzajów załącznika (Room nie umie go wygenerować z encji - tak samo jak
+     * przy `rest_intervals.ended_reason`).
+     *
+     * Migracja nic nie przelicza: istniejące ćwiczenia nie mają ani kroków,
+     * ani załączników.
+     */
+    private val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `exercises` ADD COLUMN `instructions` TEXT")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `exercise_media` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`exercise_id` INTEGER NOT NULL, " +
+                    "`kind` TEXT NOT NULL CHECK (`kind` IN " +
+                    "('image','video','youtube','link')), " +
+                    "`remote_uri` TEXT, " +
+                    "`thumbnail_path` TEXT, " +
+                    "`caption` TEXT, " +
+                    "`duration_ms` INTEGER, " +
+                    "`size_bytes` INTEGER, " +
+                    "`position` INTEGER NOT NULL, " +
+                    "`created_at` INTEGER NOT NULL, " +
+                    "FOREIGN KEY(`exercise_id`) REFERENCES `exercises`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_media_exercise` " +
+                    "ON `exercise_media` (`exercise_id`, `position`)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
         MIGRATION_3_4,
         MIGRATION_4_5,
         MIGRATION_5_6,
+        MIGRATION_6_7,
     )
 }

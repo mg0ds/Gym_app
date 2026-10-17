@@ -33,6 +33,7 @@ import com.gymtracker.ui.calendar.CalendarScreen
 import com.gymtracker.ui.calendar.ScheduleFormScreen
 import com.gymtracker.ui.history.ExerciseStatsScreen
 import com.gymtracker.ui.history.HistoryScreen
+import com.gymtracker.ui.media.MediaViewerScreen
 import com.gymtracker.ui.plans.ExercisePickerScreen
 import com.gymtracker.ui.plans.PlanDayScreen
 import com.gymtracker.ui.plans.PlanDetailScreen
@@ -102,7 +103,20 @@ fun GymTrackerNavHost(
                     onBack = { navController.popBackStack() },
                     onEdit = { exerciseId -> navController.navigate(Routes.exerciseEdit(exerciseId)) },
                     onOpenStats = { exerciseId -> navController.navigate(Routes.exerciseStats(exerciseId)) },
+                    onOpenMedia = { exerciseId, mediaId ->
+                        navController.navigate(Routes.exerciseMedia(exerciseId, mediaId))
+                    },
                 )
+            }
+
+            composable(
+                route = Routes.EXERCISE_MEDIA,
+                arguments = listOf(
+                    navArgument(Routes.ARG_EXERCISE_ID) { type = NavType.LongType },
+                    navArgument(Routes.ARG_MEDIA_ID) { type = NavType.LongType },
+                ),
+            ) {
+                MediaViewerScreen(onBack = { navController.popBackStack() })
             }
 
             composable(

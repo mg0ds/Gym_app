@@ -19,12 +19,20 @@ object Routes {
     const val EXERCISE_EDIT = "exercise/{$ARG_EXERCISE_ID}/edit"
     const val EXERCISE_STATS = "exercise/{$ARG_EXERCISE_ID}/stats"
 
+    /** Podgląd załącznika (M7) - zdjęcia, filmu albo linku. */
+    const val ARG_MEDIA_ID = "mediaId"
+    const val EXERCISE_MEDIA = "exercise/{$ARG_EXERCISE_ID}/media/{$ARG_MEDIA_ID}"
+
     fun exerciseDetail(exerciseId: Long): String = "exercise/$exerciseId"
 
     fun exerciseEdit(exerciseId: Long): String = "exercise/$exerciseId/edit"
 
     /** Historia i statystyki ćwiczenia (M6). */
     fun exerciseStats(exerciseId: Long): String = "exercise/$exerciseId/stats"
+
+    /** Podgląd załącznika ćwiczenia (M7). */
+    fun exerciseMedia(exerciseId: Long, mediaId: Long): String =
+        "exercise/$exerciseId/media/$mediaId"
 
     // --- plany (M2) ---
 

@@ -15,6 +15,7 @@
     <!-- Common -->
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_ok">OK</string>
     <string name="action_delete">Delete</string>
     <string name="action_add">Add</string>
     <string name="action_edit">Edit</string>
@@ -37,7 +38,8 @@
     <string name="exercise_not_found">This exercise could not be found</string>
     <string name="exercise_section_details">Information</string>
     <string name="exercise_section_defaults">Default parameters</string>
-    <string name="exercise_section_media">Video and source</string>
+    <string name="exercise_section_instructions">How to perform</string>
+    <string name="exercise_section_media">Photos, videos and links</string>
     <string name="exercise_section_notes">Comment</string>
     <string name="exercise_label_muscle_group">Muscle group</string>
     <string name="exercise_label_muscle_group_secondary">Secondary muscles</string>
@@ -85,7 +87,33 @@
     <string name="exercise_field_reps_min">Reps from</string>
     <string name="exercise_field_reps_max">Reps to</string>
     <string name="exercise_field_rest">Rest (seconds)</string>
+    <string name="exercise_field_instructions">How to perform</string>
+    <string name="exercise_field_instructions_hint">One step per line. We will handle the numbering.</string>
     <string name="exercise_field_notes">Comment</string>
+
+    <!-- Exercise attachments (M7) -->
+    <string name="media_empty">No photos or videos yet. Add them from your gallery.</string>
+    <string name="media_add_photo">Add photo</string>
+    <string name="media_add_video">Add video</string>
+    <string name="media_kind_photo">Photo</string>
+    <string name="media_kind_video">Video</string>
+    <string name="media_kind_link">Link</string>
+    <string name="media_size_kb">%1$.0f kB</string>
+    <string name="media_size_mb">%1$.1f MB</string>
+    <string name="media_viewer_title">Attachment</string>
+    <string name="media_viewer_not_found">This attachment is gone</string>
+    <string name="media_notice_image_unavailable">Thumbnail only - the photo is gone from your gallery or access to it expired.</string>
+    <string name="media_notice_video_unavailable">Thumbnail only - the video is gone from your gallery or access to it expired.</string>
+    <string name="media_external_hint">This attachment opens outside the app.</string>
+    <string name="media_open_external">Open</string>
+    <string name="media_delete_title">Unlink this attachment?</string>
+    <string name="media_delete_message">The attachment disappears from the app. The file in your gallery is untouched.</string>
+    <string name="media_delete_action">Unlink attachment</string>
+    <string name="media_caption_edit">Caption</string>
+    <string name="media_caption_field">Photo or video caption</string>
+    <string name="media_rejected_title">Could not add</string>
+    <string name="media_rejected_unreadable">Could not read this file from your gallery.</string>
+    <string name="media_rejected_unsupported">This file is not a photo or a video.</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

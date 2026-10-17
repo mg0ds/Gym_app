@@ -100,17 +100,33 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 3a.13 | Interfejs po angielsku | „Set 1: 60 kg × 5”, „Add a set”, „Pause/Resume/Finish” w notyfikacji, „%1$d of %2$d” w postępie |
 
 
-## 4. Media i YouTube
+## 4. Media: zdjęcia, filmy, link, kroki (M7)
+
+Zasada: **wskazujemy plik, nie kopiujemy go.** Sprawdzając te scenariusze warto
+zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
+`thumbs/<uuid>.jpg`, bez katalogu `media/` i bez kopii oryginałów.
 
 | # | Scenariusz | Oczekiwany wynik |
 |---|---|---|
-| 4.1 | Dodaj zdjęcie z galerii | Skopiowane do `filesDir/media/...`, widoczne w szczegółach |
-| 4.2 | Dodaj film 40 MB | Odtwarza się w apce, czas trwania widoczny |
-| 4.3 | Dodaj film 200 MB | Czytelny komunikat o limicie rozmiaru |
-| 4.4 | Wklej link `youtu.be/ID`, `watch?v=ID`, `shorts/ID` | Każdy rozpoznany, ta sama miniatura i odtwarzanie |
-| 4.5 | Wklej zwykły link (nie YouTube) | Zapisany jako link, bez próby odtwarzania |
-| 4.6 | Wyłącz internet, otwórz ćwiczenie z filmem | Miniatura z cache (jeśli była), przycisk odtwarzania nie crashuje |
-| 4.7 | Usuń ćwiczenie z 3 załącznikami | Pliki usunięte z pamięci (sprawdź w menedżerze plików) |
+| 4.1 | Karta ćwiczenia → „Dodaj zdjęcie” → wybór z galerii | Kafelek z miniaturą od razu; w `filesDir/thumbs` przybywa jeden mały plik (~200 px), a nie kopia zdjęcia |
+| 4.2 | Sprawdź `filesDir` po dodaniu zdjęcia i filmu | Tylko `thumbs/`; oryginały zostały w galerii |
+| 4.3 | „Dodaj film” → wybór filmu | Kafelek z miniaturą z klatki i nakładką ▶; podgląd odtwarza film (Media3), widać czas trwania i rozmiar |
+| 4.4 | Otwórz podgląd filmu i wyjdź strzałką w trakcie odtwarzania | Dźwięk milknie natychmiast (odtwarzacz zwolniony), nic nie gra w tle |
+| 4.5 | Zablokuj i odblokuj ekran w trakcie odtwarzania | Film wraca w pauzie — sam się nie wznawia |
+| 4.6 | Restart aplikacji | Kafelki z miniaturami na miejscu; zdjęcie otwiera się w podglądzie, film odtwarza |
+| 4.7 | Restart urządzenia | Kafelki na miejscu; gdy system dał trwały dostęp (np. `ACTION_OPEN_DOCUMENT` na starszym Androidzie), pełny plik też działa — a gdy Photo Picker dostępu nie dał, podgląd pokazuje miniaturę i komunikat (nie pustkę) |
+| 4.8 | Usuń zdjęcie z galerii (menedżer plików), wejdź w kafelek | Miniatura + „Miniatura — zdjęcia nie ma już w galerii albo dostęp do niego wygasł”; aplikacja nie crashuje, załącznik można odpiąć |
+| 4.9 | W podglądzie „✎” → wpisz opis → zapisz; wróć i wejdź ponownie | Opis pod kafelkiem (jedna linia) i pod podglądem; wyczyszczenie pola usuwa opis |
+| 4.10 | Podgląd → „🗑” → potwierdzenie | Kafelek znika, nasza miniatura usunięta z `filesDir/thumbs`, a **plik w galerii zostaje nietknięty** |
+| 4.11 | Wklej link `youtu.be/ID`, `watch?v=ID`, `shorts/ID` w formularzu, otwórz kartę | Rozpoznany jako film YouTube; przycisk „Otwórz film” (bez miniatury — aplikacja nie ma sieci) |
+| 4.12 | Stuknij „Otwórz film” | Otwiera się aplikacja YouTube (albo systemowy wybór); powrót zostawia stan ekranu |
+| 4.13 | Tryb samolotowy + dodanie zdjęcia i filmu, potem „Otwórz film” | Dodawanie działa (zero sieci); link pokazuje systemowy komunikat o braku połączenia, aplikacja nie crashuje |
+| 4.14 | Plik nieczytelny (usunięty w trakcie wyboru) albo nie zdjęcie/film | Komunikat „Nie udało się odczytać tego pliku z galerii” albo „Ten plik nie jest zdjęciem ani filmem”; **nic** nie trafia do listy |
+| 4.15 | Formularz: kroki „1. Ustaw sztangę”, „2. Ściągnij łopatki”, „Trzymaj 3 s” | Karta ćwiczenia: numerowana lista 1., 2., 3. bez podwójnej numeracji, a krok z liczbą w treści („Trzymaj 3 s”) zostaje bez zmian |
+| 4.16 | Zapisz ćwiczenie bez kroków, wejdź w kartę i wrócić do formularza | Sekcja „Kroki wykonania” nie pokazuje się; pole w formularzu puste |
+| 4.17 | Usuń ćwiczenie z 2 załącznikami, zrestartuj aplikację | Wiersze załączników znikają kaskadą; osierocone miniatury sprząta start aplikacji (świeże pliki zostają, kasowane są starsze niż doba) |
+| 4.18 | Aktualizacja z M6 (baza v6: katalog, plany, historia, przerwy) | Migracja 6 → 7 bez błędu; `user_version = 7`, katalog/plany/historia bez zmian, kolumna `instructions` pusta, lista załączników pusta |
+| 4.19 | Interfejs po angielsku | „Add photo”, „Add video”, „Photos, videos and links”, „How to perform”, „Unlink this attachment?” |
 
 ## 5. Dane i backup
 

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.gymtracker.data.db.entities.ExerciseEntity
+import com.gymtracker.data.db.entities.ExerciseMediaEntity
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
@@ -28,7 +29,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Test migracji schematu: zakłada bazę w wersji 1 (taką, jaką miała użytkownika
- * aplikacja z M0), otwiera ją kodem, który zna wersję 6, i sprawdza, że:
+ * aplikacja z M0), otwiera ją kodem, który zna wersję 7, i sprawdza, że:
  *
  *  * dane użytkownika przetrwały,
  *  * Room zaakceptował schemat po migracji (sam porównuje go z oczekiwanym),
@@ -36,7 +37,9 @@ import org.robolectric.RobolectricTestRunner
  *  * kalendarz z migracji 3→4 przyjmuje reguły i wpisy,
  *  * logowanie serii i pauza z migracji 4→5 działają na starych sesjach,
  *  * przerwy z migracji 5→6 da się zapisać i domknąć, a baza pilnuje słownika
- *    powodów zakończenia.
+ *    powodów zakończenia,
+ *  * kroki wykonania i załączniki z migracji 6→7 da się zapisać, a załącznik
+ *    znika razem z ćwiczeniem (kaskada).
  *
  * Gdyby SQL w [DatabaseMigrations] rozjechał się z tym, co generuje Room
  * (np. brakujący `NOT NULL` czy `DEFAULT` przy dodanej kolumnie), ten test
@@ -228,6 +231,38 @@ class SchemaMigrationTest {
             assertEquals(94, setWithRest.restAfterS)
             assertEquals(90, setWithRest.restTargetS)
 
+            // Migracja 6→7: kroki wykonania jako JSON w kolumnie ćwiczenia.
+            // Kolumna jest zwykłym `TEXT`-em, więc zapis i odczyt muszą przejść
+            // na wierszu, który powstał jeszcze w wersji 1.
+            val beforeInstructions = requireNotNull(database.exerciseDao().getById(exerciseId))
+            database.exerciseDao().update(
+                beforeInstructions.copy(instructions = "[\"Ustaw sztangę\",\"Wyciśnij\"]"),
+            )
+            assertEquals(
+                "[\"Ustaw sztangę\",\"Wyciśnij\"]",
+                requireNotNull(database.exerciseDao().getById(exerciseId)).instructions,
+            )
+
+            // Załącznik z galerii to wskazanie na plik (`remote_uri`), a nasza
+            // jest tylko miniatura - i to ona trafia na listę do sprzątania.
+            val mediaId = database.mediaDao().insert(
+                ExerciseMediaEntity(
+                    exerciseId = exerciseId,
+                    kind = "image",
+                    remoteUri = "content://media/picker/1",
+                    thumbnailPath = "thumbs/1.jpg",
+                    position = 0,
+                    createdAtEpochMs = 5_000L,
+                ),
+            )
+            val media = database.mediaDao().observeMedia(exerciseId).first().single()
+            assertEquals(mediaId, media.id)
+            assertEquals("image", media.kind)
+            assertEquals("content://media/picker/1", media.remoteUri)
+            assertEquals(listOf("thumbs/1.jpg"), database.mediaDao().thumbnailPaths())
+            assertEquals(0, database.mediaDao().maxPosition(exerciseId))
+            assertEquals(-1, database.mediaDao().maxPosition(exerciseId + 1))
+
             // Kaskada: usunięcie planu zabiera dni, ćwiczenia dni i reguły,
             // a wpis w kalendarzu zostaje - tylko bez wskazania (SET NULL).
             database.planDao().deletePlan(planId)
@@ -290,6 +325,90 @@ class SchemaMigrationTest {
             // Powód ze słownika przechodzi.
             raw.execSQL("UPDATE rest_intervals SET ended_reason = 'skipped' WHERE id = $restId")
             assertEquals("skipped", requireNotNull(database.restDao().get(restId)).endedReason)
+        } finally {
+            database.close()
+        }
+    }
+
+    /**
+     * Załącznik należy do ćwiczenia: skasowanie ćwiczenia ma zostawić po nim
+     * pustkę, a nie osierocone wiersze (pliki sprząta aplikacja przy starcie).
+     */
+    @Test
+    fun `usuniecie cwiczenia zabiera jego zalaczniki`() = runTest {
+        createVersion1Database()
+
+        val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+            .addMigrations(*DatabaseMigrations.ALL)
+            .build()
+
+        try {
+            val exerciseId = database.exerciseDao().insert(
+                ExerciseEntity(
+                    name = "Plank",
+                    createdAtEpochMs = 1_000L,
+                    updatedAtEpochMs = 1_000L,
+                ),
+            )
+            database.mediaDao().insert(
+                ExerciseMediaEntity(
+                    exerciseId = exerciseId,
+                    kind = "video",
+                    remoteUri = "content://media/picker/2",
+                    position = 0,
+                    createdAtEpochMs = 1_000L,
+                ),
+            )
+            assertEquals(1, database.mediaDao().observeMedia(exerciseId).first().size)
+
+            database.exerciseDao().deleteById(exerciseId)
+
+            assertTrue(database.mediaDao().observeMedia(exerciseId).first().isEmpty())
+        } finally {
+            database.close()
+        }
+    }
+
+    /**
+     * Słownik rodzajów załącznika pilnuje SQL z migracji (`CHECK`), a nie tylko
+     * kod Kotlina - inaczej rodzaj z literówki wszedłby do bazy i wypadł z siatki
+     * po cichu (mapowanie nieznanych rodzajów pomija wiersz).
+     */
+    @Test
+    fun `baza odrzuca nieznany rodzaj zalacznika`() = runTest {
+        createVersion1Database()
+
+        val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+            .addMigrations(*DatabaseMigrations.ALL)
+            .build()
+
+        try {
+            val exerciseId = database.exerciseDao().insert(
+                ExerciseEntity(
+                    name = "Plank",
+                    createdAtEpochMs = 1_000L,
+                    updatedAtEpochMs = 1_000L,
+                ),
+            )
+            val mediaId = database.mediaDao().insert(
+                ExerciseMediaEntity(
+                    exerciseId = exerciseId,
+                    kind = "image",
+                    remoteUri = "content://media/picker/3",
+                    position = 0,
+                    createdAtEpochMs = 1_000L,
+                ),
+            )
+            val raw = database.openHelper.writableDatabase
+
+            val rejected = runCatching {
+                raw.execSQL("UPDATE exercise_media SET kind = 'hologram' WHERE id = $mediaId")
+            }.exceptionOrNull()
+            assertNotNull("nieznany rodzaj nie może wejść do bazy", rejected)
+
+            // Rodzaj ze słownika przechodzi.
+            raw.execSQL("UPDATE exercise_media SET kind = 'video' WHERE id = $mediaId")
+            assertEquals("video", requireNotNull(database.mediaDao().findById(mediaId)).kind)
         } finally {
             database.close()
         }

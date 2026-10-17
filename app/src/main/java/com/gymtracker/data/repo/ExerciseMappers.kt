@@ -3,6 +3,7 @@ package com.gymtracker.data.repo
 import com.gymtracker.data.db.entities.ExerciseEntity
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.InstructionSteps
 import com.gymtracker.domain.model.YouTubeLinks
 import kotlinx.serialization.json.Json
 
@@ -14,13 +15,30 @@ internal val ExerciseJson: Json = Json {
 
 /** Lista mięśni dodatkowych: w bazie leży jako JSON w kolumnie TEXT. */
 internal fun encodeMuscles(muscles: List<String>): String? =
-    muscles.filter { it.isNotBlank() }.distinct().takeIf { it.isNotEmpty() }?.let { list ->
-        ExerciseJson.encodeToString(list)
-    }
+    encodeStringList(muscles.map { it.trim() }.filter { it.isNotEmpty() }.distinct())
 
-internal fun decodeMuscles(text: String?): List<String> {
+internal fun decodeMuscles(text: String?): List<String> = decodeStringList(text)
+
+/**
+ * Lista kroków wykonania, też jako JSON. Normalizujemy przy zapisie i odczycie:
+ * przy zapisie sprzątamy to, co wpisał użytkownik (puste linie, numeracja),
+ * a przy odczycie nie ufamy zawartości bazy na tyle, żeby wpuścić do UI puste
+ * kroki.
+ */
+internal fun encodeInstructions(steps: List<String>): String? =
+    encodeStringList(InstructionSteps.normalize(steps))
+
+internal fun decodeInstructions(text: String?): List<String> =
+    InstructionSteps.normalize(decodeStringList(text))
+
+/** Lista tekstów w kolumnie TEXT jako JSON (mięśnie dodatkowe, kroki). */
+private fun encodeStringList(values: List<String>): String? =
+    values.takeIf { it.isNotEmpty() }?.let { list -> ExerciseJson.encodeToString(list) }
+
+private fun decodeStringList(text: String?): List<String> {
     if (text.isNullOrBlank()) return emptyList()
-    return runCatching { ExerciseJson.decodeFromString<List<String>>(text) }.getOrDefault(emptyList())
+    return runCatching { ExerciseJson.decodeFromString<List<String>>(text) }
+        .getOrDefault(emptyList())
 }
 
 internal fun ExerciseEntity.toDomain(): Exercise = Exercise(
@@ -36,6 +54,7 @@ internal fun ExerciseEntity.toDomain(): Exercise = Exercise(
     mechanics = mechanics,
     forceType = forceType,
     level = level,
+    instructions = decodeInstructions(instructions),
     youtubeUrl = youtubeUrl,
     defaultSets = defaultSets,
     defaultRepsMin = defaultRepsMin,
@@ -74,6 +93,7 @@ internal fun ExerciseDraft.toEntity(
     mechanics = mechanics,
     forceType = forceType,
     level = level,
+    instructions = encodeInstructions(instructions),
     youtubeUrl = YouTubeLinks.normalizeOrKeepRaw(youtubeUrl),
     defaultSets = defaultSets,
     defaultRepsMin = defaultRepsMin,

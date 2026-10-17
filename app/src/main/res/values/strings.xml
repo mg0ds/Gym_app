@@ -15,6 +15,7 @@
     <!-- Wspólne -->
     <string name="action_save">Zapisz</string>
     <string name="action_cancel">Anuluj</string>
+    <string name="action_ok">OK</string>
     <string name="action_add">Dodaj</string>
     <string name="action_delete">Usuń</string>
     <string name="action_edit">Edytuj</string>
@@ -37,7 +38,8 @@
     <string name="exercise_not_found">Nie znaleziono tego ćwiczenia</string>
     <string name="exercise_section_details">Informacje</string>
     <string name="exercise_section_defaults">Domyślne parametry</string>
-    <string name="exercise_section_media">Film i źródło</string>
+    <string name="exercise_section_instructions">Kroki wykonania</string>
+    <string name="exercise_section_media">Zdjęcia, filmy i linki</string>
     <string name="exercise_section_notes">Komentarz</string>
     <string name="exercise_label_muscle_group">Partia mięśniowa</string>
     <string name="exercise_label_muscle_group_secondary">Mięśnie dodatkowe</string>
@@ -89,7 +91,33 @@
     <string name="exercise_field_reps_min">Powt. od</string>
     <string name="exercise_field_reps_max">Powt. do</string>
     <string name="exercise_field_rest">Przerwa (sekundy)</string>
+    <string name="exercise_field_instructions">Kroki wykonania</string>
+    <string name="exercise_field_instructions_hint">Jeden krok w jednej linii. Numeracją zajmiemy się sami.</string>
     <string name="exercise_field_notes">Komentarz</string>
+
+    <!-- Załączniki ćwiczenia (M7) -->
+    <string name="media_empty">Brak zdjęć i filmów. Dodaj je z galerii.</string>
+    <string name="media_add_photo">Dodaj zdjęcie</string>
+    <string name="media_add_video">Dodaj film</string>
+    <string name="media_kind_photo">Zdjęcie</string>
+    <string name="media_kind_video">Film</string>
+    <string name="media_kind_link">Link</string>
+    <string name="media_size_kb">%1$.0f kB</string>
+    <string name="media_size_mb">%1$.1f MB</string>
+    <string name="media_viewer_title">Załącznik</string>
+    <string name="media_viewer_not_found">Nie ma już tego załącznika</string>
+    <string name="media_notice_image_unavailable">Miniatura - zdjęcia nie ma już w galerii albo dostęp do niego wygasł.</string>
+    <string name="media_notice_video_unavailable">Miniatura - filmu nie ma już w galerii albo dostęp do niego wygasł.</string>
+    <string name="media_external_hint">Ten załącznik otwiera się poza aplikacją.</string>
+    <string name="media_open_external">Otwórz</string>
+    <string name="media_delete_title">Odpiąć załącznik?</string>
+    <string name="media_delete_message">Załącznik zniknie z aplikacji. Plik w galerii zostaje nietknięty.</string>
+    <string name="media_delete_action">Odpiąć załącznik</string>
+    <string name="media_caption_edit">Opis</string>
+    <string name="media_caption_field">Opis zdjęcia lub filmu</string>
+    <string name="media_rejected_title">Nie udało się dodać</string>
+    <string name="media_rejected_unreadable">Nie udało się odczytać tego pliku z galerii.</string>
+    <string name="media_rejected_unsupported">Ten plik nie jest zdjęciem ani filmem.</string>
 
     <!-- Ustawienia -->
     <string name="settings_title">Ustawienia</string>

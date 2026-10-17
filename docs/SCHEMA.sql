@@ -1,7 +1,7 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 6 (2026-10-17)
+-- Wersja: 7 (2026-10-17)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
@@ -11,11 +11,12 @@
 --  * v4 (M3): recurrences, scheduled_sessions                      [WDROZONE]
 --  * v5 (M4): set_logs + kolumny pauzy w sessions                  [WDROZONE]
 --  * v6 (M5): rest_intervals + indeksy                              [WDROZONE]
+--  * v7 (M7): exercises.instructions + exercise_media              [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
 --
--- Uwaga dla wersji 1-6: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- Uwaga dla wersji 1-7: DDL ponizszy dla tabel [WDROZONE] jest przepisany
 -- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
 -- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
 -- "Migration didn't properly handle ...".
@@ -29,9 +30,9 @@
 --  * Wartosci "enum" (jednostka powtorzen, status sesji) walidujemy w warstwie
 --    domeny (RepsUnit.fromWire, SessionStatus), a nie CHECK-iem w bazie: latwiej
 --    dodac nowa wartosc bez migracji, a baza i tak nie jest dostepna z zewnatrz.
---    Wyjatek: rest_intervals.ended_reason ma CHECK (patrz tabela) - powod
---    przerwy decyduje o tym, czy wpis wchodzi do statystyk, wiec literowka
---    nie moze przejsc po cichu. Room sam takiego CHECK-a nie generuje, ale
+--    Wyjatki: rest_intervals.ended_reason oraz exercise_media.kind - powod
+--    przerwy decyduje o tym, czy wpis wchodzi do statystyk, a rodzaj zalacznika
+--    o tym, jak plik jest pokazywany, wiec literowka nie moze przejsc po cichu. Room sam takiego CHECK-a nie generuje, ale
 --    TableInfo go ignoruje, wiec walidacja schematu po migracji przechodzi.
 -- =============================================================================
 
@@ -104,20 +105,23 @@ CREATE TRIGGER room_fts_content_sync_exercises_fts_AFTER_INSERT
 END;
 
 -- -----------------------------------------------------------------------------
--- 2. ZALACZNIKI C WICZENIA (zdjecia, filmy, linki)                        [M7]
---    Pliki fizycznie w filesDir/media/, w bazie trzymamy tylko sciezke.
+-- 2. ZALACZNIKI C WICZENIA (zdjecia, filmy, linki)              [WDROZONE M7]
+--    Zalacznik to WSKAZANIE, nie kopia: trzymamy URI pliku z galerii, a nie
+--    jego tresc. Aplikacja nie zarzadza cudzymi plikami - jedyny jej plik to
+--    wlasna miniatura (~200 px, filesDir/thumbs/<uuid>.jpg), kasowana razem
+--    z wierszem. Gdy plik zniknie z galerii, wiersz zostaje, a UI pokazuje
+--    miniature i informacje, ze oryginal jest niedostepny (PLAN.md 6.5).
 -- -----------------------------------------------------------------------------
 CREATE TABLE exercise_media (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     exercise_id     INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
     kind            TEXT NOT NULL CHECK (kind IN ('image','video','youtube','link')),
-    remote_uri      TEXT,                       -- oryginalny content:// lub URL (tylko do wgladu)
-    local_path      TEXT,                       -- sciezka wzgledna w filesDir/media
-    thumbnail_path  TEXT,
-    caption         TEXT,
-    duration_ms     INTEGER,
-    size_bytes      INTEGER,
-    position        INTEGER NOT NULL DEFAULT 0,
+    remote_uri      TEXT,                       -- wskazanie pliku: content:// (galeria) lub URL
+    thumbnail_path  TEXT,                       -- wzgledna sciezka NASZEJ miniatury w filesDir/thumbs
+    caption         TEXT,                       -- opis zalacznika (nie komentarz cwiczenia)
+    duration_ms     INTEGER,                    -- filmy: dlugosc z metadanych
+    size_bytes      INTEGER,                    -- rozmiar oryginalu (do wgladu)
+    position        INTEGER NOT NULL,           -- kolejnosc w siatce; bez DEFAULT: wartosc ustawia model Kotlina
     created_at      INTEGER NOT NULL
 );
 CREATE INDEX idx_media_exercise ON exercise_media(exercise_id, position);
@@ -222,7 +226,7 @@ CREATE INDEX idx_sched_session     ON scheduled_sessions(session_id);
 --
 -- sessions / session_exercises                                 [WDROZONE M2]
 -- set_logs (+ kolumny pauzy w sessions)                        [WDROZONE M4]
--- rest_intervals                                              [M5]
+-- rest_intervals                                            [WDROZONE M5]
 --
 -- session_exercises to SNAPSHOT celu z planu: brakuje tu plan_day_exercise_id,
 -- bo pozycja w planie moze zniknac, a trening ma zostac czytelny. Ta sama

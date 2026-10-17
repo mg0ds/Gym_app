@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.InstructionSteps
 import com.gymtracker.domain.model.YouTubeLinks
 import com.gymtracker.domain.repository.ExerciseRepository
 import com.gymtracker.ui.navigation.Routes
@@ -31,6 +32,8 @@ data class ExerciseEditUiState(
     val level: String? = null,
     val secondaryMuscles: List<String> = emptyList(),
     val youtubeUrl: String = "",
+    /** Kroki wykonania jako tekst: jedna linia = jeden krok. */
+    val instructions: String = "",
     val notes: String = "",
     val sets: String = "",
     val repsMin: String = "",
@@ -76,6 +79,7 @@ class ExerciseEditViewModel @Inject constructor(
                             level = exercise.level,
                             secondaryMuscles = exercise.secondaryMuscles,
                             youtubeUrl = exercise.youtubeUrl.orEmpty(),
+                            instructions = InstructionSteps.toText(exercise.instructions),
                             notes = exercise.notes.orEmpty(),
                             sets = exercise.defaultSets?.toString().orEmpty(),
                             repsMin = exercise.defaultRepsMin?.toString().orEmpty(),
@@ -121,6 +125,11 @@ class ExerciseEditViewModel @Inject constructor(
 
     fun onYoutubeUrlChange(value: String) {
         _uiState.update { it.copy(youtubeUrl = value) }
+    }
+
+    /** Kroki trzymamy jako tekst i normalizujemy dopiero przy zapisie. */
+    fun onInstructionsChange(value: String) {
+        _uiState.update { it.copy(instructions = value) }
     }
 
     fun onNotesChange(value: String) {
@@ -169,6 +178,7 @@ class ExerciseEditViewModel @Inject constructor(
         level = level,
         secondaryMuscles = secondaryMuscles,
         youtubeUrl = youtubeUrl,
+        instructions = InstructionSteps.fromText(instructions),
         defaultSets = sets.toIntOrNull(),
         defaultRepsMin = repsMin.toIntOrNull(),
         defaultRepsMax = repsMax.toIntOrNull(),

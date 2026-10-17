@@ -176,6 +176,29 @@ class ExerciseRepositoryTest {
     }
 
     @Test
+    fun `kroki wykonania zapisuja sie bez numeracji i pustych linii`() = runTest {
+        val id = repository.addExercise(
+            ExerciseDraft(
+                name = "Plank",
+                instructions = listOf(" 1. Ustaw się w podporze ", "", "2) Wytrzymaj 30 s"),
+            ),
+        )
+
+        val exercise = requireNotNull(repository.getExercise(id))
+
+        assertEquals(listOf("Ustaw się w podporze", "Wytrzymaj 30 s"), exercise.instructions)
+
+        // Edycja podmienia kroki, a pusta lista czyści kolumnę do NULL - baza nie
+        // ma trzymać „[]”, bo to nie jest żadna informacja.
+        repository.updateExercise(id, ExerciseDraft(name = "Plank", instructions = listOf("Trzymaj prosto")))
+        assertEquals(listOf("Trzymaj prosto"), requireNotNull(repository.getExercise(id)).instructions)
+
+        repository.updateExercise(id, ExerciseDraft(name = "Plank"))
+        assertNull(requireNotNull(database.exerciseDao().getById(id)).instructions)
+        assertEquals(emptyList<String>(), requireNotNull(repository.getExercise(id)).instructions)
+    }
+
+    @Test
     fun `zarchiwizowane cwiczenie znika z katalogu, ale zostaje w bazie`() = runTest {
         val id = repository.addExercise(ExerciseDraft(name = "Pompki", muscleGroup = "Chest"))
 

@@ -6,12 +6,13 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M6 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+Stan: **M0–M7 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
 treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
 „co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką,
 timer przerwy z alarmem, celem na ćwiczenie i średnimi, historia treningów
-z filtrami i statystyki ćwiczenia z wykresami).
-Kolejny krok: załączniki z galerii i filmy na karcie ćwiczenia (M7).
+z filtrami i statystyki ćwiczenia z wykresami, zdjęcia i filmy z galerii oraz
+kroki wykonania na karcie ćwiczenia).
+Kolejny krok: karta postaci z pomiarami i wykresami zmian (M8).
 
 ## Wymagania
 
@@ -97,14 +98,14 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | główny plan: wymagania, stack, architektura, model danych, ekrany, algorytmy timerów i harmonogramu, kamienie milowe, testy, ryzyka |
 | [`docs/SCHEMA.sql`](docs/SCHEMA.sql) | docelowy DDL bazy lokalnej (Room/SQLite) — realizowany krok po kroku |
-| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki) |
+| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki, media i kroki wykonania) |
 | [`data/seed/`](data/seed) | dane startowe do importu: `exercises.json` + `programs/*.json` |
 | `app/` | kod aplikacji (Kotlin + Compose, Room, Hilt) |
 
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 6.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 7.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -131,7 +132,7 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 6) |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 7) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
@@ -139,6 +140,8 @@ Gym_app/
 | Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
 | Przerwy | przerwa rusza po zalogowanej serii: cel na ćwiczenie (sesja → karta ćwiczenia → ustawienie globalne 90 s), pasek z odliczaniem i akcjami „-15 s” / „+15 s” / „Pomiń”, notyfikacja odliczająca w dół, alarm z dźwiękiem i wibracją na końcu, historia i średnia per ćwiczenie; przerwa liczy się do czasu treningu, a obok widać „pod sztangą” |
 | Historia i statystyki | zakładka „Historia”: zakończone treningi od najnowszych (data, czas bez pauz, serie, objętość, średnia przerwa) z filtrami zakresu (1M/3M/6M/1R/wszystko), ćwiczenia i nazwy dnia; statystyki ćwiczenia: rekordy z całej historii (najcięższa seria, 1RM Epleya, największa objętość, przerwy) oraz wykresy postępu ciężaru i objętości na **Vico 3.2.3** — jednostką wykresu jest **dzień** (dwa treningi jednego dnia to jeden punkt) |
+| Media na karcie ćwiczenia | **Wskazanie, nie kopia**: w bazie URI pliku z galerii + metadane (rodzaj, rozmiar, czas trwania, opis), a jedyny nasz plik to własna miniatura ~200 px w `filesDir/thumbs` (Photo Picker bez uprawnień, `loadThumbnail` / ręczny dekod z EXIF niżej, filmy przez Media3, link YouTube otwierany poza aplikacją — bez sieci i bez `INTERNET` w manifeście); osierocone miniatury (starsze niż doba) sprząta jeden skan przy starcie |
+| Kroki wykonania | `exercises.instructions` jako lista kroków (jedna linia = jeden krok), obok swobodnego komentarza (`notes`); numerację z linii odcinamy przy zapisie, bo numeruje UI |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
@@ -187,6 +190,7 @@ Gym_app/
 | **M4** | sesja i timer treningu: usługa pierwszoplanowa z notyfikacją, start/pauza/stop, odtwarzanie po ubiciu aplikacji, logowanie serii, notatka do treningu, wiązanie wpisu w kalendarzu przy starcie z planu | ✔ |
 | **M5** | timer przerwy: start po zalogowanej serii, cel przerwy na ćwiczenie (sesja → karta ćwiczenia → 90 s z ustawień), alarm z dźwiękiem i wibracją przy końcu (także po ubiciu aplikacji), „-15 s” / „+15 s” / „Pomiń”, wliczanie w czas treningu i „pod sztangą”, średnia oraz historia przerw per ćwiczenie | ✔ |
 | **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
+| **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

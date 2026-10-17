@@ -44,6 +44,14 @@ data class ExerciseEntity(
     @ColumnInfo(name = "force_type")
     val forceType: String? = null,
     val level: String? = null,
+    /**
+     * Kroki techniki wykonania, jako JSON: `["1. ...","2. ..."]` (M7).
+     *
+     * Trzymamy je tak samo jak [secondaryMusclesJson] - kroków jest kilka,
+     * zawsze w całości, i nigdy nie filtrujemy ich pojedynczo, więc osobna
+     * tabela byłaby kosztem bez zysku.
+     */
+    val instructions: String? = null,
     /** Znormalizowany link `https://www.youtube.com/watch?v=ID`. */
     @ColumnInfo(name = "youtube_url")
     val youtubeUrl: String? = null,

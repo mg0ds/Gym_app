@@ -49,14 +49,14 @@ treningowy z `data/seed/` (patrz §7).
 
 | Obszar | Cel |
 |---|---|
-| Offline | 100% funkcji działa bez internetu. Sieć używana tylko do miniatur YouTube i ewentualnego odświeżenia seedów. |
+| Offline | 100% funkcji działa bez internetu. Aplikacja **nie ma uprawnienia `INTERNET`** — ani do miniatur YouTube, ani do odświeżania seedów (§6.6). |
 | Dane użytkownika | Wyłącznie na urządzeniu. Brak kont, brak analityki, brak wysyłki czegokolwiek. |
 | Czas zimnego startu | < 1,5 s na urządzeniu klasy średniej; brak blokujących zapytań w `Compose` (Flow + `collectAsStateWithLifecycle`). |
 | Odporność timera | Timer treningu przeżywa: obrót ekranu, zwinięcie apki, ubicie procesu przez system, restart telefonu. |
 | Rozmiar APK | < 15 MB (bez zależności od ciężkich SDK; wykresy w Compose). |
 | Dostępność | TalkBack, skalowanie czcionek, kontrast, obsługa jednej ręki na siłowni (duże przyciski ≥ 48 dp). |
 | Języki | PL (domyślny) + EN. |
-| Prywatność | Media kopiowane do prywatnego katalogu aplikacji (nie śmiecimy w galerii użytkownika). |
+| Prywatność | Media użytkownika tylko **wskazujemy** (URI + metadane); nie kopiujemy plików i nie zarządzamy galerią. Nasz jedyny plik to miniatura, którą kasujemy razem z wierszem (§6.5). |
 
 ---
 
@@ -73,11 +73,11 @@ treningowy z `data/seed/` (patrz §7).
 | Nawigacja | Navigation Compose (type-safe routes) | — |
 | Wykresy | **Vico 3.2.3** (Compose-native, `compose-m3`) | Alternatywa: MPAndroidChart (View, owijka) — cięższy i starszy. Linia 3.3+ wymaga `compileSdk 37`, więc stoimy na 3.2.3 (decyzja i ryzyko: §4.2 pkt 35, §10 R9). |
 | JSON | `kotlinx.serialization` | Import seedów, backup. |
-| Obraz/wideo | Coil (miniatury), ExoPlayer/Media3 (odtwarzanie) | — |
-| Galeria | `PickVisualMedia` (Photo Picker) | Od Android 13 bez uprawnień; fallback SAF. |
-| YouTube | Intent / Custom Tabs + miniatura z `img.youtube.com` | **YouTube Android Player API jest przestarzałe i wycofywane** — nie używamy. |
+| Obraz/wideo | Coil (wyświetlanie), ExoPlayer/Media3 (odtwarzanie), miniatury przez API platformy (`loadThumbnail` / dekod z EXIF) | Coil tylko pokazuje; co zapisujemy na dysk, decyduje jedna, sprawdzalna droga (§4.2 pkt 42). |
+| Galeria | `PickVisualMedia` (Photo Picker) | Od Android 13 bez uprawnień; fallback SAF. Plik tylko wskazujemy. |
+| YouTube | `Intent(ACTION_VIEW)` → aplikacja YouTube albo przeglądarka | **Bez miniatury z `img.youtube.com`** (brak `INTERNET`, §6.6); YouTube Android Player API jest przestarzałe — nie używamy. |
 | Timer | `ForegroundService` + `startedAt` i pauzy w bazie (epoch) | Licznik wstaje sam po ubiciu aplikacji; notyfikacja z chronometrem systemowym (M4). **Odstąpiliśmy od `elapsedRealtime`** — uzasadnienie w §6.2 i §8.1. |
-| WorkManager | autozapis/dokończenie sesji, przypomnienia | — |
+| Sprzątanie plików | jeden skan `filesDir/thumbs` przy starcie, bez `WorkManager` | Osierocenia powstają tylko z kaskady; świeże pliki (młodsze niż doba) zostają (§4.2 pkt 45). |
 | Testy | JUnit4 + Truth, Turbine, Room in-memory, Compose UI Test, Robolectric | — |
 | CI | GitHub Actions: lint, testy jednostkowe, build (docelowo też detekt i assembleRelease) | — |
 | Dane startowe | JSON w `data/seed/` → `assets/seed/` | Import jednorazowy, offline. |
@@ -104,11 +104,11 @@ treningowy z `data/seed/` (patrz §7).
 ├────────────────────────────────────────────────────────────┤
 │ Data           Repositories ─┬─ Room (DAO + encje)         │
 │                              ├─ DataStore (ustawienia)     │
-│                              ├─ FileStorage (media)        │
+│                              ├─ ThumbnailStore (miniatury)  │
 │                              └─ SeedImporter / BackupCodec │
 ├────────────────────────────────────────────────────────────┤
 │ Platform       ForegroundService (timer), AlarmManager,    │
-│                Notifier, WorkManager, MediaResolver        │
+│                Notifier, MediaLinker (ContentResolver)     │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -136,20 +136,23 @@ com.gymtracker
 ├─ data
 │  ├─ db (AppDatabase, Converters, daos/, entities/)
 │  ├─ prefs (SettingsDataStore)
-│  ├─ media (MediaStorage, MediaResolver)
+│  ├─ media (ThumbnailStore, AndroidMediaLinker) # wskazania i miniatury (M7)
 │  ├─ search (ExerciseSearchQuery)          # budowa zapytania FTS z wpisu uzytkownika
 │  ├─ seed (SeedImporter, SeedSource/AssetSeedSource, SeedModels)
 │  └─ repo (ExerciseRepositoryImpl, PlanRepositoryImpl, SessionRepositoryImpl, BodyRepositoryImpl)
 ├─ domain
-│  ├─ model (Exercise, Plan, PlanDay, ScheduledSession, Session, SetLog, RestInterval, MetricType, BodyEntry)
+│  ├─ model (Exercise, ExerciseMedia, InstructionSteps, Plan, PlanDay, ScheduledSession, Session, SetLog, RestInterval, MetricType, BodyEntry)
+│  ├─ media (MediaLinker)                   # wskazanie pliku, nie kopia (M7)
+│  ├─ repository (ExerciseRepository, MediaRepository, ...)  # interfejsy + wlasne typy
 │  ├─ schedule (ScheduleGenerator, RecurrenceExpander)
 │  ├─ timer (WorkoutTimerState)             # czysty model zegara treningu (M4)
 │  └─ stats (RestStats, OneRepMax, VolumeStats)
 ├─ ui
 │  ├─ theme, components
 │  ├─ calendar, exercises, plans, session, rest, history, body, settings
+│  └─ media (MediaViewerScreen, MediaViewerViewModel)   # podglad zalacznika (M7)
 ├─ timer (WorkoutTimer, WorkoutTimerService)   # zegar + usluga pierwszoplanowa (M4)
-└─ di (DatabaseModule, RepositoryModule, TimeModule, TimerModule)
+└─ di (DatabaseModule, DataStoreModule, MediaModule, RepositoryModule, TimerModule)
 ```
 
 ---
@@ -335,20 +338,70 @@ metric_types 1─* body_entries          (karta postaci)
     treningów jest krótka (LIMIT-y w `StatsDao`), więc zmiana filtra jest
     natychmiastowa i nie odświeża bazy; filtry to zakres dat, ćwiczenie (lista
     brana z historii, nie z całego katalogu) i nazwa dnia planu (M6).
+39. **Kroki wykonania to lista, nie akapit.** `exercises.instructions` (JSON
+    z tablicą stringów) stoi obok `notes`: komentarz to swobodna notatka
+    użytkownika, a kroki to technika, którą chcemy policzyć i pokazać numerowaną.
+    Formularz bierze „jedna linia = jeden krok”, a numerację z linii odcinamy przy
+    normalizacji — numeruje UI, więc „1.” w treści byłoby numerem do kwadratu (M7).
+40. **Załącznik to wskazanie, nie kopia.** `exercise_media` trzyma URI pliku
+    z galerii i jego metadane; aplikacja **nie kopiuje** cudzych plików i nimi nie
+    zarządza. Jedyny jej plik to własna miniatura (~200 px), kasowana razem
+    z wierszem. Gdy pliku nie ma już w galerii, kafelek pokazuje miniaturę
+    i komunikat „oryginał niedostępny”, a załącznik można odpiąć — zniknięcie
+    pliku to nie awaria aplikacji (M7, §6.5).
+41. **Prosimy o trwały dostęp, ale się na nim nie opieramy.**
+    `takePersistableUriPermission` jest najlepszym staraniem: gdy system go da
+    (gwarantuje to `ACTION_OPEN_DOCUMENT`, Photo Picker już nie), załącznik
+    działa po restarcie urządzenia. Brak zgody nie blokuje zapisania załącznika,
+    bo dostęp do oryginału to dodatek, a nie warunek — kafelek trzyma nasza
+    miniatura, więc odmowa nie może być powodem odrzucenia wyboru (M7).
+42. **Miniaturę robi API platformy, nie Coil.** `loadThumbnail` (API 29+),
+    a niżej ręczne dekodowanie z `inSampleSize` + EXIF; Coil tylko wyświetla.
+    Biblioteka od wczytywania obrazów nie powinna decydować, co zapisujemy na
+    dysk — a przy okazji tworzenie miniatury ma jedną, sprawdzalną drogę,
+    niezależną od wersji biblioteki (M7).
+43. **Rodzaje załączników: w bazie słownik na cztery wartości, aplikacja tworzy
+    dwie.** `CHECK (kind IN ('image','video','youtube','link'))` zostawia miejsce
+    na „dodaj link”, ale dziś powstają wyłącznie `image` i `video`; nieznany
+    rodzaj (z nowszej wersji bazy) wypada z siatki po cichu, zamiast ją
+    przewrócić (M7).
+44. **Bez limitu rozmiaru, ale z dwiema odmowami.** Nie kopiujemy pliku, więc
+    jego rozmiar nas nie boli; odrzucamy tylko to, czego nie umiemy przeczytać
+    (`UNREADABLE`) i to, co nie jest zdjęciem ani filmem (`UNSUPPORTED`). Odmowa
+    to komunikat, nie błąd aplikacji (M7).
+45. **Sprzątanie miniatur: jeden skan przy starcie, bez `WorkManager`.**
+    Osierocone pliki powstają tylko z kaskady (skasowanie ćwiczenia zabiera
+    wiersze, o plikach nie wiedząc), więc wystarczy przebieg po `filesDir/thumbs`
+    przy starcie. Kasujemy wyłącznie pliki starsze niż doba: świeży plik może
+    należeć do załącznika, który właśnie powstaje, a miniatura bez wiersza
+    poczeka dobę bez szkody (M7).
+46. **Bez `INTERNET` miniatury YouTube nie ma.** Kafelek linku to ikona
+    odtwarzania i „Otwórz film” → `ACTION_VIEW` (aplikacja YouTube albo
+    przeglądarka). Miniatura z `img.youtube.com` wymagałaby uprawnienia
+    sieciowego w aplikacji, która ma zostać w 100% offline (§6.6; odłożone
+    w §11) (M7).
 
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
 * Migracje pisane ręcznie + test `MigrationTestHelper` (żadnego `fallbackToDestructiveMigration` w produkcji).
 * Test: migracja z v1 → vN na kopii bazy z danymi.
-* Stan: **v6** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
+* Stan: **v7** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
   ćwiczenia dnia i sesje, v4 → reguły harmonogramu i wpisy w kalendarzu,
-  v5 → logowanie serii i pauza treningu, v6 → przerwy między seriami).
-  `SchemaMigrationTest` przechodzi całą drogę 1 → 6, a migracje sprawdzamy także
+  v5 → logowanie serii i pauza treningu, v6 → przerwy między seriami,
+  v7 → kroki wykonania i załączniki ćwiczenia).
+  `SchemaMigrationTest` przechodzi całą drogę 1 → 7, a migracje sprawdzamy także
   na urządzeniu z bazą z poprzedniego etapu (2 → 3: 24 ćwiczenia, w tym własne,
   zostały na miejscu; 3 → 4: plany, sesje i historia bez zmian; 4 → 5: treningi
   i kalendarz bez zmian, tabela serii pusta; 5 → 6: treningi, serie i kalendarz
-  bez zmian, tabela przerw pusta).
+  bez zmian, tabela przerw pusta; 6 → 7: katalog, plany i historia bez zmian,
+  kolumna `instructions` pusta, tabela `exercise_media` pusta).
+* Migracja 6 → 7 dokłada kolumnę `exercises.instructions` (`TEXT`, bez `NOT NULL`
+  i bez `DEFAULT` — brak kroków to `NULL`, a nie `[]`) oraz tabelę
+  `exercise_media` z kluczem obcym `ON DELETE CASCADE` do `exercises` i indeksem
+  `idx_media_exercise`. `CHECK` na `kind` jest tylko w SQL-u migracji: Room nie
+  porównuje `CHECK`-ów przy walidacji schematu (tak samo jak przy
+  `rest_intervals.ended_reason` w M5), a słownik w bazie nadal pilnuje literówek.
 * Migracje v4 dodają dwie tabele (`recurrences`, `scheduled_sessions`) i trzy
   indeksy; nie zmieniają istniejących kolumn, więc dane z M2 przechodzą bez
   przepisywania. `MigrationTestHelper` porównuje wynikowy schemat z plikiem
@@ -406,7 +459,7 @@ Ustawienia
  └─ O aplikacji, licencje
 ```
 
-**Co z tego istnieje po M6** (stan faktyczny, trasy z `Routes.kt`):
+**Co z tego istnieje po M7** (stan faktyczny, trasy z `Routes.kt`):
 
 ```
 Kalendarz (home)                 ← dolny pasek
@@ -416,6 +469,7 @@ Kalendarz (home)                 ← dolny pasek
 Ćwiczenia (exercises)            ← dolny pasek
  ├─ exercise/new, exercise/{id}, exercise/{id}/edit
  ├─ exercise/{id} → „Pełna historia i statystyki” → exercise/{id}/stats
+ ├─ exercise/{id} → kafelek zdjęcia/filmu → exercise/{id}/media/{mediaId}
  └─ akcja „plany” w nagłówku → plans
 Plany (plans)                    ← bez dolnego paska
  └─ plan/{planId}
@@ -435,10 +489,10 @@ Ustawienia (settings)            ← dolny pasek
 
 Dolny pasek pokazuje się tylko na trasach najwyższego poziomu
 (`Routes.topLevel`: Kalendarz / Ćwiczenia / Historia / Ustawienia); ekrany
-ćwiczeń, planów, statystyk, harmonogramu i treningu są „pełnoekranowe”, żeby nie
-kusiło wyjście z formularza reguły albo z wykresu w połowie oglądania.
-Argumenty opcjonalne trasy mają wartość `Routes.NO_ID` (`0`) — `recurrenceId = 0`
-znaczy „nowa reguła”.
+ćwiczeń, załącznika, planów, statystyk, harmonogramu i treningu są
+„pełnoekranowe”, żeby nie kusiło wyjście z formularza reguły, z wykresu albo
+z filmu w połowie oglądania. Argumenty opcjonalne trasy mają wartość
+`Routes.NO_ID` (`0`) — `recurrenceId = 0` znaczy „nowa reguła”.
 
 ### 5.2 Kluczowe ekrany — makiety opisowe
 
@@ -514,7 +568,7 @@ z ustawień. `rest_intervals` jest źródłem prawdy o przerwach, a „pod sztan
 to `elapsed − Σ przerw` policzone na ekranie. Historia wykonań ćwiczenia
 dochodzi w M6.
 
-**Szczegóły ćwiczenia (M1 + historia z M6)**
+**Szczegóły ćwiczenia (M1 + historia z M6 + kroki i media z M7)**
 ```
 ┌───────────────────────────────────────────┐
 │ Barbell Back Squat         [♡][✎][🗑]     │
@@ -531,10 +585,43 @@ dochodzi w M6.
 │ Partia mięśniowa · Mięśnie dodatkowe ·     │
 │ Sprzęt · Charakter · Poziom · Nazwa w planie│
 ├─ Domyślne parametry ──────────────────────┤
-├─ Film i źródło ───────────────────────────┤
+├─ Kroki wykonania ─────────────────────────┤  <- tylko gdy są (M7)
+│ 1. Ustaw sztangę na wysokości klatki       │
+│ 2. Ściągnij łopatki                        │
+├─ Zdjęcia, filmy i linki ──────────────────┤  <- M7
+│ ┌────┐ ┌────┐ ┌────┐                       │
+│ │▶   │ │    │ │    │  <- miniatury; ▶ = film│
+│ └────┘ └────┘ └────┘                       │
+│ [▶ Otwórz film]  [Zobacz źródło]           │  <- YouTube i link źródłowy
+│ [Dodaj zdjęcie] [Dodaj film]               │  <- galeria systemowa
 ├─ Komentarz ───────────────────────────────┤
 └───────────────────────────────────────────┘
 ```
+Kafelki pokazują **nasze miniatury**, nie pliki z galerii: dzięki temu siatka
+rysuje się od razu i tak samo po restarcie urządzenia, także gdy dostęp do
+oryginału już wygasł. Sekcja kroków pojawia się tylko wtedy, gdy kroki są —
+pusta obietnica „jak to zrobić” wyglądałaby jak brak treści, a formularz i tak
+zawsze ma to pole.
+
+**Podgląd załącznika (M7)**
+```
+┌───────────────────────────────────────────┐
+│ ‹  Zdjęcie                     [✎][🗑]     │
+├───────────────────────────────────────────┤
+│                                           │
+│           [zdjęcie, zoom gestem]          │
+│                                           │
+├───────────────────────────────────────────┤
+│ 3,2 MB                                    │
+│ Górna faza — łokieć pod sztangą           │
+└───────────────────────────────────────────┘
+```
+Ekran jest jeden dla zdjęcia, filmu i linku: zdjęcie dostaje zoom gestem, film —
+odtwarzacz Media3 (pauza przy zejściu z ekranu, zwolniony przy wyjściu), a link —
+przycisk otwarcia poza aplikacją. Gdy oryginału nie ma już w galerii, zamiast
+pustki pokazujemy miniaturę i zdanie „Miniatura — zdjęcia nie ma już w galerii
+albo dostęp do niego wygasł”; odpięcie załącznika komunikuje wprost, że plik
+w galerii zostaje nietknięty. Opis (`caption`) dodaje się z tego samego ekranu.
 
 **Historia (M6)**
 ```
@@ -914,28 +1001,51 @@ najnowszych („co robiłem ostatnio” to najczęstsze pytanie do tabeli).
 
 ### 6.5 Załączniki: zdjęcia i filmy z galerii
 
-1. Wybór: `ActivityResultContracts.PickVisualMedia` (Android 13+ bez uprawnień;
-   na starszych SAF / `READ_EXTERNAL_STORAGE` z uzasadnieniem).
-2. **Kopiowanie** do prywatnego katalogu: `filesDir/media/<exerciseId>/<uuid>.<ext>`
-   — nie trzymamy `content://` (URI traci ważność po restarcie/czyszczeniu).
-3. Ograniczenia i higiena: limit rozmiaru (np. 50 MB na film), kompresja zdjęć
-   (`ImageDecoder` + skalowanie do 2048 px, JPEG q=85), dla filmów brak transkodowania
-   (kopiujemy oryginał), `MediaMetadataRetriever` → `duration_ms`, miniatura przez
-   `ThumbnailUtils.createVideoThumbnail`.
-4. Odtwarzanie: Media3 ExoPlayer w dedykowanym ekranie/galerii; zdjęcia: Coil + zoom.
-5. Sprzątanie: `WorkManager` usuwa pliki osierocone (bez wiersza w `exercise_media`).
-6. Uprawnienia: `CAMERA` **nie jest potrzebne** (bierzemy z galerii); Notifications
-   (+ `POST_NOTIFICATIONS` na 13+), `SCHEDULE_EXACT_ALARM` (dla przerwy), opcjonalnie
-   `VIBRATE`.
+Zasada: **wskazujemy plik, nie kopiujemy go.** Aplikacja nie trzyma kopii
+zdjęć ani filmów użytkownika i nimi nie zarządza — jedyny jej plik to własna
+miniatura.
+
+1. Wybór: `ActivityResultContracts.PickVisualMedia` (`ImageOnly` / `VideoOnly`) —
+   na Androidzie 13+ bez żadnych uprawnień, a na starszych systemach androidx sam
+   schodzi do `ACTION_OPEN_DOCUMENT` / `ACTION_GET_CONTENT`. Nie ma własnej
+   galerii ani dostępu do cudzych plików.
+2. W bazie (`exercise_media`) trzymamy `remote_uri` (URI z galerii), `kind`,
+   `duration_ms`, `size_bytes`, `caption` i kolejność. Odpięcie załącznika usuwa
+   tylko nasz wiersz i naszą miniaturę — plik w galerii zostaje **nietknięty**.
+3. Prosimy o trwały dostęp (`takePersistableUriPermission`, najlepsze staranie):
+   gdy system go da, załącznik działa po restarcie urządzenia. Photo Picker nie
+   musi go dawać, więc brak zgody nie blokuje zapisania załącznika (§4.2 pkt 41).
+4. Własna miniatura: `loadThumbnail` (API 29+), a niżej ręczne dekodowanie
+   z `inSampleSize` + EXIF, docelowo ~200 px, JPEG q80, w płaskim
+   `filesDir/thumbs/<uuid>.jpg`. Miniatura jest widoczna nawet wtedy, gdy dostęp
+   do oryginału wygasł, więc kafelek nigdy nie jest pusty.
+5. Bez limitu rozmiaru (bo nie kopiujemy): jedyne odmowy to `UNREADABLE` (nie
+   umiemy przeczytać pliku) i `UNSUPPORTED` (to nie zdjęcie ani film). Odmowa to
+   komunikat, nie błąd aplikacji (§4.2 pkt 44).
+6. Odtwarzanie: zdjęcia — Coil + zoom gestem; filmy — Media3 ExoPlayer
+   w ekranie podglądu (pauza przy zejściu z ekranu, `release` przy wyjściu). Gdy
+   pliku nie ma już w galerii, pokazujemy miniaturę i mówimy wprost, że oryginał
+   jest niedostępny.
+7. Sprzątanie: jeden przebieg po `filesDir/thumbs` przy starcie aplikacji
+   (`ThumbnailStore.sweep`), bez `WorkManager`. Kasujemy tylko pliki **starsze niż
+   doba** i nieobecne w bazie — świeży plik może należeć do załącznika, który
+   właśnie powstaje (§4.2 pkt 45).
+8. Uprawnienia: `CAMERA` i `READ_MEDIA_*` **nie są potrzebne** (bierzemy plik
+   z systemowego wyboru); Notifications (+ `POST_NOTIFICATIONS` na 13+),
+   `SCHEDULE_EXACT_ALARM` (dla przerwy) i `VIBRATE` — z M4/M5.
 
 ### 6.6 YouTube
 
 * Wejście: dowolny format linku (`youtu.be/ID`, `watch?v=ID`, `embed/ID`, `shorts/ID`).
 * Normalizacja do `https://www.youtube.com/watch?v=ID` w `exercises.youtube_url`.
 * Walidacja: ID = 11 znaków `[A-Za-z0-9_-]{11}`; inny link → traktowany jako zwykły link.
-* Miniatura: `https://img.youtube.com/vi/ID/hqdefault.jpg` przez Coil (cache offline).
-* Odtwarzanie: `Intent(ACTION_VIEW)` → aplikacja YouTube, a gdy jej nie ma —
-  Custom Tab. (Jeśli kiedyś potrzebny odtwarzacz w apce: WebView + IFrame Player API.)
+* **Bez miniatury i bez sieci:** aplikacja nie ma uprawnienia `INTERNET`, więc
+  kafelek linku to ikona odtwarzania i „Otwórz film”, a nie obrazek
+  z `img.youtube.com`. Miniatura wróci, gdy pojawi się powód, żeby aplikacja
+  w ogóle sięgała do sieci (odłożone w §11).
+* Odtwarzanie: `Intent(ACTION_VIEW)` → aplikacja YouTube, a gdy jej nie ma,
+  system pokaże to, co obsługuje link (np. przeglądarkę). Brak odbiorcy nic nie
+  psuje — link zostaje w bazie.
 * Z seeda dostajemy `youtube_id` dla 16 z 23 ćwiczeń — pozostałe nie mają filmu.
 
 ### 6.7 Karta postaci
@@ -1239,7 +1349,7 @@ Założenie: 1 deweloper, praca pełnoetatowa, estymacje w dniach roboczych.
 | **M4** | Sesja + timer treningu | ForegroundService, start/pauza/stop, odzyskiwanie po restarcie, logowanie serii, notatki | 8 | timer działa przy zgaszonym ekranie i po ubiciu apki |
 | **M5** | Timer przerwy | cel przerwy per ćwiczenie, alarm, dźwięk/wibracja, pomiń/+15 s, wliczanie w czas treningu, średnia/historia | 4 | po sesji widzę średnią przerwę dla każdego ćwiczenia |
 | **M6** | Historia i statystyki | lista treningów, filtry, szczegóły, wykres ciężaru/objętości, 1RM, PR | 5 | wykres pokazuje postęp z 3 miesięcy |
-| **M7** | Media | Photo Picker, kopiowanie do `filesDir`, miniatury, ExoPlayer, link YouTube + miniatura, komentarze | 5 | zdjęcie i film z galerii są widoczne po restarcie urządzenia |
+| **M7** | Media | kroki wykonania, Photo Picker (**wskazanie, nie kopia**), własne miniatury, ExoPlayer, link YouTube bez sieci, opisy | 5 | zdjęcie i film z galerii są widoczne po restarcie urządzenia |
 | **M8** | Karta postaci | typy wskaźników, pomiary, edycja, wykresy, delta, cel | 5 | dodaję „obwód bicepsa” i widzę wykres zmian |
 | **M9** | Ustawienia, backup, szlify | jednostki, motyw, dźwięki, eksport/import ZIP, i18n, dostępność, R8, baseline profile, release + podpis | 6 | podpisany AAB gotowy do wysłania |
 | | | **Razem** | **53** | |
@@ -1642,25 +1752,82 @@ z ostatnich trzech miesięcy, a historia odpowiada na „kiedy i co robiłem”.
 * **widok tygodnia w kalendarzu nadal odłożony** — w M6 była kolej na historię
   i statystyki; tydzień to osobny kawałek UI w kalendarzu (§11, v1.1).
 
+**M7 ✔ (media: zdjęcia, filmy, link i kroki wykonania)** — kryterium działa:
+zdjęcie i film wybrane z galerii są widoczne po restarcie urządzenia, a kroki
+wykonania przechodzą z formularza na kartę ćwiczenia.
+
+* **Baza (migracja 6 → 7)**: kolumna `exercises.instructions` (`TEXT`, `NULL` =
+  brak kroków) i tabela `exercise_media` (`remote_uri`, `kind`, `thumbnail_path`,
+  `caption`, `duration_ms`, `size_bytes`, `position`, `created_at`) z kaskadą do
+  ćwiczenia i indeksem `idx_media_exercise`; `MediaDao` (obserwacja po kolejności,
+  `maxPosition`, `thumbnailPaths` dla sprzątania) i `user_version = 7`,
+* **Domena**: `InstructionSteps` (jedna linia = jeden krok, odcinanie numeracji,
+  normalizacja) i `ExerciseMedia`/`MediaKind` (rozpoznanie rodzaju po typie MIME
+  z planem B na rozszerzenie pliku, słownik wartości w bazie) + `MediaLinker`
+  i `MediaRepository` z jawnymi odmowami (`UNREADABLE`, `UNSUPPORTED`),
+* **Warstwa danych**: `AndroidMediaLinker` (prośba o trwały dostęp, metadane
+  z `ContentResolver`, miniatura przez `loadThumbnail` na 29+ i ręczny dekod
+  z EXIF niżej, klatka filmu przez `MediaMetadataRetriever` z rotacją),
+  `ThumbnailStore` (płaskie `filesDir/thumbs/<uuid>.jpg`, `sweep` po plikach
+  starszych niż doba) i `MediaRepositoryImpl` (miniatura przed zapisem wiersza:
+  gdy zapis padnie, zostaje sam plik, który sprzątnie następny start),
+* **Ekran szczegółów ćwiczenia**: sekcja „Kroki wykonania” (numerowana lista,
+  tylko gdy są), siatka miniatur z nakładką odtwarzania dla filmów, przyciski
+  „Dodaj zdjęcie” / „Dodaj film” (Photo Picker) i komunikaty odmowy w dialogu,
+* **Podgląd załącznika** (`exercise/{id}/media/{mediaId}`, pełny ekran):
+  zdjęcie z zoomem gestem, film na Media3 (pauza przy zejściu z ekranu, zwolniony
+  przy wyjściu), link otwierany poza aplikacją, opis (`caption`) i odpięcie
+  z komunikatem, że plik w galerii zostaje; gdy oryginału nie ma — miniatura
+  i zdanie „Miniatura — …”,
+* **Bez sieci**: brak `INTERNET` w manifeście, kafelek YouTube to ikona
+  odtwarzania + „Otwórz film” (§6.6); aplikacja tworzy tylko `IMAGE`/`VIDEO`,
+  choć słownik w bazie zna cztery rodzaje (§4.2 pkt 43),
+* **Nawigacja**: `Routes.EXERCISE_MEDIA` (pełny ekran, bez dolnego paska);
+  teksty PL/EN 1:1 — po M7 **382 klucze** w obu plikach,
+* **testy JVM: 210** (doszły: `InstructionStepsTest`, `MediaKindTest`,
+  `MediaImageScalingTest` — dobór `inSampleSize`, `MediaRepositoryTest` —
+  podpinanie, kolejność, odmowy, odpięcie z plikiem, opis, sprzątanie,
+  nieznany rodzaj; migracja 6 → 7 i kaskada załącznika w `SchemaMigrationTest`
+  oraz kroki w `ExerciseRepositoryTest`). `:app:lintDebug` i
+  `:app:assembleDebug` bez błędów,
+* **Weryfikacja na urządzeniu (emulator API 36)**: patrz §9 (weryfikacja po M7).
+
+Świadome odstępstwa i odroczenia z M7:
+
+* **miniatury YouTube nie ma** — wymagałaby uprawnienia `INTERNET`, którego
+  aplikacja nie ma (§6.6, §11),
+* **dodawanie własnych linków do ćwiczenia** — `kind = 'link'` czeka w słowniku
+  bazy, ale UI dziś nie tworzy takich załączników; ten sam ekran podglądu już je
+  obsługuje (§11),
+* **bez przełączania załączników gestem** (swipe) w podglądzie — przy kilku
+  załącznikach wraca się do siatki; kolejność i tak jest tam widoczna,
+* **bez `WorkManager`** — osierocone miniatury sprząta jeden skan przy starcie
+  (§4.2 pkt 45).
+
 ---
 
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6), kaskady, unikalne indeksy, słownik powodów przerwy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6) | Room in-memory + `runTest` |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika), FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
 
-Stan na M6: **183 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
-(Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
+Stan na M7: **210 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
+(Robolelectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3, 3 → 4, 4 → 5 i 5 → 6. M6 nie zmienił schematu, więc nie doszła ani
-migracja, ani nowy plik schematu.
+2 → 3, 3 → 4, 4 → 5, 5 → 6 i 6 → 7.
+
+Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
+(`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
+test, który pisze coś do tego katalogu, dzieli go z aplikacją. Dlatego
+sprzątanie z założenia nie rusza plików młodszych niż doba (§4.2 pkt 45) — to
+jednocześnie ochrona przed wyścigiem z właśnie podpinanym załącznikiem.
 
 Weryfikacja na urządzeniu (emulator API 36) po M3: migracja bazy z M2 bez utraty
 danych i historia treningów bez zmian, kryterium M3 („co 3 dni, od 1.10 do 31.12,
@@ -1712,6 +1879,33 @@ nie wie o zapisie z `sqlite3`) — po powrocie na ekran dane są już nowe, co s
 w sobie potwierdziło, że odczyt idzie `Flow`, a nie ze snapshotu.
 Scenariusze: `docs/QA.md`.
 
+Weryfikacja na urządzeniu (emulator API 36) po M7: migracja 6 → 7 na żywej bazie
+z M6 (25 ćwiczeń, 2 plany, 5 treningów, 17 serii i 9 przerw bez zmian,
+`user_version = 7`, kolumna `instructions` pusta, tabela `exercise_media` pusta).
+Kroki wykonania: trzy linie z numeracją „1.” i „2.” zapisane jako
+`["ustaw sztangę na klatce", …]` i pokazane na karcie jako lista 1., 2., 3.
+Zdjęcie i film z galerii dodane przez systemowy wybór (Photo Picker pokazał film
+z czasem `00:03`): w bazie wylądowały `remote_uri` z pickera, `size_bytes`,
+`duration_ms = 3052` i nasza miniatura (`filesDir/thumbs/<uuid>.jpg` — 1,8 kB
+i 3,2 kB, czyli miniatury, a nie kopie 41 kB i 121 kB oryginałów; katalogu
+`media/` nie ma). Podgląd: zdjęcie z tytułem „Zdjęcie”, film z tytułem „Film”
+i odtwarzaczem Media3 (sterowanie, „00:00 / 00:03”), opis „abc” dopisany
+z ekranu podglądu. Odpięcie: wiersz i nasza miniatura znikają, a plik w galerii
+i wiersz w `MediaStore` zostają. Po aktualizacji apki (`adb install -r`) i po
+**restarcie urządzenia** kafelki i miniatury są na miejscu, a film nadal się
+odtwarza — Photo Picker na API 36 utrzymał trwały dostęp, choć się na tym nie
+opieramy. „Otwórz film” otwiera aplikację YouTube
+(`ACTION_VIEW dat=https://www.youtube.com/watch?v=…`), bez `INTERNET`
+w naszym manifeście. Po skasowaniu pliku z galerii podgląd pokazuje naszą
+miniaturę i zdanie „Miniatura - filmu nie ma już w galerii albo dostęp do niego
+wygasł”. Sprzątanie sprawdzone na urządzeniu: plik z datą 15.10 (starszy niż
+doba, bez wiersza) start apki kasuje, świeży plik i miniatura z wiersza zostają.
+Dwa defekty wyłapane dopiero tutaj i naprawione: rozmiar 41 kB pokazywał się
+jako „0,0 MB” (teraz „40 kB”, a od 1 MB dalej MB) i przycisk potwierdzenia
+odpięcia mówił „Usuń” zamiast „Odpiąć załącznik” (obok zdjęcia „Usuń” brzmi jak
+kasowanie pliku). Kafelek dostał też opis dla czytnika ekranu (podpis, a bez
+podpisu „Zdjęcie”/„Film”). Scenariusze: `docs/QA.md`.
+
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
 
@@ -1735,12 +1929,12 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV, wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6).
+1. **v1.1** — przypomnienia o treningu, eksport CSV, wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.
 5. **v2.0** — opcjonalna synchronizacja (self-hosted / E2E), udostępnianie planów plikiem JSON.
-6. **Backlog** — TTS/liczenie powtórzeń, kalkulatory (talie, 1RM), katalog >1 planu startowego.
+6. **Backlog** — TTS/liczenie powtórzeń, kalkulatory (talie, 1RM), katalog >1 planu startowego, przełączanie załączników gestem w podglądzie.
 
 ---
 

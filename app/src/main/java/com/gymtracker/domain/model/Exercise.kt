@@ -19,6 +19,8 @@ data class Exercise(
     val mechanics: String?,
     val forceType: String?,
     val level: String?,
+    /** Kroki techniki wykonania („jak to zrobić”); pusta lista, gdy nie ma. */
+    val instructions: List<String>,
     /** Link do filmu (znormalizowany YouTube albo dowolny link użytkownika). */
     val youtubeUrl: String?,
     val defaultSets: Int?,
@@ -44,6 +46,8 @@ data class ExerciseDraft(
     val mechanics: String? = null,
     val level: String? = null,
     val secondaryMuscles: List<String> = emptyList(),
+    /** Kroki techniki wykonania (w formularzu jedna linia = jeden krok). */
+    val instructions: List<String> = emptyList(),
     val youtubeUrl: String? = null,
     val defaultSets: Int? = null,
     val defaultRepsMin: Int? = null,
