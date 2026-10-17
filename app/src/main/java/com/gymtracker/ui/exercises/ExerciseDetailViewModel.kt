@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseUsage
 import com.gymtracker.domain.repository.ExerciseRepository
+import com.gymtracker.domain.repository.StatsRepository
+import com.gymtracker.domain.stats.ExerciseStats
+import com.gymtracker.domain.stats.StatsRange
 import com.gymtracker.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -25,6 +28,7 @@ data class ExerciseDetailUiState(
 class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: ExerciseRepository,
+    private val statsRepository: StatsRepository,
 ) : ViewModel() {
 
     private val exerciseId: Long = checkNotNull(savedStateHandle[Routes.ARG_EXERCISE_ID])
@@ -47,6 +51,19 @@ class ExerciseDetailViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
             initialValue = ExerciseUsage(),
+        )
+
+    /**
+     * Skrót historii: rekord, ostatnie wykonanie i średnia przerwa z ostatnich
+     * trzech miesięcy. Pełne wykresy i tabela mają osobny ekran - tutaj ma się
+     * zmieścić to, co odpowiada na pytanie „co ostatnio robiłem z tym ciężarem”.
+     */
+    val stats: StateFlow<ExerciseStats> = statsRepository
+        .observeExerciseStats(exerciseId, StatsRange.MONTH_3)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = ExerciseStats(),
         )
 
     fun toggleFavourite() {

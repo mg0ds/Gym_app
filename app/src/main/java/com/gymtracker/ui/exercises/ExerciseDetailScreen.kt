@@ -50,20 +50,31 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseUsage
+import com.gymtracker.domain.stats.ExerciseStats
+import com.gymtracker.ui.components.InfoRow
+import com.gymtracker.ui.components.SectionCard
+import com.gymtracker.ui.components.restHistorySummary
+import com.gymtracker.ui.history.ChartLegend
+import com.gymtracker.ui.history.WeightProgressChart
+import com.gymtracker.ui.history.lastSetText
+import com.gymtracker.ui.history.recordText
+import com.gymtracker.ui.history.weightLegend
 
 /**
  * Szczegóły ćwiczenia: dane z katalogu, domyślne serie/powtórzenia/przerwa,
- * film, źródło i komentarz. Historia wykonań dojdzie w kolejnym kroku -
- * tutaj jej jeszcze nie ma.
+ * film, źródło i komentarz. Karta historii pokazuje rekord, ostatnie wykonanie
+ * i średnią przerwę; pełne statystyki (wykresy, tabela) mają osobny ekran.
  */
 @Composable
 fun ExerciseDetailScreen(
     onBack: () -> Unit,
     onEdit: (Long) -> Unit,
+    onOpenStats: (Long) -> Unit,
     viewModel: ExerciseDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val usage by viewModel.usage.collectAsStateWithLifecycle()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -71,10 +82,12 @@ fun ExerciseDetailScreen(
 
     ExerciseDetailScaffold(
         exercise = exercise,
+        stats = stats,
         isLoading = uiState.isLoading,
         onBack = onBack,
         onToggleFavourite = viewModel::toggleFavourite,
         onEdit = { exercise?.let { onEdit(it.id) } },
+        onOpenStats = { exercise?.let { onOpenStats(it.id) } },
         onDeleteRequest = { showDeleteDialog = true },
         // Linki otwieramy poza aplikacją (YouTube albo przeglądarka).
         onOpenLink = { url -> openLink(context, url) },
@@ -99,10 +112,12 @@ fun ExerciseDetailScreen(
 @Composable
 private fun ExerciseDetailScaffold(
     exercise: Exercise?,
+    stats: ExerciseStats,
     isLoading: Boolean,
     onBack: () -> Unit,
     onToggleFavourite: () -> Unit,
     onEdit: () -> Unit,
+    onOpenStats: () -> Unit,
     onDeleteRequest: () -> Unit,
     onOpenLink: (String) -> Unit,
 ) {
@@ -162,7 +177,9 @@ private fun ExerciseDetailScaffold(
         when {
             exercise != null -> ExerciseDetails(
                 exercise = exercise,
+                stats = stats,
                 innerPadding = innerPadding,
+                onOpenStats = onOpenStats,
                 onOpenLink = onOpenLink,
             )
 
@@ -190,7 +207,9 @@ private fun ExerciseDetailScaffold(
 @Composable
 private fun ExerciseDetails(
     exercise: Exercise,
+    stats: ExerciseStats,
     innerPadding: PaddingValues,
+    onOpenStats: () -> Unit,
     onOpenLink: (String) -> Unit,
 ) {
     Column(
@@ -201,6 +220,42 @@ private fun ExerciseDetails(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        SectionCard(title = stringResource(R.string.exercise_section_history)) {
+            if (!stats.hasData) {
+                Text(
+                    text = stringResource(R.string.exercise_stats_no_data),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                stats.records.heaviestSet?.let { record ->
+                    InfoRow(
+                        label = stringResource(R.string.exercise_stats_record_heaviest),
+                        value = recordText(record),
+                    )
+                }
+                stats.points.lastOrNull()?.let { last ->
+                    InfoRow(
+                        label = stringResource(R.string.exercise_stats_last_set),
+                        value = lastSetText(last),
+                    )
+                }
+                if (stats.rest.hasSamples) {
+                    InfoRow(
+                        label = stringResource(R.string.exercise_stats_record_rests),
+                        value = restHistorySummary(stats.rest),
+                    )
+                }
+                if (stats.hasWeightData) {
+                    ChartLegend(entries = weightLegend())
+                    WeightProgressChart(points = stats.points)
+                }
+                TextButton(onClick = onOpenStats) {
+                    Text(stringResource(R.string.exercise_stats_open))
+                }
+            }
+        }
+
         SectionCard(title = stringResource(R.string.exercise_section_details)) {
             InfoRow(
                 label = stringResource(R.string.exercise_label_muscle_group),
@@ -292,55 +347,6 @@ private fun ExerciseDetails(
                 },
             )
         }
-    }
-}
-
-@Composable
-private fun SectionCard(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
-        )
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                content()
-            }
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(
-    label: String,
-    value: String?,
-) {
-    if (value.isNullOrBlank()) return
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1.2f),
-        )
     }
 }
 

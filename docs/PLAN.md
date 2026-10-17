@@ -71,7 +71,7 @@ treningowy z `data/seed/` (patrz §7).
 | Async | Coroutines + Flow | — |
 | Daty | `java.time` (`LocalDate`, `YearMonth`, `DayOfWeek`) | Dostępne od API 26 (nasze `minSdk`), zero dodatkowych zależności, działa w testach JVM i Robolectric. **Odstąpiliśmy od `kotlinx-datetime`** — uzasadnienie w §8.1. |
 | Nawigacja | Navigation Compose (type-safe routes) | — |
-| Wykresy | **Vico** (Compose-native) | Alternatywa: MPAndroidChart (View, owijka) — cięższy i starszy. |
+| Wykresy | **Vico 3.2.3** (Compose-native, `compose-m3`) | Alternatywa: MPAndroidChart (View, owijka) — cięższy i starszy. Linia 3.3+ wymaga `compileSdk 37`, więc stoimy na 3.2.3 (decyzja i ryzyko: §4.2 pkt 35, §10 R9). |
 | JSON | `kotlinx.serialization` | Import seedów, backup. |
 | Obraz/wideo | Coil (miniatury), ExoPlayer/Media3 (odtwarzanie) | — |
 | Galeria | `PickVisualMedia` (Photo Picker) | Od Android 13 bez uprawnień; fallback SAF. |
@@ -303,6 +303,38 @@ metric_types 1─* body_entries          (karta postaci)
     domykają ten sam wiersz i anulują ten sam budzik — wygrywa ta pierwsza.
     Bez tej zasady telefon leżący w kieszeni milczałby: gdy proces żyje, ekran
     domyka przerwę szybciej niż budzik — i domykał ją bez słowa (M5).
+32. **Rekordy liczymy z całej historii, a wykresy i tabelę z wybranego zakresu.**
+    Rekord nie przestaje być rekordem dlatego, że patrzymy na ostatni miesiąc,
+    a z drugiej strony wykres ma pokazywać to, co użytkownik wybrał. Rozdzielenie
+    jest widoczne w UI: karta rekordów ma na dole sekcję „… w zakresie”, więc dwie
+    liczby obok siebie mają jasne źródło (M6).
+33. **Jednostką wykresu jest dzień, nie sesja.** Dwa treningi jednego dnia to
+    jeden punkt (objętość i serie sumują się, ciężar to najcięższa seria dnia).
+    Gdyby punktem była sesja, dzień z dwoma treningami rozjeżdżałby słupki,
+    a liczba punktów na osi nie zgadzałaby się z liczbą dni treningowych (M6).
+34. **Oś X to kolejne treningi, nie kalendarz.** Na wykresie postępu pytanie
+    brzmi „czy rosnę z treningu na trening”; proporcjonalna oś ściskałaby punkty
+    przy rzadkich treningach w kupkę przy jednej krawędzi. Data każdego punktu
+    jest na osi i w tabeli wykonań (M6).
+35. **Vico 3.2.3, nie nowsze.** 3.3+ podnosi `minCompileSdk` do 37, a cały
+    projekt stoi na `compileSdk 36` (androidx wybrane świadomie, §2). W 3.2.3
+    działa to, czego potrzebujemy: dwie linie na jednym wykresie, słupki, osie
+    z własnym formatowaniem i zoom gestem; nie ma natomiast `rememberMarker`,
+    dlatego nie ma markera pod palcem (M6).
+36. **Agregaty per trening liczy SQL, a reguły — Kotlin.** Lista historii
+    potrzebuje sumy serii i objętości dla każdego treningu; to proste sumy po
+    `set_logs`, więc liczy je `GROUP BY` w `StatsDao`, a nie pętla w Kotlinie.
+    Wszystko, co jest **regułą** (co wchodzi do średniej przerwy, jak liczy się
+    `1RM`, jaki jest zakres dat, co pokazuje wiersz) zostaje w czystych
+    kalkulatorach z testami bez bazy (M6).
+37. **M6 nie zmienia schematu.** Historia czyta istniejące tabele; indeks na
+    `sessions.started_at` nie jest potrzebny — zapytania mają `LIMIT`, a wierszy
+    są setki, nie miliony. Migracja bez potrzeby to koszt (numer wersji, test
+    przejścia, ryzyko przy aktualizacji) bez zysku (M6).
+38. **Filtr historii działa w pamięci, a nie w zapytaniu.** Lista zakończonych
+    treningów jest krótka (LIMIT-y w `StatsDao`), więc zmiana filtra jest
+    natychmiastowa i nie odświeża bazy; filtry to zakres dat, ćwiczenie (lista
+    brana z historii, nie z całego katalogu) i nazwa dnia planu (M6).
 
 ### 4.3 Migracje
 
@@ -374,7 +406,7 @@ Ustawienia
  └─ O aplikacji, licencje
 ```
 
-**Co z tego istnieje po M3** (stan faktyczny, trasy z `Routes.kt`):
+**Co z tego istnieje po M6** (stan faktyczny, trasy z `Routes.kt`):
 
 ```
 Kalendarz (home)                 ← dolny pasek
@@ -383,6 +415,7 @@ Kalendarz (home)                 ← dolny pasek
  └─ dotknięcie wpisu: start / podgląd → session/{id}
 Ćwiczenia (exercises)            ← dolny pasek
  ├─ exercise/new, exercise/{id}, exercise/{id}/edit
+ ├─ exercise/{id} → „Pełna historia i statystyki” → exercise/{id}/stats
  └─ akcja „plany” w nagłówku → plans
 Plany (plans)                    ← bez dolnego paska
  └─ plan/{planId}
@@ -393,14 +426,19 @@ Plany (plans)                    ← bez dolnego paska
            ├─ planDay/{dayId}/pickExercise                   (dodanie ćwiczenia)
            └─ planDay/{dayId}/pickExercise?anchorId={planExerciseId}  (alternatywa)
                     └─ (start) session/{sessionId}
+Historia (history)               ← dolny pasek
+ ├─ lista zakończonych treningów (zakres / ćwiczenie / nazwa dnia)
+ │    └─ session/{id}            (podgląd do czytania, ten sam co z kalendarza)
+ └─ exercise/{id}/stats          (wejście z karty ćwiczenia)
 Ustawienia (settings)            ← dolny pasek
 ```
 
 Dolny pasek pokazuje się tylko na trasach najwyższego poziomu
-(`Routes.topLevel`: Kalendarz / Ćwiczenia / Ustawienia); ekrany ćwiczeń, planów,
-harmonogramu i treningu są „pełnoekranowe”, żeby nie kusiło wyjście z formularza
-reguły w połowie jej układania. Argumenty opcjonalne trasy mają wartość
-`Routes.NO_ID` (`0`) — `recurrenceId = 0` znaczy „nowa reguła”.
+(`Routes.topLevel`: Kalendarz / Ćwiczenia / Historia / Ustawienia); ekrany
+ćwiczeń, planów, statystyk, harmonogramu i treningu są „pełnoekranowe”, żeby nie
+kusiło wyjście z formularza reguły albo z wykresu w połowie oglądania.
+Argumenty opcjonalne trasy mają wartość `Routes.NO_ID` (`0`) — `recurrenceId = 0`
+znaczy „nowa reguła”.
 
 ### 5.2 Kluczowe ekrany — makiety opisowe
 
@@ -476,18 +514,77 @@ z ustawień. `rest_intervals` jest źródłem prawdy o przerwach, a „pod sztan
 to `elapsed − Σ przerw` policzone na ekranie. Historia wykonań ćwiczenia
 dochodzi w M6.
 
-**Szczegóły ćwiczenia**
+**Szczegóły ćwiczenia (M1 + historia z M6)**
 ```
 ┌───────────────────────────────────────────┐
-│ Barbell Bench Press            [♡][⋮]     │
-│ Klatka piersiowa · Sztanga · Złożone      │
+│ Barbell Back Squat         [♡][✎][🗑]     │
+│ Czworogłowe uda · Sztanga · Złożone       │
+├─ Historia ────────────────────────────────┤
+│ Najcięższa seria      70 kg × 5 · 17.10.2026│
+│ Ostatnio              70 kg × 5 · 17.10.2026│
+│ Przerwy     Średnia przerwa: 0:43 · ostatnio│
+│                           0:30 (1 trening) │
+│ ● Najcięższa seria  ● Szacowany 1RM        │
+│ [wykres ciężaru 3M, zoom gestem]           │
+│ [Pełna historia i statystyki]              │
+├─ Informacje ──────────────────────────────┤
+│ Partia mięśniowa · Mięśnie dodatkowe ·     │
+│ Sprzęt · Charakter · Poziom · Nazwa w planie│
+├─ Domyślne parametry ──────────────────────┤
+├─ Film i źródło ───────────────────────────┤
+├─ Komentarz ───────────────────────────────┤
+└───────────────────────────────────────────┘
+```
+
+**Historia (M6)**
+```
+┌───────────────────────────────────────────┐
+│ Historia                                  │
 ├───────────────────────────────────────────┤
-│ [Wykres ciężaru 3M]                       │
-│ Rekord: 100 kg × 5 (12.10.2026)           │
-│ Średnia przerwa: 1:58 · Ostatnio: 90 kg   │
-├─ Serie i powtórzenia (domyślne: 5 × 5)    │
-├─ Media:  [▶ YouTube] [🖼 2] [🎬 1] [+ Dodaj]│
-├─ Komentarz: ........................      │
+│ [1M] [3M] [6M] [1R] [Wszystko]            │  <- zakres (chip)
+│ (Wszystkie ćwiczenia) (Barbell Back Squat)…│  <- filtr po ćwiczeniu
+│ (Wszystkie treningi) (Workout A) (Dzień A) │  <- filtr po dniu planu
+├───────────────────────────────────────────┤
+│ Workout A                                 │
+│ 17.10.2026 • 17:55                        │
+│ 9 serii • 3 150 kg • śr. przerwa 0:43      │
+├───────────────────────────────────────────┤
+│ Dzień A                                   │
+│ 16.10.2026 • 0:48                         │
+│ 3 serie • 900 kg                          │
+└───────────────────────────────────────────┘
+```
+Nazwa dnia, data, czas bez pauz, liczba serii roboczych, objętość i średnia
+przerwa; stuknięcie otwiera ten sam ekran sesji co z kalendarza (bez edycji).
+Filtry, które nie mają czego zawężać (jedna nazwa, jedno ćwiczenie), się nie
+pokazują, a brak wyników mówi wprost, że to filtry — nie brak treningów.
+
+**Statystyki ćwiczenia (M6)**
+```
+┌───────────────────────────────────────────┐
+│ ‹  Barbell Back Squat                     │
+├───────────────────────────────────────────┤
+│ [1M] [3M] [6M] [1R] [Wszystko]            │
+├─ Rekordy i podsumowanie ──────────────────┤
+│ Najcięższa seria     70 kg × 5 • 17.10.2026│
+│ Najlepszy 1RM                          82 kg│
+│ Największa objętość   3 450 kg • 17.10.2026│
+│ Przerwy      Średnia przerwa: 0:43 · ostatnio│
+│                           0:30 (1 trening) │
+│ ─────────────────────────────────────────  │
+│ Treningi w zakresie                        3│
+│ Serie w zakresie                          16│
+│ Objętość w zakresie                  5 100 kg│
+├─ Postęp ciężaru ──────────────────────────┤
+│ ● Najcięższa seria   ● Szacowany 1RM       │
+│ [linie: 50 → 60 → 70 kg]                   │
+├─ Objętość treningu ───────────────────────┤
+│ [słupki: 750 / 900 / 3 450 kg]             │
+├─ Wykonania ───────────────────────────────┤
+│ Data      Serie  Ciężar  Powt.  Przerwa   │
+│ 17.10.2026   10  70 kg      50     0:43    │
+│ 16.10.2026    3  60 kg      15        —    │
+│ 1.10.2026     3  50 kg      15        —    │
 └───────────────────────────────────────────┘
 ```
 
@@ -733,33 +830,87 @@ plus „przerwa 1:40” w wierszu serii, której dotyczyła.
 
 ### 6.4 Historia i wykresy
 
-Zakładka „Historia ćwiczenia” pokazuje:
-1. **Postęp ciężaru** — max `weight_kg` na sesję (linia) + szacowany 1RM.
-2. **Objętość** — `Σ(sets × reps × kg)` na sesję (słupek).
-3. **Rekordy (PR)** — najcięższa seria, największa objętość, najlepszy 1RM.
-4. **Historia przerw** — średnia na sesję.
-5. **Tabela wykonania** — data | serie | ciężary | powtórzenia | przerwy.
+Dwa ekrany, jedna arytmetyka:
 
-Szacowany 1RM (Epley): `1RM = w × (1 + reps / 30)`; dla `reps > 12` oznaczamy
-jako przybliżenie (nie wyświetlamy jako rekordu).
+* **Historia** (zakładka w dolnym pasku) — lista zakończonych treningów,
+  najnowsze pierwsze: nazwa dnia, data, czas bez pauz, liczba serii roboczych,
+  objętość i średnia przerwa. Filtry: zakres (1M/3M/6M/1R/wszystko), ćwiczenie
+  i nazwa dnia planu. Stuknięcie otwiera ten sam ekran sesji co z kalendarza,
+  tylko w trybie do czytania.
+* **Statystyki ćwiczenia** (`exercise/{id}/stats`, wejście z karty ćwiczenia) —
+  rekordy z całej historii plus wykresy i tabela w wybranym zakresie.
 
-Zapytanie bazowe (uproszczone):
+Karta ćwiczenia dostaje skrót historii: rekord, ostatnie wykonanie, średnią
+przerwę i mini wykres 3M (ten sam komponent co na pełnym ekranie) oraz wejście
+„Pełna historia i statystyki”. Bez zapisanych serii karta mówi wprost, że
+historii nie ma, zamiast pokazywać pusty wykres.
+
+**Jednostką wykresu jest dzień, nie sesja** (§4.2 pkt 33). Dwa treningi jednego
+dnia to jeden punkt: objętość i serie się sumują, ciężar bierze najcięższą serię
+dnia.
+
+**Rekordy z całej historii, wykresy i tabela z zakresu** (§4.2 pkt 32). W UI
+widać to wprost: karta rekordów ma na dole sekcję „… w zakresie”.
+
+**Oś X to kolejne treningi, nie kalendarz** (§4.2 pkt 34) — data punktu jest na
+osi („17.10”) i w tabeli wykonań.
+
+**1RM (Epley):** `1RM = w × (1 + reps / 30)`. Powyżej 12 powtórzeń liczba
+dostaje w UI „~” i przypis, ale nadal jest pokazywana — to jedyna informacja
+o postępie w seriach wysokopowtórzeniowych.
+
+Ćwiczenia na czas (`weight_kg = null`) liczą się jako trening, ale nie mają
+punktów ciężaru: karta „Postęp ciężaru” i „Objętość treningu” pokazują wtedy
+wyjaśnienie, a nie płaską linię na zerze.
+
+Serie rozgrzewkowe odpadają wszędzie (`is_warmup = 0`). Zapytania (uproszczone;
+pełne w `StatsDao`):
+
 ```sql
-SELECT s.started_at AS day,
-       MAX(l.weight_kg) AS top_set,
-       SUM(l.weight_kg * l.reps) AS volume,
-       SUM(l.reps) AS total_reps,
-       COUNT(*) AS sets
+-- punkty wykresu: surowe serie jednego ćwiczenia z całej historii
+SELECT l.set_index, l.weight_kg, l.reps, l.is_warmup,
+       s.id AS session_id, s.started_at AS session_started_at
 FROM set_logs l
 JOIN session_exercises se ON se.id = l.session_exercise_id
 JOIN sessions s ON s.id = se.session_id
-WHERE se.exercise_id = :exerciseId AND l.is_warmup = 0 AND s.finished_at IS NOT NULL
-GROUP BY date(s.started_at / 1000, 'unixepoch', 'localtime')
-ORDER BY day;
+WHERE se.exercise_id = :exerciseId AND s.status = 'finished'
+ORDER BY s.started_at DESC, l.set_index
+LIMIT :limit;
+
+-- jedna linia na trening: serie robocze, objętość, najcięższa seria
+SELECT se.session_id,
+       SUM(CASE WHEN l.is_warmup = 0 THEN 1 ELSE 0 END) AS working_sets,
+       SUM(CASE WHEN l.is_warmup = 0
+                THEN COALESCE(l.weight_kg, 0.0) * COALESCE(l.reps, 0)
+                ELSE 0.0 END) AS volume_kg,
+       MAX(CASE WHEN l.is_warmup = 0 THEN l.weight_kg END) AS best_weight_kg
+FROM set_logs l
+JOIN session_exercises se ON se.id = l.session_exercise_id
+JOIN sessions s ON s.id = se.session_id
+WHERE s.status = 'finished'
+GROUP BY se.session_id;
 ```
 
-Wykresy: Vico — `LineCartesianLayer` (ciężar) + `ColumnCartesianLayer` (objętość),
-zakresy 1M/3M/6M/1R/wszystko, zoom/pan, „empty state” gdy brak danych.
+Podział pracy jest celowy (§4.2 pkt 36): SQL robi to, co umie tanio (złączenia,
+sumy per trening, filtr statusu), a **reguły** — co jest serią roboczą, jak liczy
+się 1RM, co wchodzi do średniej przerwy, jaki jest zakres dat, co pokazuje wiersz
+historii — liczy Kotlin (`ExerciseStatsCalculator`, `SessionSummaryCalculator`,
+`RestStatsCalculator`). Reguły mają testy bez bazy, a zapytanie nie wymaga testu
+po każdej zmianie progu (10–900 s, 12 powtórzeń).
+
+Zapytania są ograniczone `LIMIT`-em (`StatsLimits`: 3 000 serii jednego ćwiczenia,
+1 000 przerw), a wiersze brane są **od najnowszych** — przy kilku latach treningu
+interesuje nas postęp, nie archiwum.
+
+**Wykresy:** Vico 3.2.3 — `LineCartesianLayer` (najcięższa seria dnia
+i szacowany 1RM), `ColumnCartesianLayer` (objętość dnia), osie z własnym
+formatowaniem (data „17.10”, liczby z separatorem tysięcy: „3 500”), zoom
+i przewijanie z domyślnego `rememberDefaultVicoZoomState` w `CartesianChartHost`.
+Markera pod palcem nie ma — 3.2.3 nie ma go w module Compose (§4.2 pkt 35).
+
+**Tabela wykonania:** data | serie | najcięższa | powtórzenia | przerwa, od
+najnowszych („co robiłem ostatnio” to najczęstsze pytanie do tabeli).
+
 
 ### 6.5 Załączniki: zdjęcia i filmy z galerii
 
@@ -1288,8 +1439,8 @@ widać je w podglądzie przed zapisem i w kalendarzu.
 * **`moved` jako status nie istnieje** — przeniesienie to zmiana `date` tego
   samego wiersza (§4.2, punkt 15),
 * **brak widoku tygodnia** — zakres mówi „miesiąc/tydzień”; miesiąc pokrywa
-  kryterium, a tydzień (przegląd jak w dniu planu) dochodzi z historią
-  i statystykami w M6, gdy ma z czego liczyć podsumowania,
+  kryterium, a tydzień (przegląd jak w dniu planu) został świadomie przełożony:
+  M6 zrobił historię i statystyki, więc widok tygodnia czeka w §11 (v1.1),
 * **brak przypomnień i wpisu w powiadomieniach** — wpisy kalendarza to na razie
   tylko dane i UI; powiadomienia o treningu → M9,
 * **kalendarz nie ma „+”** — nowe reguły zakłada się z planu („Zaplanuj
@@ -1378,8 +1529,9 @@ w trakcie treningu, a zakończenie wpisu z planu odhacza dzień w kalendarzu.
 * **usługa nie wstaje sama z tła** po zabiciu procesu (Android 12+ ogranicza
   start usługi z tła) — licznik tego nie potrzebuje, bo dane są w bazie,
   a notyfikacja wraca przy następnym wejściu do aplikacji,
-* **historia wykonań, statystyki ciężaru i archiwum → M6/M9**, a widok tygodnia
-  i wykresy → M6 (jak w M2/M3). Historia przerw jest już w M5.
+* **historia wykonań, statystyki ciężaru i archiwum → M6/M9**, a wykresy → M6
+  (jak w M2/M3). Historia przerw jest już w M5; **widok tygodnia** zostaje
+  odłożony do §11 (v1.1).
 
 **M5 ✔ (timer przerwy)** — kryterium działa: po sesji widać średnią przerwę dla
 każdego ćwiczenia, a przerwa odlicza się i dzwoni przy zgaszonym ekranie.
@@ -1435,24 +1587,80 @@ każdego ćwiczenia, a przerwa odlicza się i dzwoni przy zgaszonym ekranie.
   zalogowanej serii; kolumna `is_auto` czeka na ten wariant,
 * **historia wykonań i wykresy → M6**, archiwum i eksport → M9 (jak w M4).
 
+**M6 ✔ (historia i statystyki)** — kryterium działa: wykres pokazuje postęp
+z ostatnich trzech miesięcy, a historia odpowiada na „kiedy i co robiłem”.
+
+* **Baza bez zmian** — historia czyta istniejące tabele; nowy `StatsDao` dokłada
+  cztery zapytania: serie jednego ćwiczenia, agregaty per trening, pary
+  (trening, ćwiczenie) i zamknięte przerwy z `LIMIT`. Świadomie **bez** indeksu
+  na `sessions.started_at` i bez migracji (§4.2 pkt 37),
+* **Domena**: `ExerciseStatsCalculator` (punkty per dzień, rekordy z całej
+  historii, `OneRepMax` Epleya z flagą przybliżenia, `hasWeightData`),
+  `SessionSummaryCalculator` (tylko zakończone treningi, kolejność od
+  najnowszych, średnia przerwa per trening, filtr zakres / ćwiczenie / nazwa)
+  oraz `RestStatsCalculator.averageSeconds` — jedna definicja próbki przerwy dla
+  karty ćwiczenia, historii i wykresu,
+* **Warstwa danych**: `StatsRepository` (tylko odczyt) + `StatsLimits` (wspólne
+  limity wierszy, żeby karta ćwiczenia i historia patrzyły na tę samą próbkę
+  przerw) i `StatsMappers` (data liczona raz, w warstwie danych — dzięki temu
+  kalkulatory są czystymi funkcjami),
+* **Ekran „Historia”**: lista zakończonych treningów (nazwa dnia, data, czas bez
+  pauz, serie robocze, objętość, średnia przerwa) z chipami filtrów (zakres,
+  ćwiczenie z historii, nazwa dnia), wejście w sesję w trybie do czytania i dwa
+  warianty pustego stanu: „brak treningów” vs „żaden nie pasuje do filtrów”,
+* **Ekran „Statystyki ćwiczenia”**: rekordy (najcięższa seria, 1RM z „~” powyżej
+  12 powtórzeń, największa objętość, przerwy) i podsumowanie zakresu, wykres
+  ciężaru (najcięższa seria + szacowany 1RM), wykres objętości (słupki) oraz
+  tabela wykonań — na Vico 3.2.3 (`compose-m3`), z zoomem gestem,
+* **Karta ćwiczenia**: sekcja „Historia” z rekordem, ostatnim wykonaniem, średnią
+  przerwą i mini wykresem 3M oraz wejściem „Pełna historia i statystyki”; wspólne
+  komponenty (`SectionCard`, `InfoRow`, `restHistorySummary`) wyniesione do
+  `ui/components`, żeby szczegóły i statystyki nie rozjechały się wizualnie,
+* **Nawigacja**: `Routes.HISTORY` w `topLevel` (zakładka „Historia” w dolnym
+  pasku) i `Routes.EXERCISE_STATS` (pełny ekran, bez dolnego paska); teksty PL/EN
+  1:1 — po M6 **356 kluczy** w obu plikach,
+* **testy JVM: 183** (doszły: `ExerciseStatsCalculatorTest` — punkty per dzień,
+  rekordy, 1RM i próg przybliżenia, serie rozgrzewkowe, ćwiczenie na czas;
+  `SessionSummaryCalculatorTest` — statusy, kolejność, filtr, średnia przerwa
+  z sesji; `StatsRepositoryTest` — agregaty z SQL, filtr statusu, filtr po
+  ćwiczeniu, rozdzielenie zakresu i rekordów, puste statystyki).
+  `:app:lintDebug` i `:app:assembleDebug` bez błędów,
+* **Weryfikacja na urządzeniu (emulator API 36)**: patrz §9 (weryfikacja po M6).
+
+Świadome odstępstwa i odroczenia z M6:
+
+* **bez markera pod palcem na wykresie** — `rememberMarker` nie ma w module
+  Compose Vico 3.2.3 (§4.2 pkt 35); rolę „sprawdź dokładną wartość” bierze
+  tabela wykonań z pełnymi datami,
+* **wykres z jednym dniem to punkt bez linii** — przy dwóch i więcej treningach
+  rysuje się normalnie (sprawdzone na emulatorze); „sztuczne” dorysowywanie
+  punktu zerowego znaczyłoby „podniosłem nic”,
+* **filtr historii po nazwie dnia, nie po planie** — sesja zna nazwę dnia
+  („Workout A”), a to ona jest widoczna na liście,
+* **brak eksportu danych z historii** (CSV/udostępnianie) — archiwum i eksport
+  → M9,
+* **widok tygodnia w kalendarzu nadal odłożony** — w M6 była kolej na historię
+  i statystyki; tydzień to osobny kawałek UI w kalendarzu (§11, v1.1).
+
 ---
 
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6) | JUnit4 + `TimeProvider` wstrzykiwany |
 | Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6), kaskady, unikalne indeksy, słownik powodów przerwy, FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5) | Room in-memory + `runTest` |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
 
-Stan na M5: **156 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M6: **183 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3, 3 → 4, 4 → 5 i 5 → 6.
+2 → 3, 3 → 4, 4 → 5 i 5 → 6. M6 nie zmienił schematu, więc nie doszła ani
+migracja, ani nowy plik schematu.
 
 Weryfikacja na urządzeniu (emulator API 36) po M3: migracja bazy z M2 bez utraty
 danych i historia treningów bez zmian, kryterium M3 („co 3 dni, od 1.10 do 31.12,
@@ -1485,6 +1693,25 @@ procesu — bez zgody na dokładne alarmy ma okno do ~22 s (raz spóźnił się
 18,7 s po ubiciu procesu); to cena opisana w §4.2 pkt 26 i §6.3.
 Scenariusze: `docs/QA.md`.
 
+Weryfikacja na urządzeniu (emulator API 36) po M6: baza z M5 (bez migracji,
+`user_version = 6`) i cała ścieżka historii — zakładka „Historia” w dolnym pasku
+z listą zakończonych treningów (sesja `cancelled` **nie** wchodzi), wiersze
+z czasem bez pauz, liczbą serii roboczych, objętością i średnią przerwą, filtry
+(zakres 1M/3M/6M/1R/wszystko, ćwiczenie z historii, nazwa dnia) i pusty stan
+„żaden nie pasuje do filtrów” przy kombinacji bez wyników, wejście w trening
+w trybie do czytania. Na karcie ćwiczenia sekcja „Historia” z rekordem, ostatnim
+wykonaniem, średnią przerwą i mini wykresem, a pod nią „Pełna historia
+i statystyki”: rekordy z całej historii, podsumowanie zakresu, wykres ciężaru
+z dwiema liniami (najcięższa seria 50 → 60 → 70 kg, 1RM 58 → 70 → 82 kg), słupki
+objętości (750 / 900 / 3 450 kg — dzień z dwoma treningami sumuje się w jeden
+słupek), tabela wykonań od najnowszych i przełączenie zakresu. Poza tym:
+ćwiczenie na czas (`weight_kg = null`) liczy się jako trening, ale zamiast
+wykresu pokazuje wyjaśnienie, a ćwiczenie bez historii — komunikat zamiast
+pustych osi. Zmiana w bazie zrobiona poza aplikacją nie odświeża ekranu (Room
+nie wie o zapisie z `sqlite3`) — po powrocie na ekran dane są już nowe, co samo
+w sobie potwierdziło, że odczyt idzie `Flow`, a nie ze snapshotu.
+Scenariusze: `docs/QA.md`.
+
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
 
@@ -1502,12 +1729,13 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 | R6 | Chęć na iOS w przyszłości | średni | jeśli to realne — Kotlin Multiplatform (logika + Room w `:shared`), UI natywne. Decyzję trzeba podjąć **przed M1**, bo później to kosztowny refaktor |
 | R7 | Uprawnienie `SCHEDULE_EXACT_ALARM` odmówione (domyślnie na Androidzie 12+) | niski | budzik to siatka bezpieczeństwa, a nie jedyny mechanizm: przy żywym procesie przerwę domyka ekran i **też dzwoni** (§6.3); budzik bez zgody ma okno do ~22 s (zmierzone), a z zgodą jest co do sekundy; scenariusz 2.4 w `docs/QA.md` opisuje oba przypadki |
 | R8 | Użytkownik „przeskakuje” ćwiczenia w planie podczas treningu | niski | sesja jest kopią planu, można dodać/pominąć/zmienić kolejność bez wpływu na plan |
+| R9 | Vico 3.2.3 to ostatnia linia działająca na `compileSdk 36` (3.3+ wymaga 37) | niski | wersja jest przypięta w `libs.versions.toml`; nowsze Vico wejdzie razem z podniesieniem `compileSdk` (razem z androidx, §2). W 3.2.3 działa wszystko, czego potrzebujemy (dwie linie, słupki, osie z formatowaniem, zoom); brakuje tylko markera pod palcem (§4.2 pkt 35) |
 
 ---
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV, wykresy: heatmapa aktywności (streak).
+1. **v1.1** — przypomnienia o treningu, eksport CSV, wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.

@@ -177,3 +177,30 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 8.21 | Usuń ćwiczenie używane w planie i treningu | Potwierdzenie mówi, ile pozycji **zostaje** („Zostanie w planach: N pozycji.”); ćwiczenie znika z katalogu i z wyszukiwania |
 | 8.22 | Po usunięciu ćwiczenia otwórz plan i kartę treningu z historii | Wiersze dalej są, z nazwą ćwiczenia — historia treningów nie ginie |
 | 8.23 | „Wczytaj plany startowe” przy już zaimportowanym planie | „Gotowe: plany +0, pominięto 1, dni 0.”; brak duplikatów dni i pozycji, zmiany użytkownika **nie** nadpisane |
+
+## 9. Historia i statystyki (M6)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 9.1 | Aktualizacja z M5 (baza v6, treningi i przerwy) | Bez migracji (`user_version` zostaje 6); zakładka „Historia” od razu pokazuje dotychczasowe treningi |
+| 9.2 | Otwórz zakładkę „Historia” po czystej instalacji (bez treningów) | „Nie masz jeszcze zakończonych treningów.” — bez chipów filtrów (nie ma czego zawężać) |
+| 9.3 | Po kilku treningach otwórz „Historię” | Lista od najnowszych; wiersz: nazwa dnia, data, czas bez pauz, „N serii • X kg • śr. przerwa M:SS”; brakujące części (np. brak przerw) nie pokazują się jako „0” |
+| 9.4 | Trening przerwany (`cancelled`) i trening w toku | **Nie** ma ich na liście historii |
+| 9.5 | Chip z ćwiczeniem, które było na treningu | Lista zawężona do treningów z tym ćwiczeniem; „Wszystkie ćwiczenia” wraca do pełnej listy |
+| 9.6 | Chip z nazwą dnia, np. „Workout A” | Lista zawężona do tego dnia planu |
+| 9.7 | Zakres „1M” przy treningu starszym niż 30 dni | Stary trening znika z listy; „Wszystko” go przywraca |
+| 9.8 | Filtr ćwiczenia + nazwa dnia bez wspólnego treningu | „Żaden trening nie pasuje do tych filtrów.” (a nie „nie masz treningów”) |
+| 9.9 | Stuknij wiersz historii | Ekran treningu tylko do czytania (bez pól do edycji), z seriami, notatką i średnimi przerwami |
+| 9.10 | Karta ćwiczenia z historią | Sekcja „Historia”: najcięższa seria, „Ostatnio”, „Przerwy” i mini wykres 3M |
+| 9.11 | Ćwiczenie bez ani jednej zalogowanej serii | „Brak zakończonych treningów z tym ćwiczeniem.” (bez pustego wykresu) |
+| 9.12 | „Pełna historia i statystyki” | Rekordy (najcięższa seria, najlepszy 1RM, największa objętość, przerwy) i podsumowanie „… w zakresie” |
+| 9.13 | Ćwiczenie z seriami o rosnącym ciężarze | Wykres ciężaru: dwie linie (najcięższa seria i szacowany 1RM), punkty na kolejne **dni** treningowe; dwie serie tego samego dnia to jeden punkt |
+| 9.14 | Dwa treningi jednego dnia | Wykresy pokazują **jeden** słupek na ten dzień, a jego objętość to suma obu treningów |
+| 9.15 | Rekord sprzed roku i zakres „1M” | Wykres i tabela tylko z miesiąca, ale rekord nadal sprzed roku (rozdzielenie rekordów od zakresu) |
+| 9.16 | Seria dłuższa niż 12 powtórzeń | 1RM pokazany z „~” i przypisem „Powyżej 12 powtórzeń ten wzór to już tylko szacunek” |
+| 9.17 | Serie rozgrzewkowe w treningu | Nigdzie ich nie ma: ani w liczbach serii, ani w objętości, ani w rekordzie |
+| 9.18 | Ćwiczenie na czas (plank, bez ciężaru) | Liczy się jako trening i ma wiersz w tabeli, ale zamiast wykresu ciężaru jest wyjaśnienie (bez płaskiej linii na zerze) |
+| 9.19 | Tabela wykonań | Kolumny: data, serie, ciężar (najcięższa seria dnia), powtórzenia, przerwa; od najnowszych; brak przerw = „—” |
+| 9.20 | Zmiana zakresu na wykresach | Wykresy i tabela przeliczają się na nowy zakres, chips zaznacza wybór |
+| 9.21 | Przeciągnięcie/pinch na wykresie | Wykres da się przesunąć i przybliżyć (domyślny zoom Vico) |
+| 9.22 | Ćwiczenie raz na czas (bez ciężaru), raz z ciężarem - oba w zakresie | Rekordy bez „0 kg”; wykres ciężaru ma punkt tylko z dnia z ciężarem, a tabela wykonań oba wiersze |

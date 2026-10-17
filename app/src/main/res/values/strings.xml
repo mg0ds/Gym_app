@@ -5,6 +5,7 @@
     <!-- Nawigacja -->
     <string name="nav_calendar">Kalendarz</string>
     <string name="nav_exercises">Ćwiczenia</string>
+    <string name="nav_history">Historia</string>
     <string name="nav_settings">Ustawienia</string>
 
     <!-- Trwający trening (karta na kalendarzu) -->
@@ -406,6 +407,59 @@
         <item quantity="many">%1$d serii</item>
         <item quantity="other">%1$d serii</item>
     </plurals>
+
+    <!-- M6: historia i statystyki -->
+    <string name="history_title">Historia</string>
+    <string name="history_range_1m">1M</string>
+    <string name="history_range_3m">3M</string>
+    <string name="history_range_6m">6M</string>
+    <string name="history_range_1y">1R</string>
+    <string name="history_range_all">Wszystko</string>
+    <string name="history_filter_all_exercises">Wszystkie ćwiczenia</string>
+    <string name="history_filter_all_workouts">Wszystkie treningi</string>
+    <string name="history_row_head">%1$s • %2$s</string>
+    <string name="history_row_volume">%1$s kg</string>
+    <string name="history_row_rest">śr. przerwa %1$s</string>
+    <string name="history_empty">Nie masz jeszcze zakończonych treningów.</string>
+    <string name="history_empty_filtered">Żaden trening nie pasuje do tych filtrów.</string>
+    <plurals name="history_sets">
+        <item quantity="one">%1$d seria</item>
+        <item quantity="few">%1$d serie</item>
+        <item quantity="many">%1$d serii</item>
+        <item quantity="other">%1$d serii</item>
+    </plurals>
+
+    <string name="exercise_section_history">Historia</string>
+    <string name="exercise_stats_title">Statystyki ćwiczenia</string>
+    <string name="exercise_stats_open">Pełna historia i statystyki</string>
+    <string name="exercise_stats_no_data">Brak zakończonych treningów z tym ćwiczeniem.</string>
+    <string name="exercise_stats_no_weight">To ćwiczenie nie ma zapisanego ciężaru - nie ma czego rysować na wykresie.</string>
+    <string name="exercise_stats_records">Rekordy i podsumowanie</string>
+    <string name="exercise_stats_record_heaviest">Najcięższa seria</string>
+    <string name="exercise_stats_record_one_rep_max">Najlepszy 1RM</string>
+    <string name="exercise_stats_record_volume">Największa objętość</string>
+    <string name="exercise_stats_record_rests">Przerwy</string>
+    <string name="exercise_stats_last_set">Ostatnio</string>
+    <string name="exercise_stats_record_weight_reps">%1$s kg × %2$d • %3$s</string>
+    <string name="exercise_stats_record_weight">%1$s kg • %2$s</string>
+    <string name="exercise_stats_volume_with_date">%1$s kg • %2$s</string>
+    <string name="exercise_stats_one_rep_max_value">%1$s kg</string>
+    <string name="exercise_stats_one_rep_max_approximate">~%1$s kg</string>
+    <string name="exercise_stats_one_rep_max_note">Powyżej 12 powtórzeń ten wzór to już tylko szacunek.</string>
+    <string name="exercise_stats_range_sessions">Treningi w zakresie</string>
+    <string name="exercise_stats_range_sets">Serie w zakresie</string>
+    <string name="exercise_stats_range_volume">Objętość w zakresie</string>
+    <string name="exercise_stats_volume">%1$s kg</string>
+    <string name="exercise_stats_weight">%1$s kg</string>
+    <string name="exercise_stats_chart_weight">Postęp ciężaru</string>
+    <string name="exercise_stats_chart_volume">Objętość treningu</string>
+    <string name="exercise_stats_legend_one_rep_max">Szacowany 1RM</string>
+    <string name="exercise_stats_performances">Wykonania</string>
+    <string name="exercise_stats_table_date">Data</string>
+    <string name="exercise_stats_table_sets">Serie</string>
+    <string name="exercise_stats_table_weight">Ciężar</string>
+    <string name="exercise_stats_table_reps">Powt.</string>
+    <string name="exercise_stats_table_rest">Przerwa</string>
 
     <!-- Dostępność -->
     <string name="cd_back">Wstecz</string>

@@ -9,6 +9,7 @@ object Routes {
     const val HOME = "home"
     const val EXERCISES = "exercises"
     const val SETTINGS = "settings"
+    const val HISTORY = "history"
 
     /** Nazwa argumentu z identyfikatorem ćwiczenia (typ `Long`). */
     const val ARG_EXERCISE_ID = "exerciseId"
@@ -16,10 +17,14 @@ object Routes {
     const val EXERCISE_NEW = "exercise/new"
     const val EXERCISE_DETAIL = "exercise/{$ARG_EXERCISE_ID}"
     const val EXERCISE_EDIT = "exercise/{$ARG_EXERCISE_ID}/edit"
+    const val EXERCISE_STATS = "exercise/{$ARG_EXERCISE_ID}/stats"
 
     fun exerciseDetail(exerciseId: Long): String = "exercise/$exerciseId"
 
     fun exerciseEdit(exerciseId: Long): String = "exercise/$exerciseId/edit"
+
+    /** Historia i statystyki ćwiczenia (M6). */
+    fun exerciseStats(exerciseId: Long): String = "exercise/$exerciseId/stats"
 
     // --- plany (M2) ---
 
@@ -64,5 +69,5 @@ object Routes {
     fun session(sessionId: Long): String = "session/$sessionId"
 
     /** Trasy najwyższego poziomu - na nich pokazujemy dolny pasek nawigacji. */
-    val topLevel: Set<String> = setOf(HOME, EXERCISES, SETTINGS)
+    val topLevel: Set<String> = setOf(HOME, EXERCISES, HISTORY, SETTINGS)
 }

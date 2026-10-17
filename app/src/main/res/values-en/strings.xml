@@ -5,6 +5,7 @@
     <!-- Navigation -->
     <string name="nav_calendar">Calendar</string>
     <string name="nav_exercises">Exercises</string>
+    <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
 
     <!-- Workout in progress (card on the calendar) -->
@@ -388,6 +389,57 @@
         <item quantity="one">%1$d day picked</item>
         <item quantity="other">%1$d days picked</item>
     </plurals>
+
+    <!-- M6: history and statistics -->
+    <string name="history_title">History</string>
+    <string name="history_range_1m">1M</string>
+    <string name="history_range_3m">3M</string>
+    <string name="history_range_6m">6M</string>
+    <string name="history_range_1y">1Y</string>
+    <string name="history_range_all">All</string>
+    <string name="history_filter_all_exercises">All exercises</string>
+    <string name="history_filter_all_workouts">All workouts</string>
+    <string name="history_row_head">%1$s • %2$s</string>
+    <string name="history_row_volume">%1$s kg</string>
+    <string name="history_row_rest">avg. rest %1$s</string>
+    <string name="history_empty">No finished workouts yet.</string>
+    <string name="history_empty_filtered">No workout matches these filters.</string>
+    <plurals name="history_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+
+    <string name="exercise_section_history">History</string>
+    <string name="exercise_stats_title">Exercise statistics</string>
+    <string name="exercise_stats_open">Full history and statistics</string>
+    <string name="exercise_stats_no_data">No finished workouts with this exercise yet.</string>
+    <string name="exercise_stats_no_weight">This exercise has no weight logged - there is nothing to plot.</string>
+    <string name="exercise_stats_records">Records and summary</string>
+    <string name="exercise_stats_record_heaviest">Heaviest set</string>
+    <string name="exercise_stats_record_one_rep_max">Best 1RM</string>
+    <string name="exercise_stats_record_volume">Best volume</string>
+    <string name="exercise_stats_record_rests">Rests</string>
+    <string name="exercise_stats_last_set">Last time</string>
+    <string name="exercise_stats_record_weight_reps">%1$s kg × %2$d • %3$s</string>
+    <string name="exercise_stats_record_weight">%1$s kg • %2$s</string>
+    <string name="exercise_stats_volume_with_date">%1$s kg • %2$s</string>
+    <string name="exercise_stats_one_rep_max_value">%1$s kg</string>
+    <string name="exercise_stats_one_rep_max_approximate">~%1$s kg</string>
+    <string name="exercise_stats_one_rep_max_note">Above 12 reps this formula is only an estimate.</string>
+    <string name="exercise_stats_range_sessions">Workouts in range</string>
+    <string name="exercise_stats_range_sets">Sets in range</string>
+    <string name="exercise_stats_range_volume">Volume in range</string>
+    <string name="exercise_stats_volume">%1$s kg</string>
+    <string name="exercise_stats_weight">%1$s kg</string>
+    <string name="exercise_stats_chart_weight">Weight progress</string>
+    <string name="exercise_stats_chart_volume">Workout volume</string>
+    <string name="exercise_stats_legend_one_rep_max">Estimated 1RM</string>
+    <string name="exercise_stats_performances">Performances</string>
+    <string name="exercise_stats_table_date">Date</string>
+    <string name="exercise_stats_table_sets">Sets</string>
+    <string name="exercise_stats_table_weight">Weight</string>
+    <string name="exercise_stats_table_reps">Reps</string>
+    <string name="exercise_stats_table_rest">Rest</string>
 
     <!-- Accessibility -->
     <string name="cd_back">Back</string>

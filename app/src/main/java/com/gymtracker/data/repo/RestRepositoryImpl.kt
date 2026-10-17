@@ -95,7 +95,7 @@ class RestRepositoryImpl @Inject constructor(
         if (exerciseIds.isEmpty()) {
             flowOf(emptyMap())
         } else {
-            restDao.observeStatsSource(exerciseIds, STATS_ROW_LIMIT).map { rows ->
+            restDao.observeStatsSource(exerciseIds, StatsLimits.REST_ROWS).map { rows ->
                 rows.map { row -> row.toDomain() }
                     .groupBy { interval -> interval.exerciseId }
                     .mapValues { (_, intervals) -> RestStatsCalculator.calculate(intervals) }
@@ -107,18 +107,4 @@ class RestRepositoryImpl @Inject constructor(
 
     override suspend fun exerciseName(exerciseId: Long): String? =
         exerciseDao.getAnyById(exerciseId)?.name
-
-    private companion object {
-        /**
-         * Ile najnowszych przerw wchodzi do statystyk ćwiczeń z ekranu.
-         *
-         * Statystyki liczymy w Kotlinie (mediana, ostatnie treningi), więc
-         * potrzebujemy wierszy, a nie agregatów - stąd limit. Dotyczy całego
-         * zapytania (`LIMIT` w SQL-u), nie każdego ćwiczenia z osobna: limit
-         * dzielą między siebie pozycje jednego treningu. 1000 przerw to kilka
-         * lat treningu; starsze i tak nie zmieniają średniej w sposób, który
-         * dałoby się zauważyć na ekranie.
-         */
-        const val STATS_ROW_LIMIT = 1_000
-    }
 }

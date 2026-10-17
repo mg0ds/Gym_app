@@ -11,6 +11,7 @@ import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.RestDao
 import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.db.daos.SetLogDao
+import com.gymtracker.data.db.daos.StatsDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -49,4 +50,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCalendarDao(database: AppDatabase): CalendarDao = database.calendarDao()
+
+    @Provides
+    fun provideStatsDao(database: AppDatabase): StatsDao = database.statsDao()
 }

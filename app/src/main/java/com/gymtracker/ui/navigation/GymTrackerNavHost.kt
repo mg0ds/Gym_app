@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -30,6 +31,8 @@ import com.gymtracker.ui.exercises.ExerciseEditScreen
 import com.gymtracker.ui.exercises.ExerciseListScreen
 import com.gymtracker.ui.calendar.CalendarScreen
 import com.gymtracker.ui.calendar.ScheduleFormScreen
+import com.gymtracker.ui.history.ExerciseStatsScreen
+import com.gymtracker.ui.history.HistoryScreen
 import com.gymtracker.ui.plans.ExercisePickerScreen
 import com.gymtracker.ui.plans.PlanDayScreen
 import com.gymtracker.ui.plans.PlanDetailScreen
@@ -98,7 +101,15 @@ fun GymTrackerNavHost(
                 ExerciseDetailScreen(
                     onBack = { navController.popBackStack() },
                     onEdit = { exerciseId -> navController.navigate(Routes.exerciseEdit(exerciseId)) },
+                    onOpenStats = { exerciseId -> navController.navigate(Routes.exerciseStats(exerciseId)) },
                 )
+            }
+
+            composable(
+                route = Routes.EXERCISE_STATS,
+                arguments = listOf(navArgument(Routes.ARG_EXERCISE_ID) { type = NavType.LongType }),
+            ) {
+                ExerciseStatsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(
@@ -114,6 +125,12 @@ fun GymTrackerNavHost(
 
             composable(Routes.SETTINGS) {
                 SettingsScreen()
+            }
+
+            composable(Routes.HISTORY) {
+                HistoryScreen(
+                    onOpenSession = { sessionId -> navController.navigate(Routes.session(sessionId)) },
+                )
             }
 
             composable(Routes.PLANS) {
@@ -220,6 +237,10 @@ private enum class BottomDestination(
 ) {
     TODAY(Routes.HOME, Icons.Filled.DateRange, R.string.nav_calendar),
     EXERCISES(Routes.EXERCISES, Icons.Filled.List, R.string.nav_exercises),
+    // `material-icons-core` nie ma ikony wykresu, a dokładanie całej
+    // `material-icons-extended` dla jednego glifu to przesada. Gwiazda czyta się
+    // jak „rekordy” - i o rekordy w tej zakładce chodzi.
+    HISTORY(Routes.HISTORY, Icons.Filled.Star, R.string.nav_history),
     SETTINGS(Routes.SETTINGS, Icons.Filled.Settings, R.string.nav_settings),
 }
 

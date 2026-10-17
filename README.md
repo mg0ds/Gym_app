@@ -6,11 +6,12 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M5 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+Stan: **M0–M6 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
 treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
 „co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką,
-timer przerwy z alarmem, celem na ćwiczenie i średnimi).
-Kolejny krok: historia wykonań i statystyki ćwiczenia oraz widok tygodnia (M6).
+timer przerwy z alarmem, celem na ćwiczenie i średnimi, historia treningów
+z filtrami i statystyki ćwiczenia z wykresami).
+Kolejny krok: załączniki z galerii i filmy na karcie ćwiczenia (M7).
 
 ## Wymagania
 
@@ -96,7 +97,7 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | główny plan: wymagania, stack, architektura, model danych, ekrany, algorytmy timerów i harmonogramu, kamienie milowe, testy, ryzyka |
 | [`docs/SCHEMA.sql`](docs/SCHEMA.sql) | docelowy DDL bazy lokalnej (Room/SQLite) — realizowany krok po kroku |
-| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu) |
+| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki) |
 | [`data/seed/`](data/seed) | dane startowe do importu: `exercises.json` + `programs/*.json` |
 | `app/` | kod aplikacji (Kotlin + Compose, Room, Hilt) |
 
@@ -137,6 +138,7 @@ Gym_app/
 | Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
 | Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
 | Przerwy | przerwa rusza po zalogowanej serii: cel na ćwiczenie (sesja → karta ćwiczenia → ustawienie globalne 90 s), pasek z odliczaniem i akcjami „-15 s” / „+15 s” / „Pomiń”, notyfikacja odliczająca w dół, alarm z dźwiękiem i wibracją na końcu, historia i średnia per ćwiczenie; przerwa liczy się do czasu treningu, a obok widać „pod sztangą” |
+| Historia i statystyki | zakładka „Historia”: zakończone treningi od najnowszych (data, czas bez pauz, serie, objętość, średnia przerwa) z filtrami zakresu (1M/3M/6M/1R/wszystko), ćwiczenia i nazwy dnia; statystyki ćwiczenia: rekordy z całej historii (najcięższa seria, 1RM Epleya, największa objętość, przerwy) oraz wykresy postępu ciężaru i objętości na **Vico 3.2.3** — jednostką wykresu jest **dzień** (dwa treningi jednego dnia to jeden punkt) |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences) |
 | DI | Hilt (KSP) |
@@ -184,6 +186,7 @@ Gym_app/
 | **M3** | kalendarz miesiąca z wpisami i statusami, harmonogram planu (reguła „co N dni” albo wybrane dni), rotacja dni A/B/C, horyzont 20 tygodni, podgląd dat przed zapisem, start treningu z wpisu i odhaczenie po zakończeniu | ✔ |
 | **M4** | sesja i timer treningu: usługa pierwszoplanowa z notyfikacją, start/pauza/stop, odtwarzanie po ubiciu aplikacji, logowanie serii, notatka do treningu, wiązanie wpisu w kalendarzu przy starcie z planu | ✔ |
 | **M5** | timer przerwy: start po zalogowanej serii, cel przerwy na ćwiczenie (sesja → karta ćwiczenia → 90 s z ustawień), alarm z dźwiękiem i wibracją przy końcu (także po ubiciu aplikacji), „-15 s” / „+15 s” / „Pomiń”, wliczanie w czas treningu i „pod sztangą”, średnia oraz historia przerw per ćwiczenie | ✔ |
+| **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

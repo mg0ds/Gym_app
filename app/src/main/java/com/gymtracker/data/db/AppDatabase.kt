@@ -9,6 +9,7 @@ import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.RestDao
 import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.db.daos.SetLogDao
+import com.gymtracker.data.db.daos.StatsDao
 import com.gymtracker.data.db.entities.AppMetaEntity
 import com.gymtracker.data.db.entities.ExerciseEntity
 import com.gymtracker.data.db.entities.ExerciseFtsEntity
@@ -69,6 +70,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun restDao(): RestDao
 
     abstract fun calendarDao(): CalendarDao
+
+    abstract fun statsDao(): StatsDao
 
     companion object {
         const val NAME = "gym_tracker.db"

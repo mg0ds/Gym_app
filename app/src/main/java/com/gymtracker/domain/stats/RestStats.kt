@@ -41,13 +41,34 @@ object RestStatsCalculator {
     const val MAX_SAMPLE_SECONDS = 900
     const val RECENT_SESSION_LIMIT = 5
 
+    /**
+     * Czy przerwa nadaje się na próbkę: musi być odbyta (nie „pomiń”, nie
+     * przerwana) i mieścić się w rozsądnym zakresie. Jedno miejsce odpowiada
+     * na to pytanie dla średniej przerw i dla średniej w historii ćwiczenia
+     * (`ExerciseStatsCalculator`).
+     */
+    fun isSample(interval: RestInterval): Boolean =
+        interval.countsToStats &&
+            interval.actualSeconds != null &&
+            interval.actualSeconds in MIN_SAMPLE_SECONDS..MAX_SAMPLE_SECONDS
+
+    /**
+     * Średnia przerwa z listy przerw (`null` = brak próbek).
+     *
+     * Ta sama definicja próbki, co w [calculate]: karta ćwiczenia, historia
+     * treningu i wykres postępu muszą liczyć średnią tak samo, inaczej dwie
+     * liczby na jednym ekranie mówią co innego.
+     */
+    fun averageSeconds(intervals: List<RestInterval>): Int? {
+        val values = intervals
+            .filter { interval -> isSample(interval) }
+            .mapNotNull { interval -> interval.actualSeconds }
+        if (values.isEmpty()) return null
+        return values.average().roundToInt()
+    }
+
     fun calculate(intervals: List<RestInterval>): RestStats {
-        val samples = intervals
-            .filter { interval ->
-                interval.countsToStats &&
-                    interval.actualSeconds != null &&
-                    interval.actualSeconds in MIN_SAMPLE_SECONDS..MAX_SAMPLE_SECONDS
-            }
+        val samples = intervals.filter { interval -> isSample(interval) }
         if (samples.isEmpty()) return RestStats()
 
         val values = samples.mapNotNull { interval -> interval.actualSeconds }.sorted()
