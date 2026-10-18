@@ -79,7 +79,7 @@ treningowy z `data/seed/` (patrz §7).
 | Timer | `ForegroundService` + `startedAt` i pauzy w bazie (epoch) | Licznik wstaje sam po ubiciu aplikacji; notyfikacja z chronometrem systemowym (M4). **Odstąpiliśmy od `elapsedRealtime`** — uzasadnienie w §6.2 i §8.1. |
 | Sprzątanie plików | jeden skan `filesDir/thumbs` przy starcie, bez `WorkManager` | Osierocenia powstają tylko z kaskady; świeże pliki (młodsze niż doba) zostają (§4.2 pkt 45). |
 | Testy | JUnit4 + Truth, Turbine, Room in-memory, Compose UI Test, Robolectric | — |
-| CI | GitHub Actions: lint, testy jednostkowe, build (docelowo też detekt i assembleRelease) | — |
+| CI | GitHub Actions: lint, testy jednostkowe, `assembleDebug` i `bundleRelease` (R8 + shrinking zasobów, **bez podpisu**; detekt/ktlint jeszcze nie — patrz §11) | — |
 | Dane startowe | JSON w `data/seed/` → `assets/seed/` | Import jednorazowy, offline. |
 
 > **Decyzja: natywny Kotlin, nie Flutter/React Native.** Powody: timer w tle
@@ -538,6 +538,18 @@ app_meta, seed_imports                 (poza relacjami: stan i dziennik importó
     prawdziwe, bo po kasowaniu nie ma czego odtworzyć. Nowej migracji nie ma:
     `is_archived` jest w schemacie od M2, więc archiwum to nowe zapytania, nie
     nowe kolumny (§6.11).
+
+64. **Wydanie: R8 i podpis rozdzielone.** Release włącza `isMinifyEnabled`
+    i `isShrinkResources` (apka schodzi z ~20 MB do ~3,6 MB), a podpis jest
+    **opcjonalny**: klucz czytamy z `keystore.properties` (poza repo) albo ze
+    zmiennych `GYMTRACKER_*`, a gdy brakuje choć jednej wartości, powstaje
+    release niesignowany. Dzięki temu CI sprawdza R8, shrinking zasobów
+    i `lintVitalRelease` bez żadnych sekretów, a prawdziwy podpis zostaje tam,
+    gdzie jest klucz (§6.13). Reguły ProGuard piszemy tylko tam, gdzie R8
+    naprawdę może coś zgubić, czyli dla `kotlinx.serialization`: Hilt, Room,
+    Compose, Media3, Coil i DataStore dowożą własne (consumer rules), a ich
+    kopiowanie do repo byłoby drugim źródłem prawdy, które rozjedzie się
+    z wersją biblioteki.
 
 ### 4.3 Migracje
 
@@ -1519,6 +1531,38 @@ kompilację i wyszedł dopiero na ekranie.
 
 ---
 
+### 6.13 Wydanie: R8, shrinking zasobów i podpis (M9)
+
+Release włącza naraz trzy rzeczy: `isMinifyEnabled`, `isShrinkResources`
+i podpis kluczem, którego **nie ma w repozytorium**. Każda ma powód:
+
+* **R8 + shrinking zasobów** zbijają apkę z 19,9 MB (debug) do 3,6 MB na tym
+  samym kodzie. Własnych reguł jest mało, bo Hilt, Room, Compose, Media3, Coil
+  i DataStore dowożą swoje (consumer rules). Zostaje jedno miejsce, w którym R8
+  naprawdę może coś zgubić: **kotlinx.serialization**. Serializery generuje
+  wtyczka kompilatora, ale tworzy je `serializer()` i `$$serializer`, więc bez
+  reguł optymalizator uznałby je za nieużywane i wyciął. Defekt byłby **cichy**:
+  build przechodzi, a eksport kopii wywala się dopiero na urządzeniu - dlatego
+  `app/proguard-rules.pro` trzyma `-keep,includedescriptorclasses` na
+  `$$serializer` (deskryptor niesie nazwy pól JSON) oraz reguły na `Companion`.
+* **Podpis** czytamy z `keystore.properties` w katalogu głównym projektu albo
+  ze zmiennych `GYMTRACKER_*`; brakuje choć jednej wartości → release powstaje
+  **niesignowany**. To nie kompromis, a podział ról: `bundleRelease` w CI ma
+  sprawdzić R8 i shrinking, a nie udawać podpis, a klucz wydania żyje tam, gdzie
+  jest potrzebny i nie jedzie przez repozytorium (`.gitignore` łapie `*.jks`,
+  `*.keystore` i `keystore.properties`). Ścieżka w `keystore.properties` może
+  być absolutna albo względna wobec katalogu głównego repo.
+* **Weryfikacja podpisu** to dwie różne rzeczy: `jarsigner -verify` dla AAB
+  i `apksigner verify --print-certs` dla APK. AAB **nie jest** APK, więc
+  `apksigner` powie o nim tylko tyle, że nie ma w nim manifestu.
+
+Release podpisany innym kluczem niż debug nie zainstaluje się przez
+`adb install -r` (niezgodny podpis) - trzeba odinstalować poprzednią wersję.
+Gdy zależy nam na zachowaniu danych na uruchomionym urządzeniu, kopia katalogu
+aplikacji musi wrócić z **właścicielem i kontekstem SELinux** nowej instalacji
+(uid bywa inny: nowa instalacja dostaje kolejny wolny uid, a katalog aplikacji
+nosi kategorię SELinux wyprowadzoną z tego uid).
+
 ## 7. Dane startowe
 
 ### 7.1 Co jest w `data/seed/`
@@ -1723,9 +1767,11 @@ M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release
 
 Świadome odroczenia z M0:
 
-* `detekt`/`ktlint` w CI — najpierw stabilny build, narzędzia stylu dochodzą
-  razem z M9 (szlify), gdy kod urośnie,
-* `assembleRelease` w CI — podpis i R8 są zakresem M9,
+* `detekt`/`ktlint` w CI — najpierw stabilny build; lint Android działa w CI od
+  M0, a narzędzia stylu wciąż czekają (M9 ich nie dowiózł — styl pilnuje przegląd
+  kodu, patrz §11),
+* `assembleRelease` w CI — **zrobione w M9d**: CI buduje `bundleRelease` bez
+  klucza, czyli sprawdza R8 i shrinking, a nie podpis (§6.13),
 * wersje bibliotek z PL/pytań zależności — aktualizacja wtedy, gdy dana
   biblioteka wchodzi do użytku (Vico w M6, Coil/Media3 w M7).
 
@@ -2266,6 +2312,20 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
   opróżnienie nie rusza katalogu). `:app:lintDebug` i `:app:assembleDebug` bez
   błędów.
 
+**M9d ✔ (wydanie)** - release jest gotowy do wysłania:
+
+* **R8 + `isShrinkResources`**: apka release ma 3,6 MB (debug 19,9 MB),
+  `lintVitalRelease` przechodzi; reguły w `app/proguard-rules.pro` dotyczą
+  tylko `kotlinx.serialization` (największe ryzyko cichego defektu) i pakietu
+  wykresów,
+* **podpis z klucza poza repo**: `keystore.properties` albo zmienne
+  `GYMTRACKER_*`; brak klucza = release niesignowany, a nie błąd builda,
+* **AAB**: `bundleRelease` daje `app/build/outputs/bundle/release/app-release.aab`
+  (8,0 MB, podpisany `jarsigner`-em, z mapą R8 w `BUNDLE-METADATA`),
+* **CI** buduje `bundleRelease` **bez klucza** jako kontrolę R8 i shrinkingu,
+* dokumentacja: README „Wydanie” (`keytool`, `keystore.properties`, wysyłka
+  AAB, zmienne środowiskowe), §6.13.
+
 Świadome odroczenia z M9 (szczegóły w §11):
 * **jednostki kg/lb i format czasu** — baza trzyma kilogramy i tak zostaje;
   przeliczanie na funty to warstwa prezentacji, której nikt dziś nie potrzebuje
@@ -2286,13 +2346,18 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | brak zapytań na głównym wątku (pilnuje tego lint i przegląd); baseline profile i makrobenchmark startu **odłożone do v1.1** — na emulatorze liczby są niemiarodajne (§11) | Macrobenchmark (v1.1) |
+| Wydanie | R8 + shrinking zasobów: `bundleRelease` w CI (bez klucza = bundle niesignowany), podpis sprawdzany `jarsigner`-em (AAB) i `apksigner`-em (APK), a na urządzeniu smoke test ścieżek wrażliwych na obfuskację: eksport i wczytanie kopii (kotlinx.serialization), wykresy, statystyki, pierwsze uruchomienie z seedem (§6.13) | build release + smoke test na emulatorze |
 
-Stan na M9c: **290 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M9d: **290 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
 2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7, 7 → 8 i 8 → 9. M9c schematu nie zmienia:
 archiwizacja siedzi w `is_archived` od M2, więc nowe zapytania nie potrzebują
-migracji.
+migracji. M9d nie dokłada testów JVM i to jest świadome: R8 psuje rzeczy
+**w czasie działania** (serializery, encje, wykresy), więc jego kontrola to
+zbudowanie release i przejście po ścieżkach wrażliwych na urządzeniu — dokładnie
+tyle, ile widać w akapicie o weryfikacji wyżej. Do tego CI buduje `bundleRelease`
+na każdym pushu, więc defekt konfiguracji R8 wychodzi od razu, a nie przy wydaniu.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
@@ -2491,6 +2556,22 @@ zgodną z pytaniem z karty ćwiczenia, a „Przywróć” oddał go do katalogu
 (`is_archived = 0`) z komunikatem w miejscu listy i pustym archiwum. Logcat bez
 wyjątków. Scenariusze: `docs/QA.md` rozdział 4.
 
+Weryfikacja na urządzeniu (emulator API 36) po M9d: release podpisany
+tymczasowym kluczem z **poza repo** (ten sam mechanizm, co `keystore.properties`
+w README). Podpis sprawdzony `apksigner verify --print-certs` (APK) i
+`jarsigner -verify` (AAB). Na urządzeniu: kalendarz, karta postaci z wykresami,
+lista ćwiczeń z filtrami, ekran archiwum, historia i statystyki ćwiczenia
+(rekordy, średnie przerwy) - bez wyjątków w logcat. Ścieżki najbardziej wrażliwe
+na R8 przeszły w obie strony: eksport kopii („Kopia zapisana. Wiersze: 442,
+miniatury: 1.”) dał ZIP z `schema_version` 9 i 15 tabelami, a wczytanie tej samej
+kopii z „Zastąp dane” odtworzyło identyczne liczniki (27 ćwiczeń, 24 treningi,
+168 wpisów historii, 22 wskaźniki, 4 załączniki, 7 wpisów dziennika).
+Po `pm clear` aplikacja utworzyła bazę od zera i zaimportowała seed (23
+ćwiczenia, 23 wiersze FTS, 26 pozycji planów) też bez wyjątków. Release
+z innym kluczem niż debug nie instaluje się przez `-r`; dane udało się zachować
+przez kopię katalogu aplikacji z właścicielem i kontekstem SELinux nowej
+instalacji (patrz §6.13).
+
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
 
@@ -2509,12 +2590,16 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 | R7 | Uprawnienie `SCHEDULE_EXACT_ALARM` odmówione (domyślnie na Androidzie 12+) | niski | budzik to siatka bezpieczeństwa, a nie jedyny mechanizm: przy żywym procesie przerwę domyka ekran i **też dzwoni** (§6.3); budzik bez zgody ma okno do ~22 s (zmierzone), a z zgodą jest co do sekundy; scenariusz 2.4 w `docs/QA.md` opisuje oba przypadki |
 | R8 | Użytkownik „przeskakuje” ćwiczenia w planie podczas treningu | niski | sesja jest kopią planu, można dodać/pominąć/zmienić kolejność bez wpływu na plan |
 | R9 | Vico 3.2.3 to ostatnia linia działająca na `compileSdk 36` (3.3+ wymaga 37) | niski | wersja jest przypięta w `libs.versions.toml`; nowsze Vico wejdzie razem z podniesieniem `compileSdk` (razem z androidx, §2). W 3.2.3 działa wszystko, czego potrzebujemy (dwie linie, słupki, osie z formatowaniem, zoom); brakuje tylko markera pod palcem (§4.2 pkt 35) |
+| R10 | Utrata klucza wydania = brak możliwości aktualizacji aplikacji w Google Play | wysoki | klucz i hasła żyją **poza repo** (`*.jks`, `*.keystore` i `keystore.properties` są w `.gitignore`), a README „Wydanie” opisuje generowanie, trzymanie kopii i wysyłkę AAB; CI nie zna klucza i buduje bundle niesignowany (§6.13) |
+
+Numery ryzyk (`R1`–`R10`) to zwykłe etykiety - nie mają nic wspólnego
+z optymalizatorem R8 z §6.13.
 
 ---
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`).
+1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`), **podpisywanie wydania w CI** (dziś CI buduje bundle niesignowany jako kontrolę R8 — sekrety podpisu mają sens dopiero wtedy, gdy wydania staną się częste).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.

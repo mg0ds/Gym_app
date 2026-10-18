@@ -6,17 +6,19 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M8 ukończone**, **M9 w toku** (fundament, katalog ćwiczeń
-z wyszukiwaniem, plany treningowe z edytorem dni i start treningu z planu,
+Stan: **M0–M9 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem
+i archiwum, plany treningowe z edytorem dni i startem treningu z planu,
 kalendarz z harmonogramem „co N dni”, trening z timerem w notyfikacji, pauzą,
 logowaniem serii i notatką, timer przerwy z alarmem, celem na ćwiczenie
 i średnimi, historia treningów z filtrami i statystyki ćwiczenia z wykresami,
 zdjęcia i filmy z galerii oraz kroki wykonania na karcie ćwiczenia, karta postaci
-ze wskaźnikami i wykresami zmian, a z M9 ustawienia — alarm przerwy, język
-aplikacji i „O aplikacji” — kopia zapasowa: eksport i wczytanie ZIP,
-import własnego katalogu ćwiczeń z pliku i dziennik „Ostatnie importy” — oraz
-archiwum ćwiczeń z przywracaniem i trwałym kasowaniem).
-Kolejny krok: wydanie podpisane (R8 + AAB) — reszta M9.
+ze wskaźnikami i wykresami zmian, ustawienia — alarm przerwy, język aplikacji
+i „O aplikacji” — kopia zapasowa: eksport i wczytanie ZIP, import własnego
+katalogu ćwiczeń z pliku i dziennik „Ostatnie importy”, a na koniec wydanie:
+R8 ze shrinkingiem zasobów i podpisany pakiet AAB).
+Kolejny krok: v1.1 — jednostki kg/lb, eksport CSV, scalanie dwóch kopii bez
+powielania wpisów kalendarza i treningów, baseline profile; szczegóły
+w [`docs/PLAN.md`](docs/PLAN.md) §11.
 
 ## Wymagania
 
@@ -34,10 +36,56 @@ Kolejny krok: wydanie podpisane (R8 + AAB) — reszta M9.
 ./gradlew assembleDebug        # apka debug
 ./gradlew testDebugUnitTest    # testy jednostkowe (JUnit + Robolectric)
 ./gradlew lintDebug            # lint
+./gradlew assembleRelease      # apka release: R8 + shrinking zasobów
+./gradlew bundleRelease        # pakiet AAB do wysłania w Google Play
 ```
 
-Wszystkie trzy kroki uruchamia CI na GitHub Actions dla każdego pusha i PR-a
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+Te kroki (razem z `bundleRelease`) uruchamia CI na GitHub Actions dla każdego
+pusha i PR-a ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Release
+w CI jest **niesignowany** — klucza nie ma ani w repozytorium, ani w sekretach.
+
+### Wydanie
+
+Klucza i haseł **nie ma w repozytorium**. Konfiguracja czyta je z pliku
+`keystore.properties` w katalogu głównym projektu albo ze zmiennych
+środowiskowych; gdy brakuje choć jednej wartości, release powstaje
+**niesignowany** (to kontrola R8, nie plik do wysłania).
+
+```bash
+# 1. Klucz wydania - raz, poza repo. Zrób kopię: zgubiony klucz = brak możliwości
+#    aktualizacji aplikacji w Google Play (nowa wersja musi być podpisana tym samym).
+keytool -genkeypair -v \
+  -keystore ~/klucze/gymtracker-release.jks \
+  -alias gymtracker -keyalg RSA -keysize 4096 -validity 10000
+
+# 2. keystore.properties w katalogu głównym projektu (jest w .gitignore).
+#    Ścieżka może być absolutna albo względna wobec katalogu głównego repo.
+cat > keystore.properties <<'EOF'
+storeFile=/Users/<ty>/klucze/gymtracker-release.jks
+storePassword=<hasło magazynu>
+keyAlias=gymtracker
+keyPassword=<hasło klucza>
+EOF
+
+# 3. Pakiet do wysłania i apka do testów na urządzeniu
+./gradlew bundleRelease     # app/build/outputs/bundle/release/app-release.aab
+./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk
+
+# 4. Podgląd podpisu
+jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+"$ANDROID_HOME"/build-tools/36.1.0/apksigner verify --print-certs \
+  app/build/outputs/apk/release/app-release.apk
+```
+
+Na innej maszynie to samo ustawiają zmienne środowiskowe: `GYMTRACKER_STORE_FILE`,
+`GYMTRACKER_STORE_PASSWORD`, `GYMTRACKER_KEY_ALIAS`, `GYMTRACKER_KEY_PASSWORD`
+(plik ma pierwszeństwo). W CI nie ma żadnej z nich, więc `bundleRelease` buduje
+bundle niesignowany i to jest cały punkt: pipeline sprawdza R8, shrinking zasobów
+i `lintVitalRelease`, a podpis zostaje tam, gdzie jest klucz.
+
+Aplikacja nie ma uprawnienia `INTERNET`, nie zbiera danych i nie ma analityki —
+jeśli będzie wysyłana do Google Play, w „Bezpieczeństwie danych” zaznaczasz, że
+nic nie jest zbierane ani udostępniane.
 
 ### Środowisko lokalne (macOS) — konfiguracja od zera
 
@@ -200,7 +248,7 @@ Gym_app/
 | **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 | **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
-| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”) ✔, kopia zapasowa ZIP ✔, ekran archiwum ✔, wydanie (R8 + podpisany AAB) | ◐ |
+| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”), kopia zapasowa ZIP z importem katalogu i dziennikiem importów, archiwum ćwiczeń z przywracaniem i trwałym kasowaniem, wydanie: R8 ze shrinkingiem zasobów i podpisany AAB (klucz poza repo); schemat tylko raz — migracja 8 → 9 (`seed_imports`) | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

@@ -1,3 +1,5 @@
+import java.io.File
+import java.util.Properties
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
@@ -30,6 +32,34 @@ androidComponents {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Podpis wydania. Klucz **nie leży w repo**: czytamy `keystore.properties`
+// z katalogu głównego projektu (albo zmienne środowiskowe - tak buduje CI).
+// Gdy nic nie ma, release powstaje **niesignowany** i to jest w porządku:
+// taki plik jest kontrolą konfiguracji R8, a nie gotowym wydaniem. Instrukcja
+// (keytool, wysyłka AAB): README.
+// ---------------------------------------------------------------------------
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.isFile) {
+        keystorePropertiesFile.inputStream().use { stream -> load(stream) }
+    }
+}
+
+fun releaseSetting(key: String, environment: String): String? =
+    keystoreProperties.getProperty(key) ?: System.getenv(environment)
+
+val releaseStorePath = releaseSetting("storeFile", "GYMTRACKER_STORE_FILE")
+val releaseStorePassword = releaseSetting("storePassword", "GYMTRACKER_STORE_PASSWORD")
+val releaseKeyAlias = releaseSetting("keyAlias", "GYMTRACKER_KEY_ALIAS")
+val releaseKeyPassword = releaseSetting("keyPassword", "GYMTRACKER_KEY_PASSWORD")
+val releaseSigningReady = listOf(
+    releaseStorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { value -> !value.isNullOrBlank() }
+
 android {
     namespace = "com.gymtracker"
     compileSdk = 36
@@ -42,14 +72,31 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        if (releaseSigningReady) {
+            create("release") {
+                // Ścieżka absolutna albo względna wobec katalogu głównego repo.
+                val path = requireNotNull(releaseStorePath)
+                storeFile = if (File(path).isAbsolute) File(path) else rootProject.file(path)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // R8 i shrinkingResources włączamy w M9 (razem z baseline profile i podpisem).
-            isMinifyEnabled = false
+            // R8 i shrinkingResources (M9). Reguły dopisane w proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

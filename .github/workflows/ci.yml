@@ -37,7 +37,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
 
       - name: Lint, testy jednostkowe, build
-        run: ./gradlew --no-daemon --stacktrace lintDebug testDebugUnitTest assembleDebug
+        run: ./gradlew --no-daemon --stacktrace lintDebug testDebugUnitTest assembleDebug bundleRelease
 
       - name: Raporty (przy błędzie)
         if: failure()

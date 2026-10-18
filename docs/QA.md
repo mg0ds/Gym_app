@@ -285,3 +285,17 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 11.7 | „Język aplikacji” na Androidzie 12 i starszym | Wiersz pokazuje podpowiedź, że język idzie za systemem (żadnego martwego kliknięcia) |
 | 11.8 | „O aplikacji” | Wersja zgodna z `versionName`; zdania o danych na urządzeniu i o mediach z galerii |
 | 11.9 | TalkBack na wierszach z przełącznikami | Ustawienie czytane raz, dotknięcie całego wiersza przełącza wartość |
+
+## 12. Wydanie (M9)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 12.1 | `./gradlew bundleRelease` bez `keystore.properties` | Powstaje `app-release.aab` **niesignowany**, build przechodzi (dokładnie to robi CI) |
+| 12.2 | `keystore.properties` z kluczem + `bundleRelease` i `assembleRelease` | AAB: `jarsigner -verify` → „jar verified”; APK: `apksigner verify --print-certs` pokazuje DN klucza |
+| 12.3 | Instalacja APK release przez `adb install -r` na danych z debug | Odmowa: niezgodny podpis - trzeba najpierw odinstalować (albo zachować dane kopią katalogu, §6.13 w `docs/PLAN.md`) |
+| 12.4 | Pierwsze uruchomienie release po `pm clear` | Baza powstaje od zera (droga 1 → 9), seed daje 23 ćwiczenia i plan startowy, wyszukiwanie FTS działa |
+| 12.5 | Release: eksport kopii (ZIP) | ZIP z `gymtracker.json` (`schema_version` 9, wszystkie tabele) oraz `media/`; status „Kopia zapisana. Wiersze: N, miniatury: M.” |
+| 12.6 | Release: wczytanie tej samej kopii („Zastąp dane”) | Liczniki w bazie identyczne jak przed eksportem, „Dane wczytane. Wiersze: N, pominięte: 0.” - obfuskacja nie zgubiła serializerów |
+| 12.7 | Release: karta postaci, statystyki ćwiczenia, historia | Wykresy i agregaty rysują się normalnie (R8 nie usunął zapytań ani modeli wykresów) |
+| 12.8 | Release: `logcat` po przejściu powyższych ścieżek | Brak `FATAL EXCEPTION` (szczególnie `SerializationException`, `ClassNotFoundException`, `NoSuchMethodError`) |
+| 12.9 | Rozmiar artefaktów | `app-debug.apk` ~19,9 MB; `app-release.apk` ~3,6 MB (R8 + shrinking zasobów) |

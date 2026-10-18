@@ -19,6 +19,9 @@ captures/
 *.jks
 app/release/
 
+# Podpis wydania - klucz i hasła trzymamy poza repo (README: „Wydanie").
+keystore.properties
+
 # IDE / system
 .idea/
 .DS_Store
