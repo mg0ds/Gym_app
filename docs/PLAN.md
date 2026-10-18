@@ -634,7 +634,7 @@ Postać
 Ustawienia
  ├─ Jednostki (kg/lb), format czasu, pierwszy dzień tygodnia
  ├─ Dźwięk/wibracja timera, domyślna przerwa globalna
- ├─ Motyw (systemowy/jasny/ciemny), dynamiczne kolory
+ ├─ Motyw (systemowy/jasny/ciemny), dynamiczne kolory (wyłączone od M10 — patrz §8.1)
  ├─ Import/eksport danych (JSON/ZIP), backup
  ├─ Zarządzanie seedami (sprawdź wersję, re-import)
  └─ O aplikacji, licencje
@@ -1151,6 +1151,15 @@ historii nie ma, zamiast pokazywać pusty wykres.
 dnia to jeden punkt: objętość i serie się sumują, ciężar bierze najcięższą serię
 dnia.
 
+**Dniem treningu jest `sessions.session_date`, a gdy go nie ma — dzień
+`started_at`** (M10). Data jest zapisywana przy starcie z wybranego dnia
+(w kalendarzu) i z wpisu w kalendarzu, więc trening zrobiony „na zapas” na dzień
+przyszły widać pod tym dniem, a nie pod dniem kliknięcia. Zakres statystyk
+(`StatsRange.contains`) patrzy **tylko w tył** i nie odrzuca dni przyszłych —
+inaczej taki trening zniknąłby z historii i wykresu. Sesje z M1–M9 mają
+`session_date` = NULL i liczą się do dnia startu (migracja 9 → 10 nic nie
+przestawia).
+
 **Rekordy z całej historii, wykresy i tabela z zakresu** (§4.2 pkt 32). W UI
 widać to wprost: karta rekordów ma na dole sekcję „… w zakresie”.
 
@@ -1170,8 +1179,9 @@ pełne w `StatsDao`):
 
 ```sql
 -- punkty wykresu: surowe serie jednego ćwiczenia z całej historii
+-- (dzien liczy sie z s.session_date, a gdy NULL - ze started_at)
 SELECT l.set_index, l.weight_kg, l.reps, l.is_warmup,
-       s.id AS session_id, s.started_at AS session_started_at
+       s.id AS session_id, s.started_at AS session_started_at, s.session_date
 FROM set_logs l
 JOIN session_exercises se ON se.id = l.session_exercise_id
 JOIN sessions s ON s.id = se.session_id
@@ -1739,6 +1749,11 @@ wersji 1.0 w Google Play (testy zamknięte od M6, produkcja po M9).
 **Kolejność ma znaczenie:** M3 (kalendarz) zależy od M2 (plany), M6 zależy od M4/M5.
 M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release.
 
+**M10** to poprawki zgłoszone **po** wydaniu, poza szacunkiem do 1.0: dzień
+treningu zamiast dnia kliknięcia (baza v10), start treningu z wybranego dnia
+w kalendarzu, dopisywanie ćwiczeń do trwającego treningu i własna szata
+graficzna w palecie użytkownika. Szczegóły i weryfikacja: §8.1.
+
 ### 8.1 Stan realizacji
 
 **M0 ✔ (fundament)** — w repo działa:
@@ -1757,8 +1772,8 @@ M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release
   świadomy krok (`compileSdk = 37` + `compileSdkMinor`),
 * Room w wersji 1 z eksportem schematów do `app/schemas/` i zasadami migracji
   opisanymi w `DatabaseMigrations` (bez `fallbackToDestructiveMigration`),
-* motyw Material 3 (dynamiczne kolory od Androida 12) sterowany ustawieniem
-  z DataStore, teksty PL (domyślne) + EN,
+* motyw Material 3 sterowany ustawieniem z DataStore (od M10 paleta własna,
+  bez dynamicznych kolorów — patrz M10 w §8.1), teksty PL (domyślne) + EN,
 * nawigacja Compose z dwoma ekranami (start, ustawienia) — kolejne dochodzą
   wraz z katalogiem ćwiczeń i planami,
 * CI (GitHub Actions): `lintDebug`, `testDebugUnitTest`, `assembleDebug` na JDK 21
@@ -1891,7 +1906,7 @@ widać je w podglądzie przed zapisem i w kalendarzu.
   dnia z listą wpisów i menu („rozpocznij”, „przenieś” = zmiana daty tego samego
   wiersza, „oznacz jako odbyty” / „pominięty”, „przywróć do zaplanowanych”,
   „usuń wpis”). Ekran „Dziś” z M2 **stał się kalendarzem**, a karta
-  „Kontynuuj trening” została na górze,
+  „Kontynuuj trening” została na górze, a od M10 dzień z treningiem ma **także ramkę** w kolorze statusu (kropka zostaje — kolor sam nie jest nośnikiem informacji dla TalkBacku), a wybrany dzień ma przycisk „Rozpocznij trening” z arkuszem wyboru: dni planów („plan → dzień”, liczba ćwiczeń) albo „Nowy trening” bez planu,
 * **Formularz harmonogramu** (trasa `plan/{planId}/schedule`): dwa tryby —
   reguła (data od, data do, co ile dni, dni tygodnia) albo wybrane dni
   (multi-select na siatce miesiąca); oba z wyborem konkretnego dnia planu albo
@@ -2335,12 +2350,73 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 
 ---
 
+**M10 ✔ (poprawki po M9: dzień treningu i szata graficzna)** — baza **v10**.
+Cztery rzeczy zgłoszone po wydaniu, wszystkie w jednym miejscu, bo pociągały
+za sobą ten sam łańcuch: dzień treningu → kalendarz → historia → wygląd.
+
+* **Dzień treningu, nie moment kliknięcia (v10).** Do `sessions` doszła kolumna
+  `session_date` (TEXT ISO `YYYY-MM-DD`, `NULL` = „dzień ze `started_at`”).
+  Migracja `9 → 10` to samo `ALTER TABLE ... ADD COLUMN`, więc sesje z M1–M9
+  zostają bez daty i dalej liczą się do dnia startu — nikt nie traci historii,
+  a wykresy nie przeskakują o dzień. `WorkoutSession.dateIn(zone)` i
+  `SessionSummaryCalculator` czytają `sessionDate ?: dzień(startedAt)`, a SQL
+  statystyk zwraca `s.session_date` obok znacznika czasu; `StatsMappers.toEntry`
+  preferuje datę, tak samo jak `ExerciseSetRow.sessionDate`. **Zakres
+  statystyk (`StatsRange.contains`) przestał odrzucać dni przyszłe** — patrzy
+  tylko w tył, bo trening przypisany do zaplanowanego dnia (także przyszłego)
+  nie może zniknąć z historii.
+* **Start treningu z wybranego dnia.** Dzień w kalendarzu ma przycisk
+  „Rozpocznij trening”, który otwiera arkusz z listą dni planów („plan → dzień”,
+  spłaszczoną przez nowe `PlanDao.observeDayOptions()` / `PlanDayOption`) plus
+  pozycją „Nowy trening” (bez planu — ćwiczenia dodaje się w trakcie). Start
+  zapisuje wybraną datę, a jeśli na ten dzień był wpis w kalendarzu, wpis
+  zostaje powiązany z sesją i odhaczony po zakończeniu (`startForDay` w
+  `SessionRepositoryImpl` obsługuje oba przypadki; wpis z kalendarza ma
+  pierwszeństwo przy starcie z karty wpisu).
+* **Dodawanie ćwiczenia do trwającego treningu.** Nowa trasa
+  `session/{id}/pickExercise` i trzeci cel `ExercisePickerViewModel`
+  (`SessionRepository.addExerciseToSession`). Bez tego „nowy trening” byłby
+  pustym ekranem: ekran sesji ma teraz przycisk „Dodaj ćwiczenie” (także przy
+  pustej liście), a wybór dopisuje ćwiczenie na koniec i wraca.
+* **Szata graficzna (cała aplikacja).** Paleta użytkownika —
+  `#1d3557` granat, `#457b9d` stal, `#a8dadc` błękit, `#f1faee` kość słoniowa,
+  `#e63946` czerwień — w pełnych schematach jasnym i ciemnym: `primary` to
+  granat (w ciemnym błękit), `secondary` stal, `tertiary` czerwień (rekordy i
+  linie celu na wykresach), `error` przyciemniona czerwień dla czytelności
+  drobnego tekstu. **Dynamiczne kolory wyłączone** (`dynamicColor = false`):
+  tapeta nie może przemalować kalendarza ani wykresów, w których czerwień
+  niesie znaczenie. Doszły wszystkie role powierzchni (`surfaceContainer*`,
+  `outline*`, `inverse*`), nowe `Shapes` (8–28 dp) i mocniejsza typografia
+  (pogrubione nagłówki), a „Przerwij trening” dostał kolor błędu.
+* **Legenda i ramka dnia** — oprócz kropki statusu każdy dzień z treningiem ma
+  ramkę w kolorze statusu (`odbyty` granat, `zaplanowany` stal, `pominięty`
+  szary); legenda pokazuje próbki ramek, nie tylko kropek.
+
+Weryfikacja na urządzeniu (emulator API 36) po M10: migracja `9 → 10` przeszła
+na bazie z M9 (`pragma user_version` = 10) i nie ruszyła danych — 6 treningów
+zostało z `session_date` = NULL (czyli dalej pod dniem startu), więc stara
+historia wygląda tak samo. Nowy trening „na 27.10” (wybrany dzień w kalendarzu,
+start z arkusza) dostał `session_date` = `2026-10-27`, wpis w kalendarzu został
+odhaczony, a historia i seria ćwiczenia pokazują go pod 27.10, nie pod dniem
+kliknięcia. „Nowy trening” bez planu: dodanie ćwiczenia w trakcie, seria, koniec
+— wszystko na swoim miejscu; oba motywy przeszły wzrokowy przegląd na
+kalendarzu, ekranie sesji i wykresach.
+
+Świadome odroczenia z M10:
+* **przestawianie kolejności ćwiczeń w trwającym treningu** — dopisywanie jest
+  na koniec; kolejność w trakcie treningu to v1.1 (§11),
+* **usuwanie pomyłkowo dopisanego ćwiczenia z sesji** — kasowanie ćwiczenia
+  z katalogu już archiwizuje, ale pozycja w trwającej sesji zostaje; dziś
+  ratunkiem jest „Przerwij trening” (v1.1).
+
+---
+
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
 | Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
 | Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
@@ -2358,6 +2434,16 @@ migracji. M9d nie dokłada testów JVM i to jest świadome: R8 psuje rzeczy
 zbudowanie release i przejście po ścieżkach wrażliwych na urządzeniu — dokładnie
 tyle, ile widać w akapicie o weryfikacji wyżej. Do tego CI buduje `bundleRelease`
 na każdym pushu, więc defekt konfiguracji R8 wychodzi od razu, a nie przy wydaniu.
+
+Stan na M10: **298 testów JVM**, wszystkie zielone. Doszły testy nowego
+zachowania, nie „na wszelki wypadek”: migracja 9 → 10 w teście całej drogi
+(1 → 10) sprawdza, że sesja z M9 zostaje z `session_date` = NULL, a nowa
+przechodzi przez bazę z datą; `SessionRepositoryTest` — dzień z wpisu
+w kalendarzu, `startForDay` z dniem planu i bez planu, dopisanie ćwiczenia
+(w trakcie działa, po zakończeniu nie rusza historii); `PlanRepositoryTest` —
+lista dni do wyboru; `StatsRepositoryTest` — trening na dzień przyszły widać
+w historii i w statystykach ćwiczenia pod tą datą. `ExerciseStatsCalculatorTest`
+zmienił asercję: zakres **nie** odrzuca już dni przyszłych.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
@@ -2599,7 +2685,7 @@ z optymalizatorem R8 z §6.13.
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`), **podpisywanie wydania w CI** (dziś CI buduje bundle niesignowany jako kontrolę R8 — sekrety podpisu mają sens dopiero wtedy, gdy wydania staną się częste).
+1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), **przestawianie i usuwanie ćwiczeń w trwającym treningu** (odłożone z M10 — dziś dopisanie idzie na koniec, a pomyłkę trzeba przerwać albo dokończyć), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`), **podpisywanie wydania w CI** (dziś CI buduje bundle niesignowany jako kontrolę R8 — sekrety podpisu mają sens dopiero wtedy, gdy wydania staną się częste).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.

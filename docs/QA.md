@@ -100,6 +100,24 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 3a.13 | Interfejs po angielsku | „Set 1: 60 kg × 5”, „Add a set”, „Pause/Resume/Finish” w notyfikacji, „%1$d of %2$d” w postępie |
 
 
+## 3b. Start z wybranego dnia i dopisywanie ćwiczeń (M10)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 3b.1 | Kalendarz → wybierz dzień bez wpisu → „Rozpocznij trening” | Arkusz z listą dni planów („plan → dzień”, liczba ćwiczeń) i pozycją „Nowy trening”; data dnia w nagłówku arkusza |
+| 3b.2 | Wybierz „Nowy trening” na dzień 27.10 | Ekran sesji: nazwa „Trening”, pusty stan „Ten trening nie ma jeszcze ćwiczeń.”, przycisk „Dodaj ćwiczenie” |
+| 3b.3 | Wybierz dzień planu (np. „Workout B”) na inny dzień niż dziś | Ćwiczenia dnia skopiowane z celami, trening zapisze się pod wybranym dniem |
+| 3b.4 | Wybierz dzień, na który jest wpis w kalendarzu, i zacznij trening z arkusza | Wpis powiązany z sesją; po „Zakończ trening” odhaczony (kropka „odbyty”) |
+| 3b.5 | Zakończ trening rozpoczęty na 27.10, wejdź w Historię | Wiersz na górze z datą „27.10.2026”, a nie z dniem kliknięcia |
+| 3b.6 | Ten sam trening w statystykach ćwiczenia (zakres 1M) | Punkt pod 27.10 jest widoczny — zakres patrzy tylko w tył, nie odrzuca dni przyszłych |
+| 3b.7 | W trwającym treningu „Dodaj ćwiczenie” → wybierz z katalogu | Ćwiczenie dopisane na koniec listy, ekran wraca do sesji, tytuł „Dodaj ćwiczenie do treningu” |
+| 3b.8 | Trening od zera: dodaj 2 ćwiczenia, zaloguj serie, zakończ | Historia pokazuje liczbę serii i objętość; dzień = wybrany |
+| 3b.9 | W zakończonym treningu wejdź w szczegóły | Przycisku „Dodaj ćwiczenie” nie ma (historia jest tylko do czytania) |
+| 3b.10 | Wybierz dzień poza horyzontem 20 tygodni | Kalendarz nie pozwala wybrać dnia poza oknem; „Rozpocznij trening” działa tylko dla widocznych dni |
+| 3b.11 | Aktualizacja z M9 (baza v9 z 6 treningami) | Migracja 9 → 10 bez błędu; `user_version = 10`, stara historia bez zmian (sesje bez `session_date` liczą się do dnia startu) |
+| 3b.12 | Interfejs po angielsku | „Start workout”, „Workout on …”, „New workout”, „Add exercise”, „Add exercise to workout” |
+| 3b.13 | „Przerwij trening” w trakcie | Przycisk w kolorze błędu, potwierdzenie, trening nie wchodzi do historii |
+
 ## 4. Media: zdjęcia, filmy, link, kroki (M7)
 
 Zasada: **wskazujemy plik, nie kopiujemy go.** Sprawdzając te scenariusze warto
@@ -165,7 +183,7 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 |---|---|---|
 | 6.1 | TalkBack: przejdź przez start treningu | Wszystkie przyciski mają etykiety, timer ogłaszany bez spamu |
 | 6.2 | Czcionka 200% | Brak uciętych tekstów, przyciski nadal klikalne |
-| 6.3 | Motyw ciemny + dynamiczne kolory | Wykresy czytelne, brak białych „dziur” |
+| 6.3 | Motyw ciemny (bez dynamicznych kolorów — od M10 paleta własna) | Wykresy czytelne, brak białych „dziur”; tapeta systemu nie zmienia kolorów aplikacji |
 
 ## 7. Katalog ćwiczeń (M1)
 
@@ -293,9 +311,22 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 12.1 | `./gradlew bundleRelease` bez `keystore.properties` | Powstaje `app-release.aab` **niesignowany**, build przechodzi (dokładnie to robi CI) |
 | 12.2 | `keystore.properties` z kluczem + `bundleRelease` i `assembleRelease` | AAB: `jarsigner -verify` → „jar verified”; APK: `apksigner verify --print-certs` pokazuje DN klucza |
 | 12.3 | Instalacja APK release przez `adb install -r` na danych z debug | Odmowa: niezgodny podpis - trzeba najpierw odinstalować (albo zachować dane kopią katalogu, §6.13 w `docs/PLAN.md`) |
-| 12.4 | Pierwsze uruchomienie release po `pm clear` | Baza powstaje od zera (droga 1 → 9), seed daje 23 ćwiczenia i plan startowy, wyszukiwanie FTS działa |
-| 12.5 | Release: eksport kopii (ZIP) | ZIP z `gymtracker.json` (`schema_version` 9, wszystkie tabele) oraz `media/`; status „Kopia zapisana. Wiersze: N, miniatury: M.” |
-| 12.6 | Release: wczytanie tej samej kopii („Zastąp dane”) | Liczniki w bazie identyczne jak przed eksportem, „Dane wczytane. Wiersze: N, pominięte: 0.” - obfuskacja nie zgubiła serializerów |
+| 12.4 | Pierwsze uruchomienie release po `pm clear` | Baza powstaje od zera (droga 1 → 10), seed daje 23 ćwiczenia i plan startowy, wyszukiwanie FTS działa |
+| 12.5 | Release: eksport kopii (ZIP) | ZIP z `gymtracker.json` (`schema_version` 10, wszystkie tabele) oraz `media/`; status „Kopia zapisana. Wiersze: N, miniatury: M.” |
+| 12.6 | Release: wczytanie tej samej kopii („Zastąp dane”) | Liczniki w bazie identyczne jak przed eksportem, „Dane wczytane. Wiersze: N, pominięte: 0.” - obfuskacja nie zgubiła serializerów (także `session_date`) |
 | 12.7 | Release: karta postaci, statystyki ćwiczenia, historia | Wykresy i agregaty rysują się normalnie (R8 nie usunął zapytań ani modeli wykresów) |
 | 12.8 | Release: `logcat` po przejściu powyższych ścieżek | Brak `FATAL EXCEPTION` (szczególnie `SerializationException`, `ClassNotFoundException`, `NoSuchMethodError`) |
 | 12.9 | Rozmiar artefaktów | `app-debug.apk` ~19,9 MB; `app-release.apk` ~3,6 MB (R8 + shrinking zasobów) |
+
+## 13. Szata graficzna (M10)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 13.1 | Kalendarz: dzień z treningiem | Oprócz kropki cały dzień ma ramkę w kolorze statusu (odbyty granat, zaplanowany stal, pominięty szary); legenda pokazuje próbki ramek |
+| 13.2 | Dzień wybrany i „dziś” | Wybrany dzień wypełniony i obramowany mocniej; dzisiejszy dzień odróżnia się tłem, a nie tylko kolorem cyfry |
+| 13.3 | Motyw jasny na Androidzie 12+ ze zmienioną tapetą | Kolory się **nie** zmieniają (paleta aplikacji: granat, stal, błękit, kość słoniowa, czerwień) |
+| 13.4 | Motyw ciemny | Ten sam układ ról: akcje w błękicie, czerwień na akcentach, tła granatowo-grafitowe; brak białych „dziur” na listach i kartach |
+| 13.5 | Wykresy: ciężar vs 1RM | Granat = rekord/ciężar, czerwień = 1RM/linia celu — odróżnialne na obu tłach i w skali szarości (różna jasność) |
+| 13.6 | Ustawienia → Motyw: system / jasny / ciemny | Wybór działa jak dotąd, ale rysuje paletę aplikacji, nie systemową |
+| 13.7 | Komunikat błędu w formularzu (np. pusty ciężar) | Czerwień czytelna drobnym tekstem (przyciemniona) |
+| 13.8 | TalkBack na kalendarzu | Ramka nie jest jedynym nośnikiem informacji — status czyta się z opisu dnia |

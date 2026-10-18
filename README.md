@@ -6,16 +6,19 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M9 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem
+Stan: **M0–M10 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem
 i archiwum, plany treningowe z edytorem dni i startem treningu z planu,
-kalendarz z harmonogramem „co N dni”, trening z timerem w notyfikacji, pauzą,
-logowaniem serii i notatką, timer przerwy z alarmem, celem na ćwiczenie
+kalendarz z harmonogramem „co N dni” i startem treningu z dowolnego dnia,
+trening z timerem w notyfikacji, pauzą, logowaniem serii, notatką i dopisywaniem
+ćwiczeń w trakcie, timer przerwy z alarmem, celem na ćwiczenie
 i średnimi, historia treningów z filtrami i statystyki ćwiczenia z wykresami,
 zdjęcia i filmy z galerii oraz kroki wykonania na karcie ćwiczenia, karta postaci
 ze wskaźnikami i wykresami zmian, ustawienia — alarm przerwy, język aplikacji
 i „O aplikacji” — kopia zapasowa: eksport i wczytanie ZIP, import własnego
-katalogu ćwiczeń z pliku i dziennik „Ostatnie importy”, a na koniec wydanie:
-R8 ze shrinkingiem zasobów i podpisany pakiet AAB).
+katalogu ćwiczeń z pliku i dziennik „Ostatnie importy”, wydanie:
+R8 ze shrinkingiem zasobów i podpisany pakiet AAB, a w M10 — poprawki po
+wydaniu: dzień treningu zamiast dnia kliknięcia, start z wybranego dnia,
+ramka wokół dnia z treningiem i własna szata graficzna).
 Kolejny krok: v1.1 — jednostki kg/lb, eksport CSV, scalanie dwóch kopii bez
 powielania wpisów kalendarza i treningów, baseline profile; szczegóły
 w [`docs/PLAN.md`](docs/PLAN.md) §11.
@@ -157,7 +160,7 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 8.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 10.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -184,19 +187,20 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 8) |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 10) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
 | Archiwum ćwiczeń | wejście z menu listy katalogu („Archiwum (N)”); podgląd z partią mięśniową i sprzętem, „Przywróć” (ten sam wiersz, ta sama historia) i trwałe skasowanie; cena porządku - pozycje w planach, wpisy w historii, załączniki - liczona jednym zapytaniem i pokazywana **przed** potwierdzeniem |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
-| Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
-| Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
+| Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty) — kropka **i ramka wokół całego dnia**; reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; z każdego dnia start treningu: z wpisu albo „Rozpocznij trening” → lista dni planów (plan → dzień) plus „Nowy trening” bez planu |
+| Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu, **dopisywanie ćwiczeń w trakcie** (także do treningu „od zera”); dzień treningu to dzień, na który go zaczęto (`session_date`), a nie moment kliknięcia |
 | Przerwy | przerwa rusza po zalogowanej serii: cel na ćwiczenie (sesja → karta ćwiczenia → ustawienie globalne 90 s), pasek z odliczaniem i akcjami „-15 s” / „+15 s” / „Pomiń”, notyfikacja odliczająca w dół, alarm z dźwiękiem i wibracją na końcu (dźwięk i wibrację można wyłączyć w Ustawieniach — para przełączników wybiera jeden z czterech kanałów powiadomień), historia i średnia per ćwiczenie; przerwa liczy się do czasu treningu, a obok widać „pod sztangą” |
-| Historia i statystyki | zakładka „Historia”: zakończone treningi od najnowszych (data, czas bez pauz, serie, objętość, średnia przerwa) z filtrami zakresu (1M/3M/6M/1R/wszystko), ćwiczenia i nazwy dnia; statystyki ćwiczenia: rekordy z całej historii (najcięższa seria, 1RM Epleya, największa objętość, przerwy) oraz wykresy postępu ciężaru i objętości na **Vico 3.2.3** — jednostką wykresu jest **dzień** (dwa treningi jednego dnia to jeden punkt) |
+| Historia i statystyki | zakładka „Historia”: zakończone treningi od najnowszych (data, czas bez pauz, serie, objętość, średnia przerwa) z filtrami zakresu (1M/3M/6M/1R/wszystko), ćwiczenia i nazwy dnia; datą wiersza jest **dzień treningu** (`session_date`), więc trening zrobiony „na zapas” na dzień przyszły widać pod tym dniem; statystyki ćwiczenia: rekordy z całej historii (najcięższa seria, 1RM Epleya, największa objętość, przerwy) oraz wykresy postępu ciężaru i objętości na **Vico 3.2.3** — jednostką wykresu jest **dzień** (dwa treningi jednego dnia to jeden punkt) |
 | Media na karcie ćwiczenia | **Wskazanie, nie kopia**: w bazie URI pliku z galerii + metadane (rodzaj, rozmiar, czas trwania, opis), a jedyny nasz plik to własna miniatura ~200 px w `filesDir/thumbs` (Photo Picker bez uprawnień, `loadThumbnail` / ręczny dekod z EXIF niżej, filmy przez Media3, link YouTube otwierany poza aplikacją — bez sieci i bez `INTERNET` w manifeście); osierocone miniatury (starsze niż doba) sprząta jeden skan przy starcie |
 | Kroki wykonania | `exercises.instructions` jako lista kroków (jedna linia = jeden krok), obok swobodnego komentarza (`notes`); numerację z linii odcinamy przy zapisie, bo numeruje UI |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences): motyw, domyślna przerwa, alarm przerwy (M9); język wybiera systemowy ekran (`localeConfig`), bez AppCompat |
+| Wygląd | własna paleta (granat `#1d3557`, stal `#457b9d`, błękit `#a8dadc`, kość słoniowa `#f1faee`, czerwień `#e63946`) w pełnych schematach jasnym i ciemnym, **dynamiczne kolory wyłączone** (tapeta nie przemalowuje wykresów, w których czerwień znaczy rekord); własne kształty (8–28 dp) i mocniejsza typografia |
 | Kopia zapasowa | jeden plik ZIP (`gymtracker.json` + `media/` z własnymi miniaturami) zapisany przez SAF; wczytanie w trybie **„zastąp”** (wierny snapshot: identyfikatory zostają) albo **„dopisz”** (scalenie: nowe identyfikatory, klucze obce przepisane, wiersz rozpoznany po `external_id` albo nazwie wykorzystany zamiast powielony); całość w jednej transakcji, odmowa w trakcie treningu, kontrola ścieżek miniatur; zdjęcia z galerii wracają jako wskazania do ponownego wybrania |
 | Import katalogu z pliku | JSON o formacie danych startowych (`schema_version`, `exercises[]`) wskazany w Ustawieniach; dopisywanie po `external_id`, a brak `schema_version`, nowsza wersja, puste `exercises` i nie-JSON kończą się **kodem** odrzucenia w dzienniku |
 | Dziennik importów | tabela `seed_imports`: skąd przyszły dane, co weszło, co odrzucono i dlaczego (odcisk SHA-256 treści, kod błędu); lista „Ostatnie importy” w Ustawieniach pokazuje też pliki, które **nie** weszły |
@@ -249,6 +253,7 @@ Gym_app/
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 | **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
 | **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”), kopia zapasowa ZIP z importem katalogu i dziennikiem importów, archiwum ćwiczeń z przywracaniem i trwałym kasowaniem, wydanie: R8 ze shrinkingiem zasobów i podpisany AAB (klucz poza repo); schemat tylko raz — migracja 8 → 9 (`seed_imports`) | ✔ |
+| **M10** | poprawki po wydaniu: dzień treningu zamiast dnia kliknięcia (`sessions.session_date`, migracja 9 → 10), start treningu z wybranego dnia w kalendarzu (lista dni planów albo „Nowy trening”), dopisywanie ćwiczeń do trwającego treningu, ramka wokół dnia z treningiem, własna szata graficzna w palecie użytkownika (dynamiczne kolory wyłączone) | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 
