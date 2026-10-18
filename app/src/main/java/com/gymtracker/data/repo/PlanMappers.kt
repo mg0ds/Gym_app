@@ -5,10 +5,12 @@ import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SetLogEntity
+import com.gymtracker.data.db.rows.PlanDayOptionRow
 import com.gymtracker.data.db.rows.PlanExerciseRow
 import com.gymtracker.data.db.rows.SessionExerciseRow
 import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
+import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.PlanExercise
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.RestEndReason
@@ -18,6 +20,7 @@ import com.gymtracker.domain.model.SessionStatus
 import com.gymtracker.domain.model.SetLog
 import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
+import java.time.LocalDate
 
 /** Wiersz bazy → model domenowy (plany, sesje, zalogowane serie). */
 
@@ -30,6 +33,13 @@ internal fun PlanEntity.toDomain(): Plan = Plan(
     author = author,
     isActive = isActive,
     isArchived = isArchived,
+)
+
+internal fun PlanDayOptionRow.toDomain(): PlanDayOption = PlanDayOption(
+    id = dayId,
+    planName = planName,
+    dayName = dayName,
+    exerciseCount = exerciseCount,
 )
 
 internal fun PlanDayEntity.toDomain(exercises: List<PlanExercise>): PlanDay = PlanDay(
@@ -72,6 +82,7 @@ internal fun SessionEntity.toDomain(): WorkoutSession = WorkoutSession(
     note = note,
     pausedTotalMs = pausedTotalMs,
     pausedAtEpochMs = pausedAtEpochMs,
+    sessionDate = sessionDate?.let { value -> LocalDate.parse(value) },
 )
 
 internal fun SessionExerciseRow.toDomain(logs: List<SetLog> = emptyList()): SessionExercise =

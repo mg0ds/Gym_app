@@ -6,9 +6,11 @@ import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
+import com.gymtracker.data.db.rows.PlanDayOptionRow
 import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.PlanDayDraft
+import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.PlanDetails
 import com.gymtracker.domain.model.PlanDraft
 import com.gymtracker.domain.model.PlanExerciseDraft
@@ -38,6 +40,9 @@ class PlanRepositoryImpl @Inject constructor(
 
     override fun observePlans(): Flow<List<Plan>> =
         planDao.observePlans().map { plans -> plans.map(PlanEntity::toDomain) }
+
+    override fun observeDayOptions(): Flow<List<PlanDayOption>> =
+        planDao.observeDayOptions().map { rows -> rows.map(PlanDayOptionRow::toDomain) }
 
     override fun observePlanDetails(planId: Long): Flow<PlanDetails?> = combine(
         planDao.observePlan(planId),

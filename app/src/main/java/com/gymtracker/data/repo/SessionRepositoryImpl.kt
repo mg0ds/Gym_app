@@ -21,6 +21,7 @@ import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.domain.time.TimeProvider
 import com.gymtracker.domain.time.today
 import com.gymtracker.domain.timer.WorkoutTimerState
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -91,19 +92,22 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun startFromPlanDay(planDayId: Long): Long? = database.withTransaction {
         val day = planDao.getDay(planDayId) ?: return@withTransaction null
+        val planned = planDao.getDayExercises(day.id).filter { row -> row.entry.isDefaultChoice }
+
+        // Ten sam dzień planu zaplanowany na dziś? Wpis jest najwyżej jeden
+        // (UNIQUE(date, plan_day_id)), więc wiążemy go bez zgadywania.
+        val todayEntry = calendarDao.findPlannedFor(date = timeProvider.today().toString(), planDayId = day.id)
         val sessionId = createSession(
             name = day.name,
             planId = day.planId,
             planDayId = day.id,
-            planned = planDao.getDayExercises(day.id).filter { row -> row.entry.isDefaultChoice },
+            planned = planned,
+            // Start z planu należy do dnia, w którym się zaczął - chyba że na
+            // dziś czeka zaplanowany wpis; wtedy trening idzie pod jego datę.
+            sessionDate = todayEntry?.date?.let { value -> LocalDate.parse(value) },
         )
 
-        // Ten sam dzień planu zaplanowany na dziś? Wpis jest najwyżej jeden
-        // (UNIQUE(date, plan_day_id)), więc wiążemy go bez zgadywania.
-        calendarDao
-            .findPlannedFor(date = timeProvider.today().toString(), planDayId = day.id)
-            ?.let { entry -> calendarDao.linkSession(entry.id, sessionId) }
-
+        todayEntry?.let { entry -> calendarDao.linkSession(entry.id, sessionId) }
         sessionId
     }
 
@@ -119,6 +123,7 @@ class SessionRepositoryImpl @Inject constructor(
                 planId = entry.planId,
                 planDayId = null,
                 planned = emptyList(),
+                sessionDate = LocalDate.parse(entry.date),
             )
         } else {
             createSession(
@@ -126,11 +131,50 @@ class SessionRepositoryImpl @Inject constructor(
                 planId = day.planId,
                 planDayId = day.id,
                 planned = planDao.getDayExercises(day.id).filter { row -> row.entry.isDefaultChoice },
+                sessionDate = LocalDate.parse(entry.date),
             )
         }
         calendarDao.linkSession(entry.id, sessionId)
         sessionId
     }
+
+    override suspend fun startForDay(date: LocalDate, planDayId: Long?, name: String): Long? =
+        database.withTransaction {
+            val day = planDayId?.let { id -> planDao.getDay(id) }
+            val sessionId = createSession(
+                name = day?.name ?: name,
+                planId = day?.planId,
+                planDayId = day?.id,
+                planned = day?.let { chosen -> planDao.getDayExercises(chosen.id) }
+                    .orEmpty()
+                    .filter { row -> row.entry.isDefaultChoice },
+                sessionDate = date,
+            )
+            // Dzień planu wybrany ręcznie wiążemy z wpisem, gdy taki czeka -
+            // inaczej „zaplanowane” zostałoby na zawsze obok odbytego treningu.
+            day?.let { chosen ->
+                calendarDao
+                    .findPlannedFor(date = date.toString(), planDayId = chosen.id)
+                    ?.let { entry -> calendarDao.linkSession(entry.id, sessionId) }
+            }
+            sessionId
+        }
+
+    override suspend fun addExerciseToSession(sessionId: Long, exerciseId: Long): Boolean =
+        database.withTransaction {
+            if (!isEditable(sessionId)) return@withTransaction false
+            val lastPosition = sessionDao.getSessionExercises(sessionId).maxOfOrNull { it.position } ?: 0
+            sessionDao.insertSessionExercises(
+                listOf(
+                    SessionExerciseEntity(
+                        sessionId = sessionId,
+                        exerciseId = exerciseId,
+                        position = lastPosition + 1,
+                    ),
+                ),
+            )
+            true
+        }
 
     override suspend fun finishSession(sessionId: Long) {
         closeSession(sessionId, SessionEntity.STATUS_FINISHED)
@@ -221,6 +265,7 @@ class SessionRepositoryImpl @Inject constructor(
         planId: Long?,
         planDayId: Long?,
         planned: List<PlanExerciseRow>,
+        sessionDate: LocalDate? = null,
     ): Long {
         val now = timeProvider.nowEpochMs()
 
@@ -241,6 +286,7 @@ class SessionRepositoryImpl @Inject constructor(
                 planId = planId,
                 planDayId = planDayId,
                 name = name,
+                sessionDate = sessionDate?.toString(),
                 startedAtEpochMs = now,
                 status = SessionEntity.STATUS_ACTIVE,
             ),

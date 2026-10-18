@@ -244,12 +244,15 @@ class ExerciseStatsCalculatorTest {
     }
 
     @Test
-    fun `zakres liczy dni w tyl i nie siega w przyszlosc`() {
+    fun `zakres liczy dni w tyl i wpuszcza dni przyszle`() {
         assertEquals(today.minusDays(90), StatsRange.MONTH_3.start(today))
         assertNull(StatsRange.ALL.start(today))
         assertTrue(StatsRange.MONTH_1.contains(today, today))
         assertTrue(StatsRange.MONTH_1.contains(today.minusDays(30), today))
         assertFalse(StatsRange.MONTH_1.contains(today.minusDays(31), today))
-        assertFalse(StatsRange.ALL.contains(today.plusDays(1), today))
+        // Dzień przyszły wchodzi: trening da się przypisać do zaplanowanego dnia
+        // (start z wpisu w kalendarzu), a wtedy nie może zniknąć z historii.
+        assertTrue(StatsRange.MONTH_1.contains(today.plusDays(1), today))
+        assertTrue(StatsRange.ALL.contains(today.plusDays(365), today))
     }
 }

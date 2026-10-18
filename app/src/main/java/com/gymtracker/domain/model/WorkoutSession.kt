@@ -1,5 +1,9 @@
 package com.gymtracker.domain.model
 
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
 /** Stan sesji: trwa, zakończona, przerwana. */
 enum class SessionStatus(val wire: String) {
     ACTIVE("active"),
@@ -18,6 +22,10 @@ enum class SessionStatus(val wire: String) {
  *
  * Pauzy ([pausedTotalMs], [pausedAtEpochMs]) są częścią sesji, nie tylko stanem
  * ekranu - patrz `SessionEntity`. `pausedAtEpochMs != null` znaczy „zegar stoi”.
+ *
+ * [sessionDate] to dzień, któremu trening jest przypisany (wpis z kalendarza,
+ * z którego go rozpoczęto). `null` znaczy „dzień, w którym trening się zaczął” -
+ * dlatego pytania o datę idą przez [dateIn], a nie przez samo pole.
  */
 data class WorkoutSession(
     val id: Long,
@@ -30,7 +38,12 @@ data class WorkoutSession(
     val note: String?,
     val pausedTotalMs: Long = 0L,
     val pausedAtEpochMs: Long? = null,
+    val sessionDate: LocalDate? = null,
 ) {
+    /** Dzień treningu: przypisany w kalendarzu, a gdy go brak - dzień startu. */
+    fun dateIn(zone: ZoneId): LocalDate =
+        sessionDate ?: Instant.ofEpochMilli(startedAtEpochMs).atZone(zone).toLocalDate()
+
     /**
      * Czas treningu bez pauz; `null`, gdy trening jeszcze trwa.
      *

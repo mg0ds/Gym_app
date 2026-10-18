@@ -523,6 +523,22 @@ object DatabaseMigrations {
         }
     }
 
+    /**
+     * 9 → 10 (M10): dzień, któremu trening jest przypisany.
+     *
+     * `session_date` to ISO `YYYY-MM-DD` - ten sam format co daty w kalendarzu,
+     * więc porównania i sortowanie działają wprost. Kolumna jest **pusta**
+     * (`NULL`) dla sesji z M1-M9: wtedy dniem treningu jest dzień startu i tak
+     * go liczymy w warstwie danych. Dzięki temu migracja nic nie przelicza
+     * (a przeliczanie w SQL znaczyłoby `date(started_at, 'unixepoch')` w strefie
+     * serwera, czyli dzień przesunięty o kilka godzin).
+     */
+    private val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `sessions` ADD COLUMN `session_date` TEXT")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -532,5 +548,6 @@ object DatabaseMigrations {
         MIGRATION_6_7,
         MIGRATION_7_8,
         MIGRATION_8_9,
+        MIGRATION_9_10,
     )
 }

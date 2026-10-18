@@ -306,6 +306,31 @@ class StatsRepositoryTest {
     }
 
     @Test
+    fun `trening z wpisu na przyszlosc liczy sie do dnia wpisu`() = runTest {
+        val dayId = planDay("squat")
+        val squatId = requireNotNull(exerciseIds["squat"])
+        val plannedDay = today.plusDays(5)
+
+        val sessionId = requireNotNull(
+            sessions.startForDay(date = plannedDay, planDayId = dayId, name = "Trening"),
+        )
+        logSet(exerciseInSession(sessionId), SetLogDraft(weightKg = 100.0, reps = 5))
+        currentTime = moment(daysAgo = 0) + 3_600_000L
+        sessions.finishSession(sessionId)
+
+        val summary = stats.observeSessionSummaries().first().single()
+        assertEquals("historia pokazuje dzień treningu, nie dzień kliknięcia", plannedDay, summary.date)
+
+        val result = stats.observeExerciseStats(squatId, StatsRange.MONTH_1).first()
+        assertEquals(
+            "trening przypisany do przyszłego dnia nie znika z wykresu",
+            listOf(plannedDay),
+            result.points.map { point -> point.date },
+        )
+        assertEquals(1, result.sessions)
+    }
+
+    @Test
     fun `statystyki cwiczenia bez historii sa puste`() = runTest {
         val result = stats.observeExerciseStats(requireNotNull(exerciseIds["squat"]), StatsRange.ALL).first()
 

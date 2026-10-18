@@ -7,6 +7,7 @@ import androidx.room.Update
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
+import com.gymtracker.data.db.rows.PlanDayOptionRow
 import com.gymtracker.data.db.rows.PlanExerciseRow
 import kotlinx.coroutines.flow.Flow
 
@@ -59,6 +60,24 @@ interface PlanDao {
 
     @Query("SELECT * FROM plan_days WHERE plan_id = :planId ORDER BY position")
     fun observeDays(planId: Long): Flow<List<PlanDayEntity>>
+
+    /**
+     * Wszystkie dni niearchiwalnych planów z nazwą planu i liczbą ćwiczeń -
+     * lista wyboru treningu na konkretny dzień w kalendarzu. Jedno zapytanie
+     * zamiast pytania o dni każdego planu osobno.
+     */
+    @Query(
+        """
+        SELECT pd.id AS day_id, pd.name AS day_name, p.name AS plan_name,
+               (SELECT COUNT(*) FROM plan_day_exercises pde WHERE pde.plan_day_id = pd.id)
+                   AS exercise_count
+        FROM plan_days pd
+        JOIN plans p ON p.id = pd.plan_id
+        WHERE p.is_archived = 0
+        ORDER BY p.name COLLATE NOCASE, pd.position
+        """,
+    )
+    fun observeDayOptions(): Flow<List<PlanDayOptionRow>>
 
     @Query("SELECT * FROM plan_days WHERE id = :dayId")
     fun observeDay(dayId: Long): Flow<PlanDayEntity?>

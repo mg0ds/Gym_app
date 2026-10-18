@@ -1,7 +1,7 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 9 (2026-10-18)
+-- Wersja: 10 (2026-10-18)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
@@ -14,6 +14,7 @@
 --  * v7 (M7): exercises.instructions + exercise_media              [WDROZONE]
 --  * v8 (M8): metric_types + body_entries (karta postaci)          [WDROZONE]
 --  * v9 (M9): seed_imports (dziennik importow katalogow)           [WDROZONE]
+--  * v10 (M10): sessions.session_date (dzien treningu)             [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
@@ -245,6 +246,11 @@ CREATE TABLE sessions (
     finished_at      INTEGER,                   -- NULL = trening w toku
     status           TEXT NOT NULL,             -- 'active' | 'finished' | 'cancelled'
     note             TEXT,                      -- notatka do treningu (M4)
+    -- Dzien, POD KTORA trening sie liczy (ISO 'YYYY-MM-DD'), a nie moment
+    -- klikniecia 'start'. NULL = dniem jest dzien ze started_at (sesje z M1-M9
+    -- i treningi startowane "na teraz"). Wypelniane, gdy start idzie z wpisu
+    -- w kalendarzu albo z wybranego dnia - takze przyszlego. [M10]
+    session_date     TEXT,
     -- Pauza jest ZAPISANA, nie tylko trzymana w procesie: inaczej zabicie apki
     -- w trakcie pauzy doliczyloby ja do czasu treningu. Czas treningu =
     -- (paused_at_ms ?: teraz) - started_at - paused_total_ms. Niezmiennik:

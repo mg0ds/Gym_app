@@ -69,7 +69,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 9 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media, wskazniki i dziennik importow`() = runTest {
+    fun `migracja 1 do 10 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media, wskazniki, dziennik importow i dzien treningu`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -368,6 +368,23 @@ class SchemaMigrationTest {
                 requireNotNull(database.seedImportDao().findLastWithChecksum("abc123")).importedAtEpochMs,
             )
             assertEquals("1", database.appMetaDao().get("catalog_version"))
+
+            // Migracja 9→10: dzień treningu. Sesja z M1-M9 nie ma go wcale
+            // (dniem jest dzień startu), a nowa niesie dzień z kalendarza -
+            // kolumna jest zwykłym `TEXT`-em, bez przeliczania dat w SQL.
+            assertNull(requireNotNull(database.sessionDao().getSession(sessionId)).sessionDate)
+            val datedSessionId = database.sessionDao().insertSession(
+                SessionEntity(
+                    name = "Trening z wpisu",
+                    sessionDate = "2026-10-27",
+                    startedAtEpochMs = 10_000L,
+                    status = SessionEntity.STATUS_ACTIVE,
+                ),
+            )
+            assertEquals(
+                "2026-10-27",
+                requireNotNull(database.sessionDao().getSession(datedSessionId)).sessionDate,
+            )
         } finally {
             database.close()
         }

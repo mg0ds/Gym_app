@@ -72,6 +72,20 @@ data class PlanDetails(
     val exerciseCount: Int get() = days.sumOf { day -> day.exercises.count { !it.isAlternative } }
 }
 
+/**
+ * Dzień planu widziany z zewnątrz: „plan → dzień” na jednej liście wyboru.
+ *
+ * Kalendarz potrzebuje obu nazw naraz (użytkownik wybiera trening na konkretny
+ * dzień, nie schodzi do planu), więc baza zwraca listę spłaszczoną - jedna
+ * odpowiedź zamiast pytania o dni każdego planu z osobna.
+ */
+data class PlanDayOption(
+    val id: Long,
+    val planName: String,
+    val dayName: String,
+    val exerciseCount: Int,
+)
+
 /** Nowy plan od użytkownika. */
 data class PlanDraft(
     val name: String,

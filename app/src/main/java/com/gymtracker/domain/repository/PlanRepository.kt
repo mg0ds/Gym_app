@@ -3,6 +3,7 @@ package com.gymtracker.domain.repository
 import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.PlanDayDraft
+import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.PlanDetails
 import com.gymtracker.domain.model.PlanDraft
 import com.gymtracker.domain.model.PlanExerciseDraft
@@ -19,6 +20,9 @@ import kotlinx.coroutines.flow.Flow
 interface PlanRepository {
 
     fun observePlans(): Flow<List<Plan>>
+
+    /** Wszystkie dni planów (niearchiwalnych) jako jedna lista wyboru treningu. */
+    fun observeDayOptions(): Flow<List<PlanDayOption>>
 
     /** Plan z dniami i ćwiczeniami; `null`, gdy plan zniknął. */
     fun observePlanDetails(planId: Long): Flow<PlanDetails?>

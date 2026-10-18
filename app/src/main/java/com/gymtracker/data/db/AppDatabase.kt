@@ -47,6 +47,8 @@ import com.gymtracker.data.db.entities.SetLogEntity
  * (`body_entries`) (M8).
  * Wersja 9: dziennik importów katalogów (`seed_imports`) - skąd przyszły
  * dane i co z tego wyszło, razem z plikami odrzuconymi (M9).
+ * Wersja 10: dzień treningu (`sessions.session_date`) - trening puszczony
+ * z wpisu w kalendarzu należy do tego dnia, a nie do dnia kliknięcia (M10).
  *
  * Każda zmiana schematu = podbicie wersji + migracja w [DatabaseMigrations]
  * (bez `fallbackToDestructiveMigration`) + wyeksportowany schemat w `app/schemas/`.
@@ -70,7 +72,7 @@ import com.gymtracker.data.db.entities.SetLogEntity
         BodyEntryEntity::class,
         SeedImportEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

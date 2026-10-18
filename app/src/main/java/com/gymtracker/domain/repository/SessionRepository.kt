@@ -4,6 +4,7 @@ import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
 import com.gymtracker.domain.timer.WorkoutTimerState
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -44,8 +45,24 @@ interface SessionRepository {
      * Rozpoczyna trening z wpisu w kalendarzu i wiąże wpis z sesją. Gdy plan
      * (albo dzień) już nie istnieje, powstaje sesja bez ćwiczeń, ale z nazwą
      * wpisu - zaplanowany dzień nie może stać się nierozpoczynalny.
+     *
+     * Trening należy do **dnia wpisu**, nie do dnia kliknięcia: `session_date`
+     * bierze się z wpisu, więc historia pokaże go tam, gdzie był zaplanowany.
      */
     suspend fun startFromSchedule(scheduledId: Long): Long?
+
+    /**
+     * Rozpoczyna trening przypisany do wybranego dnia kalendarza.
+     *
+     * [planDayId] = `null` tworzy trening „od zera” (nazwa z [name], bez
+     * ćwiczeń - użytkownik dokłada je w trakcie). Dzień planu kopiuje do sesji
+     * swoje wybory domyślne, a gdy na [date] jest zaplanowany wpis tego dnia,
+     * sesja wiąże się z nim, więc zakończenie odhaczy wpis.
+     */
+    suspend fun startForDay(date: LocalDate, planDayId: Long?, name: String): Long?
+
+    /** Dopisuje ćwiczenie do trwającego treningu („dodaj ćwiczenie” w sesji). */
+    suspend fun addExerciseToSession(sessionId: Long, exerciseId: Long): Boolean
 
     suspend fun finishSession(sessionId: Long)
 

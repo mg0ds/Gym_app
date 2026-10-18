@@ -29,6 +29,7 @@ class SessionSummaryCalculatorTest {
         name: String = "Dzień A",
         status: SessionStatus = SessionStatus.FINISHED,
         durationMs: Long = 3_600_000L,
+        sessionDate: LocalDate? = null,
     ): WorkoutSession = WorkoutSession(
         id = id,
         planId = null,
@@ -38,6 +39,7 @@ class SessionSummaryCalculatorTest {
         finishedAtEpochMs = at(date) + durationMs,
         status = status,
         note = null,
+        sessionDate = sessionDate,
     )
 
     private fun aggregate(sessionId: Long, sets: Int = 3, volumeKg: Double = 1_000.0, best: Double? = 100.0) =
@@ -95,6 +97,17 @@ class SessionSummaryCalculatorTest {
         )
 
         assertEquals(listOf(2L, 3L, 1L), summaries.map { summary -> summary.sessionId })
+    }
+
+    @Test
+    fun `dzien treningu ma pierwszenstwo nad dniem startu`() {
+        val summaries = calculate(
+            listOf(
+                session(1, day, sessionDate = day.plusDays(9)),
+            ),
+        )
+
+        assertEquals(day.plusDays(9), summaries.single().date)
     }
 
     @Test

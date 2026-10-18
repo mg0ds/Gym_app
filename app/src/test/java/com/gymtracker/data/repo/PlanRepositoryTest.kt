@@ -236,4 +236,20 @@ class PlanRepositoryTest {
         assertNull(repository.observeDay(dayId).first())
         assertTrue(database.planDao().getDayExercises(dayId).isEmpty())
     }
+
+    @Test
+    fun `lista dni do wyboru treningu podaje plan, dzien i liczbe cwiczen`() = runTest {
+        val planId = repository.createPlan(PlanDraft(name = "Plan siłowy"))
+        val dayId = repository.addDay(planId, PlanDayDraft(name = "Dzień A"))
+        repository.addExercise(dayId, PlanExerciseDraft(exerciseId = requireNotNull(exerciseIds["squat"])))
+        repository.addExercise(dayId, PlanExerciseDraft(exerciseId = requireNotNull(exerciseIds["bench"])))
+
+        val options = repository.observeDayOptions().first()
+
+        assertEquals(1, options.size)
+        assertEquals(dayId, options.single().id)
+        assertEquals("Dzień A", options.single().dayName)
+        assertEquals("Plan siłowy", options.single().planName)
+        assertEquals(2, options.single().exerciseCount)
+    }
 }

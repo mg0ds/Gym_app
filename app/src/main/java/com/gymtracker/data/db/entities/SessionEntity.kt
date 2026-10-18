@@ -23,6 +23,13 @@ import kotlinx.serialization.Serializable
  *
  * Wskazania na plan i dzień są opcjonalne i „miękkie” (`SET NULL`): usunięcie
  * planu nie może skasować historii treningów.
+ *
+ * [sessionDate] to **dzień, któremu trening jest przypisany** (ISO `YYYY-MM-DD`),
+ * a nie chwila, w której ktoś kliknął „start”. Trening puszczony z wpisu na
+ * 27 października ma się liczyć do 27 października, choćby zaczynał się
+ * wcześniej - inaczej historia pokazywałaby go w dniu, w którym użytkownik
+ * przypadkiem wszedł w kalendarz. `NULL` (sesje sprzed M10 i start z dnia planu
+ * bez wpisu) znaczy „dzień, w którym trening naprawdę się zaczął”.
  */
 // `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
 // JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
@@ -57,6 +64,9 @@ data class SessionEntity(
     @ColumnInfo(name = "plan_day_id")
     val planDayId: Long? = null,
     val name: String,
+    /** Dzień, któremu trening jest przypisany (ISO); `NULL` = dzień startu. */
+    @ColumnInfo(name = "session_date")
+    val sessionDate: String? = null,
     @ColumnInfo(name = "started_at")
     val startedAtEpochMs: Long,
     @ColumnInfo(name = "finished_at")

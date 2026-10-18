@@ -3,7 +3,6 @@ package com.gymtracker.domain.stats
 import com.gymtracker.domain.model.RestInterval
 import com.gymtracker.domain.model.SessionStatus
 import com.gymtracker.domain.model.WorkoutSession
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -69,8 +68,10 @@ object SessionSummaryCalculator {
      * Filtr listy: zakres dat, ćwiczenie i nazwa treningu.
      *
      * `exerciseId` i `name` są opcjonalne (`null` = bez zawężania), a zakres
-     * działa na dacie treningu - przyszłe wpisy kalendarza nie są treningami,
-     * więc i tak ich tu nie ma.
+     * działa na **dniu treningu** ([SessionSummary.date]) - czyli na dniu,
+     * któremu trening jest przypisany, a nie na chwili startu. Dni przyszłe
+     * wchodzą do zakresu, bo trening da się przypisać do zaplanowanego dnia
+     * (patrz `StatsRange.contains`).
      */
     fun filter(
         summaries: List<SessionSummary>,
@@ -94,7 +95,10 @@ object SessionSummaryCalculator {
         val aggregate = aggregates[session.id]
         return SessionSummary(
             sessionId = session.id,
-            date = Instant.ofEpochMilli(session.startedAtEpochMs).atZone(zone).toLocalDate(),
+            // Dzień z kalendarza ma pierwszeństwo nad chwilą startu: trening
+            // zaplanowany na 27 października nie udaje treningu z dnia, w którym
+            // użytkownik kliknął „start”.
+            date = session.dateIn(zone),
             startedAtEpochMs = session.startedAtEpochMs,
             name = session.name,
             durationMs = session.durationMs,

@@ -24,9 +24,12 @@ enum class StatsRange(val daysBack: Long?) {
     /** Pierwszy dzień zakresu (`null` = bez dolnej granicy). */
     fun start(today: LocalDate): LocalDate? = daysBack?.let { days -> today.minusDays(days) }
 
-    /** Czy dzień wpada w zakres. Zakres nigdy nie sięga w przyszłość. */
+    /**
+     * Czy dzień wpada w zakres. Zakres patrzy w tył, ale **dni przyszłe
+     * wchodzą**: trening da się przypisać do dnia z kalendarza, który jeszcze
+     * nie nadszedł (start z wpisu), a wtedy nie może zniknąć z historii.
+     */
     fun contains(day: LocalDate, today: LocalDate): Boolean {
-        if (day.isAfter(today)) return false
         val start = start(today) ?: return true
         return !day.isBefore(start)
     }

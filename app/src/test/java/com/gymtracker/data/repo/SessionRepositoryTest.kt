@@ -13,10 +13,12 @@ import com.gymtracker.domain.model.SessionStatus
 import com.gymtracker.domain.time.TimeProvider
 import com.gymtracker.domain.time.today
 import com.gymtracker.domain.timer.WorkoutTimerState
+import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -254,8 +256,109 @@ class SessionRepositoryTest {
         assertEquals(second, requireNotNull(sessions.getActiveSession()).id)
     }
 
+    @Test
+    fun `start z wpisu w kalendarzu nalezy do dnia wpisu`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val date = timeProvider.today().plusDays(9)
+        val scheduledId = seedScheduled(date = date, planId = planId, dayId = dayId)
+
+        val sessionId = requireNotNull(sessions.startFromSchedule(scheduledId))
+        val session = requireNotNull(sessions.observeSession(sessionId).first()).session
+
+        assertEquals("dzień wpisu, nie dzień kliknięcia", date, session.sessionDate)
+        assertEquals(dayId, session.planDayId)
+        assertEquals(
+            "wpis pamięta sesję, z której powstał",
+            sessionId,
+            requireNotNull(database.calendarDao().getScheduled(scheduledId)).sessionId,
+        )
+    }
+
+    @Test
+    fun `start na wybrany dzien przypisuje trening do tego dnia i wiaze wpis`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val date = timeProvider.today().plusDays(3)
+        val scheduledId = seedScheduled(date = date, planId = planId, dayId = dayId)
+
+        val sessionId = requireNotNull(sessions.startForDay(date = date, planDayId = dayId, name = "Trening"))
+        val details = requireNotNull(sessions.observeSession(sessionId).first())
+
+        assertEquals(date, details.session.sessionDate)
+        assertEquals("nazwa idzie z dnia planu", "Dzień A", details.session.name)
+        assertEquals(
+            "ćwiczenia dnia planu trafiają do treningu",
+            listOf("Barbell Back Squat", "Barbell Bench Press"),
+            details.exercises.map { it.exerciseName },
+        )
+        assertEquals(
+            sessionId,
+            requireNotNull(database.calendarDao().getScheduled(scheduledId)).sessionId,
+        )
+
+        sessions.finishSession(sessionId)
+        assertEquals(
+            ScheduledSessionEntity.STATUS_DONE,
+            requireNotNull(database.calendarDao().getScheduled(scheduledId)).status,
+        )
+    }
+
+    @Test
+    fun `start na dzien bez planu tworzy pusty trening z podana nazwa`() = runTest {
+        val date = timeProvider.today().plusDays(2)
+
+        val sessionId = requireNotNull(sessions.startForDay(date = date, planDayId = null, name = "Trening"))
+        val details = requireNotNull(sessions.observeSession(sessionId).first())
+
+        assertEquals(date, details.session.sessionDate)
+        assertEquals("Trening", details.session.name)
+        assertNull(details.session.planDayId)
+        assertTrue("trening od zera startuje bez ćwiczeń", details.exercises.isEmpty())
+    }
+
+    @Test
+    fun `dopisanie cwiczenia do trwajacego treningu ustawia je na koncu`() = runTest {
+        val dayId = seedDay()
+        val sessionId = requireNotNull(sessions.startFromPlanDay(dayId))
+        val extraId = requireNotNull(exerciseIds["squat"])
+
+        assertTrue(sessions.addExerciseToSession(sessionId, extraId))
+
+        val exercises = requireNotNull(sessions.observeSession(sessionId).first()).exercises
+        assertEquals(3, exercises.size)
+        assertEquals(listOf(1, 2, 3), exercises.map { it.position })
+    }
+
+    @Test
+    fun `dopisanie cwiczenia do zakonczonego treningu nic nie zmienia`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+        sessions.finishSession(sessionId)
+
+        assertFalse(sessions.addExerciseToSession(sessionId, requireNotNull(exerciseIds["squat"])))
+        assertEquals(
+            2,
+            requireNotNull(sessions.observeSession(sessionId).first()).exercises.size,
+        )
+    }
+
     /** Plan z jednym dniem: przysiad 5×5, wyciskanie 3×10 albo wojskowe. */
     private suspend fun seedDay(): Long = seedPlanAndDay().second
+
+    private suspend fun seedScheduled(
+        date: LocalDate,
+        planId: Long,
+        dayId: Long,
+    ): Long = database.calendarDao().insertScheduled(
+        listOf(
+            ScheduledSessionEntity(
+                date = date.toString(),
+                planId = planId,
+                planDayId = dayId,
+                title = "Dzień A",
+                status = ScheduledSessionEntity.STATUS_PLANNED,
+                createdAtEpochMs = currentTime,
+            ),
+        ),
+    ).single()
 
     private suspend fun seedPlanAndDay(): Pair<Long, Long> {
         val planId = plans.createPlan(PlanDraft(name = "Plan"))

@@ -35,7 +35,8 @@ interface StatsDao {
                l.reps AS reps,
                l.is_warmup AS is_warmup,
                s.id AS session_id,
-               s.started_at AS session_started_at
+               s.started_at AS session_started_at,
+               s.session_date AS session_date
         FROM set_logs l
         JOIN session_exercises se ON se.id = l.session_exercise_id
         JOIN sessions s ON s.id = se.session_id
