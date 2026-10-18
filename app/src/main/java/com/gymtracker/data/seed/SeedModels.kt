@@ -49,4 +49,19 @@ internal object SeedFiles {
 
     /** Klucz w `app_meta` z wersją zaimportowanych planów. */
     const val META_PROGRAMS_VERSION = "programs_seed_version"
+
+    /** Nazwy danych z APK w dzienniku importów (odróżnia je od plików użytkownika). */
+    const val ASSET_EXERCISES = "assets/$EXERCISES"
+    const val ASSET_PROGRAMS = "assets/$PROGRAMS_DIR"
+
+    /**
+     * Najnowszy format pliku katalogu, jaki ta wersja aplikacji rozumie.
+     * Plik z wyższym `schema_version` odrzucamy z wyjaśnieniem - to jedyny
+     * moment, w którym da się powiedzieć „za nowy plik”, zamiast zgadywać,
+     * co autor miał na myśli.
+     */
+    const val CATALOG_SCHEMA_VERSION = 1
+
+    /** Pole, po którym poznajemy format pliku katalogu. */
+    const val SCHEMA_VERSION_FIELD = "schema_version"
 }

@@ -492,6 +492,37 @@ object DatabaseMigrations {
         }
     }
 
+    /**
+     * 8 → 9 (M9): dziennik importów katalogów (`seed_imports`).
+     *
+     * Tabela jest **pusta na start** - opisuje zdarzenia („skąd przyszły te
+     * dane”), a nie stan. Dopóki użytkownik nie wskaże własnego pliku, nie ma
+     * czego zapisywać; importy danych z APK dopisują do niej wpisy od pierwszego
+     * uruchomienia po tej wersji.
+     *
+     * `stats_json` trzyma podsumowanie importu albo powód odrzucenia pliku -
+     * bez tego odrzucony plik byłby nierozpoznawalny po fakcie (dziennik mówi
+     * tylko „był tu taki plik”). `checksum` pozwala poznać, że to dokładnie
+     * ten sam plik co poprzednio.
+     */
+    private val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `seed_imports` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`seed_id` TEXT NOT NULL, " +
+                    "`version` TEXT, " +
+                    "`checksum` TEXT, " +
+                    "`imported_at` INTEGER NOT NULL, " +
+                    "`stats_json` TEXT)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `idx_seed_imports_key` " +
+                    "ON `seed_imports` (`seed_id`, `checksum`)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -500,5 +531,6 @@ object DatabaseMigrations {
         MIGRATION_5_6,
         MIGRATION_6_7,
         MIGRATION_7_8,
+        MIGRATION_8_9,
     )
 }

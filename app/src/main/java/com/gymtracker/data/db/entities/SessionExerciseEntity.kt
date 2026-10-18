@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Ćwiczenie w sesji - kopia pozycji z dnia planu zrobiona w momencie startu.
@@ -12,6 +13,9 @@ import androidx.room.PrimaryKey
  * Kopiujemy cel zamiast czytać go z planu, żeby zmiana planu nie przepisywała
  * historii: trening sprzed zmiany ma zostać taki, jaki był wtedy zaplanowany.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "session_exercises",
     foreignKeys = [

@@ -281,11 +281,17 @@ class SeedImporterTest {
         assertTrue(pullUps.entry.isDefaultChoice)
     }
 
+    private fun journal(): SeedImportJournal = SeedImportJournal(
+        dao = database.seedImportDao(),
+        timeProvider = TimeProvider { 1_000L },
+    )
+
     private fun assetImporter(): SeedImporter = SeedImporter(
         seedSource = AssetSeedSource(ApplicationProvider.getApplicationContext()),
         exerciseDao = database.exerciseDao(),
         planDao = database.planDao(),
         appMetaDao = database.appMetaDao(),
+        journal = journal(),
         timeProvider = TimeProvider { 1_000L },
     )
 
@@ -297,6 +303,7 @@ class SeedImporterTest {
         exerciseDao = database.exerciseDao(),
         planDao = database.planDao(),
         appMetaDao = database.appMetaDao(),
+        journal = journal(),
         timeProvider = TimeProvider { 1_000L },
     )
 

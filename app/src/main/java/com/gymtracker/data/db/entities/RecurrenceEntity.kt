@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Reguła powtarzania: „co [intervalDays] dni, od [startDate] do [endDate],
@@ -24,6 +25,9 @@ import androidx.room.PrimaryKey
  * czego rozgłaszać. Wpisy już rozplanowane zostają, ale tracą wskazanie
  * (`scheduled_sessions.plan_day_id` jest `SET NULL`).
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "recurrences",
     foreignKeys = [

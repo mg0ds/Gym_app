@@ -40,7 +40,7 @@ treningowy z `data/seed/` (patrz §7).
 | 17 | Zapis lokalny (dane + ustawienia) | cała aplikacja | ✔ | — |
 | 18 | Wstępny katalog ćwiczeń i plan treningowy | import seedów | ✔ (dane gotowe) | katalog >1 planu |
 | 19 | Statystyki (objętość, 1RM, PR) | `history` | częściowo | ✔ |
-| 20 | Eksport / backup / przywracanie | `settings/backup` | ✔ (eksport) | import + chmura |
+| 20 | Eksport / backup / przywracanie | `settings/backup` | ✔ | chmura |
 | 21 | Superserie, serie na czas (plank), RPE | `plans`, `tracking` | częściowo | ✔ |
 | 22 | Przypomnienia o treningu (notyfikacje) | `notifications` | — | ✔ |
 | 23 | Health Connect, Wear OS, widget | integracje | — | ✔ |
@@ -175,6 +175,8 @@ plans 1─* recurrences ──> scheduled_sessions (rozwiniete daty)
 sessions 1─* session_exercises 1─* set_logs
 
 metric_types 1─* body_entries          (karta postaci)
+
+app_meta, seed_imports                 (poza relacjami: stan i dziennik importów)
 ```
 
 ### 4.2 Decyzje projektowe (ważne)
@@ -463,6 +465,64 @@ metric_types 1─* body_entries          (karta postaci)
     z kontekstu aplikacji) mówiłyby innym językiem niż ekran. Na starszych
     wersjach język idzie za systemem, a interfejs i tak jest przetłumaczony
     w całości (M9).
+
+57. **Kopia to ZIP z jednym plikiem JSON i katalogiem `media/`.** Archiwum
+    niesie `gymtracker.json` (nagłówek + wszystkie tabele) oraz miniatury pod
+    ścieżkami z `exercise_media.thumbnail_path`, **względnymi wobec `filesDir`**.
+    Jednym plikiem kopii jest ZIP, a nie katalog, bo kopię robi się po to, żeby
+    ją gdzieś położyć: skopiować na komputer, wysłać sobie mailem, wrzucić na
+    dysk. Katalog z kilkudziesięcioma plikami tego nie wytrzymuje. Zdjęcia
+    z galerii idą do kopii jako same wskazania (`content://`), bez plików - to
+    ta sama zasada co w M7 (§4.2 pkt 40): cudzych plików nie kopiujemy, a po
+    odtworzeniu na innym telefonie zdjęcia trzeba wskazać na nowo.
+58. **Encje Room są `@Serializable` - kopia nie ma własnych DTO.** Kopia to
+    zrzut wierszy, więc drugi zestaw klas „na kopię” byłby drugim opisem tego
+    samego schematu i pierwszym miejscem, które rozjedzie się po migracji (nowa
+    kolumna byłaby w bazie, ale nie w kopii). Nazwy pól idą przez
+    `JsonNamingStrategy.SnakeCase` (`createdAtEpochMs` → `created_at_epoch_ms`),
+    więc plik jest czytelny, a kod nie powtarza `@SerialName`. Konsekwencja:
+    format pliku zmienia się razem ze schematem - i to jest w porządku, bo
+    `schema_version` i tak musi być sprawdzany (pkt 59).
+59. **`schema_version` kopii to `user_version` bazy, nie druga stała.** Numer
+    wersji niesie samo Room, więc nie ma czego rozjechać: kopia ze starszej
+    wersji to kopia starszego schematu, a import odmawia tylko w jedną stronę -
+    gdy plik pochodzi z **nowszej** wersji niż aplikacja (nie znamy wtedy pól,
+    o których plik milczy, ale których brak zmieniłby dane). Tabela `exercises_fts`
+    **nie wchodzi** do kopii: to indeks pochodny, który po wstawieniu wierszy
+    odbudują triggery - wożenie go byłoby wożeniem duplikatu danych, a przy
+    rozjeździe - cichym źródłem błędnego wyszukiwania.
+60. **Dwie drogi wczytania: „zastąp” i „dopisz”.** „Zastąp” to wierny snapshot
+    (identyfikatory zostają, kopia kasuje wszystko od dzieci do rodziców, potem
+    wstawia swoje) - do odtworzenia danych po reinstalacji. „Dopisz” to scalenie
+    (nowe identyfikatory, przepisane klucze obce) - do dołożenia historii
+    z drugiego telefonu albo z pliku, który dostał się w ręce użytkownika.
+    W „dopisz” wiersz rozpoznany po kluczu naturalnym **nie tworzy drugiego
+    takiego samego**: ćwiczenie i plan po `external_id`, a gdy go nie ma - po
+    nazwie, wskaźnik karty postaci po `builtin_key` albo nazwie, pomiar po
+    `(wskaźnik, data)`. Bez tego scalanie dwóch kopii dawałoby dwie „Wagi”
+    w karcie postaci i drugą, rozjechaną historię tego samego ćwiczenia.
+    Wiersz bez rodzica (np. ćwiczenie dnia planu, gdy dzień wypadł) idzie za
+    nim zgodnie ze schematem: przy `ON DELETE CASCADE` znika, przy
+    `ON DELETE SET NULL` zostaje bez powiązania (§6.9).
+61. **Dziennik importów trzyma fakty, `app_meta` - stan.** Tabela `seed_imports`
+    (migracja 8 → 9) zapisuje **zdarzenia**: skąd przyszły dane, co z tego
+    wyszło, co odrzucono i dlaczego. `app_meta` dalej trzyma **stan** (wersje
+    wczytanych seedów), bo tego potrzebuje import przy starcie. Dwa mechanizmy,
+    ale nie o tym samym: dziennik rośnie i nikt go nie czyta poza listą
+    „Ostatnie importy”, a klucze w `app_meta` są nadpisywane i decydują
+    o zachowaniu aplikacji (§6.8). `stats_json` niesie **kod** odrzucenia, nie
+    zdanie - teksty żyją w `strings.xml`, a dziennik z zapisanym zdaniem
+    w jednym języku zostałby w tym języku na zawsze (pkt 49).
+62. **Bezpieczeństwo wczytania kopii.** Import jest **jedną transakcją**
+    (`withTransaction`), więc albo wchodzi całość, albo nic - po połowicznym
+    imporcie nie da się odróżnić danych użytkownika od resztek. Odmawia, gdy
+    trwa trening: w pamięci siedzi wtedy stan (timer, przerwa, lista ćwiczeń)
+    wskazujący na wiersze obecnej bazy, a podmiana danych zostawiłaby aplikację
+    ze stanem, którego nie ma jak posprzątać. Ścieżki z kopii są rozwiązywane
+    wobec `filesDir` i sprawdzane **kanonicznie**, więc `..` w nazwie wpisu nie
+    wyprowadzi pliku poza katalog aplikacji. Po wczytaniu `mediaRepository`
+    sprząta osierocone miniatury (te, do których nie prowadzi już żaden wiersz)
+    - kopia mogła przywieźć własne pliki i zostawić stare.
 
 ### 4.3 Migracje
 
@@ -1220,13 +1280,25 @@ miniatura.
   jest jednak istotna: plan odwołuje się do ćwiczeń po `external_id`, więc najpierw
   importujemy katalog, a dopiero potem plan (w jednym przebiegu
   `importStartDataIfNeeded`).
-* **Świadome odstępstwo: tabeli `seed_imports` (z §4.1) nie ma.** Wersje obu seedów
-  trzymamy w `app_meta`. Tabela miała sens, gdy planowane były niezależne źródła
-  importu z własnym cyklem życia i stanem „częściowo zaimportowany”; dziś mamy
-  jedno źródło (assety) i dwa klucz-wersje, więc dodatkowa tabela byłaby drugim
-  mechanizmem opisującym to samo — a drugi mechanizm to drugie miejsce, w którym
-  stan może się rozjechać. Wracamy do tematu w M9, gdy dojdzie import pliku
-  z pamięci urządzenia i trzeba będzie pamiętać również pliki odrzucone.
+* **Tabela `seed_imports` wróciła w M9** (migracja 8 → 9). W M1/M2 jej nie było
+  i było to słuszne: jedno źródło (assety) + dwa klucz-wersje w `app_meta` to cały
+  stan, jaki wtedy istniał, a tabela opisywałaby to samo drugim mechanizmem.
+  Import **pliku z pamięci urządzenia** zmienił jednak charakter pytania: użytkownik
+  może wskazać plik, którego nie da się rozpoznać po wersji (bo nie ma stałej
+  wersji), więc trzeba pamiętać *zdarzenia* - którą treść już raz widzieliśmy
+  (`checksum` = SHA-256), co z niej weszło i co zostało odrzucone z jakiego
+  powodu. Stan (wersje seedów) zostaje w `app_meta`, historia - w `seed_imports`
+  (§4.2 pkt 61).
+* Import pliku z pamięci urządzenia (M9): w Ustawieniach użytkownik wskazuje plik
+  przez SAF (`OpenDocument`), a `SeedImporter.importCatalogFile` czyta **ten sam
+  format** co dane startowe i przechodzi tę samą drogę (`INSERT OR IGNORE` po
+  `external_id`). Plik jest traktowany jak obcy: brak `schema_version`, nowsza
+  wersja formatu, puste `exercises` albo nieczytelny JSON kończą się **kodem**
+  odrzucenia w dzienniku i komunikatem w miejscu przycisku - plik, o którym nic
+  nie wiadomo, nie może wejść po cichu ani wyglądać jak „aplikacja nie działa”
+  (§6.9). Import jest **tylko dopisywaniem**: brak ćwiczenia w pliku nic nie
+  znaczy (nie wiemy, czy autor go usunął, czy go nie miał), więc nie ma czego
+  „wygaszać” i nie oznaczamy niczego jako usunięte.
 * Re-import po aktualizacji seeda: dopisuje nowe ćwiczenia i nowe plany, **nie
   rusza** istniejących rekordów, planów użytkownika ani historii. `INSERT OR IGNORE`
   dotyczy wyłącznie wierszy z `external_id` — plany tworzone ręcznie mają go `NULL`,
@@ -1234,19 +1306,76 @@ miniatura.
 * **Archiwizacja to droga usunięcia, nie re-importu** (§6.11). Ćwiczenie usunięte
   z katalogu zostaje w bazie z `is_archived = 1`, więc wiersz dalej zajmuje
   `external_id` i import go **nie przywróci** — to była decyzja użytkownika.
-  Odwrotnie, pozycje usunięte z samego pliku źródłowego nie są oznaczane: przy
-  jednym źródle wersjonowanym w repo nie ma czego „wygaszać”, a dokładanie stanu,
-  którego nikt nie czyta, to koszt bez zysku. Wracamy do tego razem z importem
-  plików z urządzenia (M9).
-* Dodatkowo w Ustawieniach: „wczytaj plik JSON z pamięci urządzenia”
-  (ten sam format, walidacja + ręczne potwierdzenie) — M9.
 
-### 6.9 Backup / eksport
+### 6.9 Backup / eksport (M9)
 
-* Eksport: ZIP zapisany przez SAF (`CreateDocument`) zawierający `gymtracker.json`
-  (wszystkie tabele) + katalog `media/`.
-* Import: walidacja `schemaVersion`, tryb „dopisz” (domyślnie) lub „zastąp”.
-* Eksport CSV dla arkusza (ćwiczenia × serie) — opcjonalnie w V2.
+**Plik kopii.** ZIP zapisany przez SAF (`CreateDocument`, typ `application/zip`):
+
+```
+gymtracker-2026-10-18.zip
+├── gymtracker.json          nagłówek + wszystkie tabele
+└── media/thumbs/<uuid>.jpg  miniatury, ścieżka jak w exercise_media
+```
+
+Nagłówek: `format` (`gymtracker-backup`), `schema_version` (= `user_version`
+bazy), `app_version`, `exported_at_epoch_ms`. Dalej piętnaście tabel w postaci
+wierszy; pola w `snake_case`, bo tak nazywają się kolumny (§4.2 pkt 58).
+Tabela `exercises_fts` **nie** jest eksportowana - odbudują ją triggery.
+
+**Eksport** (`BackupExporter` + `BackupService.export`): czyta wszystkie tabele po
+`id` (plik jest deterministyczny - dwa eksporty bez zmian w danych są identyczne),
+a miniatury wrzuca **raz na ścieżkę** (dwa wiersze mogą wskazywać ten sam plik
+i wtedy w archiwum jest jeden wpis). Plik, którego nie ma na dysku, jest pomijany -
+wiersz zostaje z pustą miniaturą, tak jak w aplikacji. Podsumowanie mówi wprost,
+ile wierszy i ile plików poszło do archiwum („Kopia zapisana. Wiersze: 269,
+miniatury: 1.”), więc użytkownik widzi, że coś się stało, nawet zanim znajdzie
+plik w „Pobranych”.
+
+**Wczytanie** (`BackupService.import` → `BackupImporter`) zaczyna się od
+nagłówka: brak wpisu `gymtracker.json` to `NOT_A_BACKUP`, plik z nowszej wersji
+schematu to `TOO_NEW`, nieczytelny JSON to `CORRUPT`. Nagłówek jest też tym, co
+widzi użytkownik w pytaniu „Wczytać kopię?” - data, wersja schematu, liczba
+wierszy i wersja aplikacji, która kopię zrobiła. Bez tego pytania użytkownik
+potwierdzałby podmianę danych, nie wiedząc, co podmienia.
+
+**Tryby.** Dwa przyciski, bo skutek jest różny i nie da się go cofnąć:
+
+* **„Zastąp dane”** (`REPLACE`) - wierny snapshot. Najpierw kasuje wszystko od
+  dzieci do rodziców, potem wstawia wiersze kopii **z ich identyfikatorami**.
+  Dzięki temu powiązania zostają takie, jak w pliku, i nie ma czego przepisywać.
+* **„Dopisz”** (`APPEND`) - scalenie. Wiersze wchodzą z nowymi identyfikatorami,
+  a każdy klucz obcy jest przepisany przez mapę „stary → nowy”. Wiersz
+  rozpoznany po kluczu naturalnym jest **wykorzystywany**: `external_id` dla
+  ćwiczeń i planów, nazwa dla wpisów użytkownika (nie mają `external_id`),
+  `builtin_key`/nazwa dla wskaźników karty postaci. Historia z kopii dowiązuje
+  się więc do ćwiczenia, które użytkownik już ma, zamiast zniknąć razem
+  z duplikatem, a karta postaci nie pokazuje dwóch „Wag”. Gdy powiązać nie ma do
+  czego - plan ma już dzień na tej pozycji (`UNIQUE(plan_id, position)`) albo
+  pomiar na ten dzień już jest (`UNIQUE(metric_type_id, date)`) - wiersz wypada,
+  a jego dzieci idą za nim zgodnie ze schematem: `CASCADE` → znikają,
+  `SET NULL` → zostają bez powiązania. `app_meta` idzie przez `UPSERT` (pary
+  klucz-wartość nie mają sensu jako duplikaty), `seed_imports` dopisują się jako
+  kolejne wpisy dziennika.
+
+Kasowanie w „zastąp” jest **od dzieci do rodziców**, bo baza pilnuje kluczy
+obcych - odwrotna kolejność przewróciłaby się na pierwszym wierszu, który ma
+dzieci.
+
+**Bezpieczeństwo** (§4.2 pkt 62): całość w **jednej transakcji** (błąd w środku
+wycofuje wszystko - test tego pilnuje), import odmawia, gdy trwa trening
+(`WORKOUT_IN_PROGRESS`), a ścieżki miniatur są rozwiązywane wobec `filesDir`
+z kontrolą **kanonicznej** ścieżki, więc wpis `media/../evil.txt` z podrobionej
+kopii nie zapisze niczego poza katalogiem aplikacji. Po wczytaniu
+`mediaRepository.sweepOrphanThumbnails()` sprząta miniatury, do których nie
+prowadzi już żaden wiersz.
+
+**Ustawienia - sekcja „Kopia zapasowa”**: opis, „Eksportuj kopię (ZIP)”,
+„Wczytaj kopię (ZIP)” i **jedna** linia statusu (pracuję / zapisano / wczytano /
+odmowa z powodem). „Ostatnie importy” pokazują też pliki odrzucone: bez tego ten
+sam plik wracałby po miesiącu jako nowe, niezrozumiałe „nie udało się”.
+
+Eksport CSV dla arkusza (ćwiczenia × serie) i scalanie dwóch kopii z różnych
+urządzeń bez powielania wpisów kalendarza - **odłożone do v1.1** (§11).
 
 ### 6.10 Edytor planu: kolejność, superserie, alternatywy (M2)
 
@@ -1962,7 +2091,7 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 
 * **miniatury YouTube nie ma** — wymagałaby uprawnienia `INTERNET`, którego
   aplikacja nie ma (§6.6, §11),
-* **dodawanie własnych linków do ćwiczenia** — `kind = 'link'` czeka w słowniku
+* **scalanie dwóch kopii z różnych urządzeń bez powielania wpisów kalendarza i treningów** (odłożone z M9 — „dopisz” dokłada treningi, przerwy i wpisy kalendarza jako nowe, bo nie ma po czym ich rozpoznać: sama data i ćwiczenie nie odróżniają „tego samego treningu z drugiego telefonu” od „drugiego treningu tego dnia”), **dodawanie własnych linków do ćwiczenia** — `kind = 'link'` czeka w słowniku
   bazy, ale UI dziś nie tworzy takich załączników; ten sam ekran podglądu już je
   obsługuje (§11),
 * **bez przełączania załączników gestem** (swipe) w podglądzie — przy kilku
@@ -2040,8 +2169,42 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
   zamiar celuje w tę aplikację; `StringResourcesTest`). `:app:lintDebug`
   i `:app:assembleDebug` bez błędów.
 
-Świadome odroczenia z M9 (szczegóły w §11):
+**M9b ✔ (kopia zapasowa ZIP + katalog z pliku)** — w repo działa:
 
+* **kopia zapasowa**: eksport i wczytanie ZIP przez SAF (`CreateDocument` /
+  `OpenDocument`), w archiwum `gymtracker.json` + `media/` z miniaturami
+  (§6.9). Nagłówek niesie `schema_version` równy `user_version` bazy i wersję
+  aplikacji, która kopię zrobiła — obie widać w pytaniu „Wczytać kopię?” przed
+  potwierdzeniem podmiany danych,
+* **dwa tryby wczytania**: „Zastąp dane” (wierny snapshot: identyfikatory
+  zachowane, kopia kasuje wszystko od dzieci do rodziców) i „Dopisz” (scalenie:
+  nowe identyfikatory, klucze obce przepisane, a wiersz rozpoznany po
+  `external_id` albo nazwie **wykorzystany**, nie powielony — inaczej scalenie
+  dwóch kopii dawałoby drugą „Wagę” w karcie postaci i drugą historię tego
+  samego ćwiczenia),
+* **dziennik importów** `seed_imports` (migracja 8 → 9): zdarzenia zamiast stanu
+  (§4.2 pkt 61), z odciskiem treści pliku (`checksum` = SHA-256), kodem odrzucenia
+  w `stats_json` i listą „Ostatnie importy” w Ustawieniach — razem z plikami,
+  które **nie** weszły,
+* **własny katalog ćwiczeń z pliku** (JSON w formacie danych startowych):
+  dopisywanie po `external_id`, a brak `schema_version`, nowsza wersja formatu,
+  puste `exercises` i nieczytelny JSON kończą się kodem odrzucenia i zdaniem
+  w miejscu przycisku (§6.8),
+* **bezpieczeństwo**: całość w jednej transakcji, odmowa w trakcie treningu,
+  kanoniczna kontrola ścieżek miniatur, sprzątanie sierot po wczytaniu
+  (§4.2 pkt 62),
+* **testy JVM: 284** (doszły: `BackupRoundTripTest` — „zastąp” wierny co do
+  wiersza, „dopisz” dowiązuje historię do istniejącego ćwiczenia i scala wpis
+  użytkownika po nazwie, dzień planu na zajętej pozycji wypada, guard treningu,
+  rollback po błędzie w środku; `BackupServiceTest` — ZIP w obie strony
+  z miniaturą, podgląd nagłówka, odmowy `NOT_A_BACKUP`/`TOO_NEW`/`CORRUPT`,
+  wpis `media/../evil.txt` nie zapisuje pliku poza `filesDir`;
+  `CatalogImportTest` — kody odrzuceń, tolerancja obcych pól, odcisk treści;
+  `SeedImportJournalTest` — kolejność i limit listy, wpis odrzucony, nieczytelne
+  `stats_json` nie wywraca ekranu). `:app:lintDebug` i `:app:assembleDebug` bez
+  błędów, lint bez nowych ostrzeżeń.
+
+Świadome odroczenia z M9 (szczegóły w §11):
 * **jednostki kg/lb i format czasu** — baza trzyma kilogramy i tak zostaje;
   przeliczanie na funty to warstwa prezentacji, której nikt dziś nie potrzebuje
   (§11),
@@ -2054,18 +2217,18 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8) | Room in-memory + `runTest` |
-| UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym (M9) | Room in-memory + `runTest` |
+| UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | brak zapytań na głównym wątku (pilnuje tego lint i przegląd); baseline profile i makrobenchmark startu **odłożone do v1.1** — na emulatorze liczby są niemiarodajne (§11) | Macrobenchmark (v1.1) |
 
-Stan na M9a: **260 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M9b: **284 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7 i 7 → 8.
+2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7, 7 → 8 i 8 → 9.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
@@ -2222,6 +2385,33 @@ przebudowie `RestNotifier` działa jak przedtem. Budzik poza ekranem treningu
 spóźnił się 49 s i wykonał w `maxWhenElapsed` (bez zgody na dokładne alarmy
 system ma okno — ten sam efekt opisany po M5). Scenariusze: `docs/QA.md`
 rozdział 11.
+
+Weryfikacja na urządzeniu (emulator API 36) po M9b: migracja 8 → 9 przeszła na
+bazie z M9a (`pragma user_version` = 9) i nie ruszyła danych — 25 ćwiczeń,
+6 treningów i miniatura zostały na miejscu. Eksport zapisał
+`gymtracker-2026-10-18.zip` w „Pobranych” („Kopia zapisana. Wiersze: 269,
+miniatury: 1.”); w archiwum są dwa wpisy — `gymtracker.json` i
+`media/thumbs/<uuid>.jpg` — bo oba wiersze `exercise_media` wskazywały ten sam
+plik. Wczytanie „Zastąp dane” odtworzyło **te same liczby wierszy w każdej
+tabeli** (27 ćwiczeń, 12 treningów, 38 serii, 24 przerwy, 4 pomiary, 22 typy
+wskaźników, 3 plany, 5 dni, 10 wpisów kalendarza), a „Dopisz” dołożyło historię
+bez powielania słowników: „Dopisz. Nowe: 174, istniejące: 52, pominięte: 43.” —
+ćwiczenia, plany i wskaźniki zostały w liczbie sztuk, dni planu wypadły na
+zajętych pozycjach, a treningi, serie i przerwy podwoiły się.
+**Defekt wyłapany dopiero tutaj i naprawiony:** pierwsza wersja „dopisz”
+dopasowywała wiersze przez `INSERT OR IGNORE` po `external_id`, więc wskaźniki
+karty postaci (bez ograniczenia unikalności) i własne ćwiczenia użytkownika
+(nie mają `external_id`) wchodziły jako duplikaty — karta postaci pokazała
+22 wskaźniki zamiast 11. Dopasowanie przeniesione **przed** wstawienie, po
+kluczu naturalnym: `external_id`, a gdy go nie ma — nazwa (§4.2 pkt 60).
+Guard zadziałał na prawdziwej bazie: kopia zrobiona w trakcie treningu niosła
+sesję w stanie `active`, więc import odmówił („Najpierw zakończ trwający
+trening.”), a po jej zakończeniu wczytany trening otworzył się w UI z pełną
+historią serii i przerw. Katalog z pliku: `katalog-test.json` dodał dwa
+ćwiczenia („dodano 2, pominięto 0”), `katalog-nowy.json` (schema 99) został
+odrzucony z powodem w miejscu przycisku, a wpis w dzienniku niósł sam **kod**
+(`{"status":"rejected","error":"too_new_schema"}`) i odcisk SHA-256 treści.
+Scenariusze: `docs/QA.md` rozdział 5.
 
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.

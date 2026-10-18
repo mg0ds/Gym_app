@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,10 +50,19 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.BuildConfig
 import com.gymtracker.R
+import com.gymtracker.data.backup.BackupHeader
+import com.gymtracker.data.backup.BackupImportError
+import com.gymtracker.data.backup.BackupImportMode
 import com.gymtracker.data.prefs.SettingsDataStore
+import com.gymtracker.data.seed.SeedImportErrors
+import com.gymtracker.data.seed.SeedImportLog
+import com.gymtracker.data.seed.SeedImportStats
 import com.gymtracker.domain.model.ThemeMode
 import com.gymtracker.domain.timer.formatElapsed
+import com.gymtracker.ui.calendar.isoText
 import com.gymtracker.ui.theme.GymTrackerTheme
+import java.time.Instant
+import java.time.ZoneId
 
 /**
  * Czy system umie pokazać ekran wyboru języka dla aplikacji.
@@ -89,6 +100,28 @@ internal fun appLanguageSettingsIntent(packageName: String): Intent =
     Intent(Settings.ACTION_APP_LOCALE_SETTINGS)
         .setData(Uri.fromParts("package", packageName, null))
 
+/**
+ * Typy plików, jakie pokazujemy w systemowym wyborze.
+ *
+ * ZIP bywa opisywany przez dostawców dokumentów różnie (`application/zip`,
+ * `application/x-zip-compressed`, `application/octet-stream`), a plik JSON
+ * skopiowany z komputera nierzadko melduje się jako `text/plain`. Wpuszczamy
+ * więc kilka typów: i tak rozstrzyga dopiero zawartość pliku, a nie jego
+ * etykieta - kopia bez `gymtracker.json` albo katalog bez `schema_version`
+ * zostaną odrzucone z wyjaśnieniem.
+ */
+private val BACKUP_MIME_TYPES = arrayOf(
+    "application/zip",
+    "application/x-zip-compressed",
+    "application/octet-stream",
+)
+
+private val CATALOG_MIME_TYPES = arrayOf(
+    "application/json",
+    "text/plain",
+    "application/octet-stream",
+)
+
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
@@ -100,6 +133,26 @@ fun SettingsScreen(
     val defaultRestSeconds by viewModel.defaultRestSeconds.collectAsStateWithLifecycle()
     val restSoundEnabled by viewModel.restSoundEnabled.collectAsStateWithLifecycle()
     val restVibrationEnabled by viewModel.restVibrationEnabled.collectAsStateWithLifecycle()
+    val backupState by viewModel.backupState.collectAsStateWithLifecycle()
+    val pendingBackup by viewModel.pendingBackup.collectAsStateWithLifecycle()
+    val catalogState by viewModel.catalogState.collectAsStateWithLifecycle()
+    val recentImports by viewModel.recentImports.collectAsStateWithLifecycle()
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(BACKUP_MIME),
+    ) { uri ->
+        if (uri != null) viewModel.exportBackup(uri, BuildConfig.VERSION_NAME)
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) viewModel.inspectBackup(uri)
+    }
+    val catalogLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) viewModel.importCatalog(uri)
+    }
 
     SettingsContent(
         themeMode = themeMode,
@@ -108,12 +161,21 @@ fun SettingsScreen(
         defaultRestSeconds = defaultRestSeconds,
         restSoundEnabled = restSoundEnabled,
         restVibrationEnabled = restVibrationEnabled,
+        backupState = backupState,
+        pendingBackup = pendingBackup,
+        catalogState = catalogState,
+        recentImports = recentImports,
         onThemeModeChange = viewModel::setThemeMode,
         onImportSeedData = viewModel::importSeedData,
         onImportProgramData = viewModel::importProgramData,
         onDefaultRestChange = viewModel::setDefaultRestSeconds,
         onRestSoundChange = viewModel::setRestSoundEnabled,
         onRestVibrationChange = viewModel::setRestVibrationEnabled,
+        onExportBackup = { exportLauncher.launch(viewModel.backupFileName()) },
+        onPickBackup = { restoreLauncher.launch(BACKUP_MIME_TYPES) },
+        onPickCatalog = { catalogLauncher.launch(CATALOG_MIME_TYPES) },
+        onConfirmBackup = viewModel::confirmBackup,
+        onDismissBackup = viewModel::dismissBackup,
         modifier = modifier,
     )
 }
@@ -127,17 +189,27 @@ internal fun SettingsContent(
     defaultRestSeconds: Int,
     restSoundEnabled: Boolean,
     restVibrationEnabled: Boolean,
+    backupState: BackupState,
+    pendingBackup: PendingBackup?,
+    catalogState: CatalogState,
+    recentImports: List<SeedImportLog>,
     onThemeModeChange: (ThemeMode) -> Unit,
     onImportSeedData: () -> Unit,
     onImportProgramData: () -> Unit,
     onDefaultRestChange: (Int) -> Unit,
     onRestSoundChange: (Boolean) -> Unit,
     onRestVibrationChange: (Boolean) -> Unit,
+    onExportBackup: () -> Unit,
+    onPickBackup: () -> Unit,
+    onPickCatalog: () -> Unit,
+    onConfirmBackup: (BackupImportMode) -> Unit,
+    onDismissBackup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showRestDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val languageAvailable = appLanguageSettingsAvailable(context)
+    val busy = backupState == BackupState.Working
 
     Scaffold(
         modifier = modifier,
@@ -247,6 +319,54 @@ internal fun SettingsContent(
 
             ProgramImportStatus(state = programImportState)
 
+            SubsectionTitle(text = stringResource(R.string.settings_catalog_title))
+
+            Text(
+                text = stringResource(R.string.settings_catalog_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = onPickCatalog,
+                enabled = catalogState != CatalogState.Working,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.settings_catalog_action))
+            }
+
+            CatalogStatus(state = catalogState)
+
+            SubsectionTitle(text = stringResource(R.string.settings_imports_title))
+
+            ImportJournal(entries = recentImports)
+
+            SectionTitle(text = stringResource(R.string.settings_section_backup))
+
+            Text(
+                text = stringResource(R.string.settings_backup_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = onExportBackup,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.settings_backup_export_action))
+            }
+
+            Button(
+                onClick = onPickBackup,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(R.string.settings_backup_import_action))
+            }
+
+            BackupStatus(state = backupState)
+
             SectionTitle(text = stringResource(R.string.settings_section_about))
 
             Text(
@@ -276,7 +396,18 @@ internal fun SettingsContent(
             },
         )
     }
+
+    pendingBackup?.let { pending ->
+        BackupConfirmDialog(
+            header = pending.header,
+            onDismiss = onDismissBackup,
+            onConfirm = onConfirmBackup,
+        )
+    }
 }
+
+/** Typ pliku proponowany przy eksporcie (używany też do nazwy wpisu). */
+private const val BACKUP_MIME = "application/zip"
 
 /**
  * Wiersz wyboru języka: na Androidzie 13+ otwiera systemowy ekran języka,
@@ -399,12 +530,66 @@ private fun DefaultRestDialog(
     )
 }
 
+/**
+ * Potwierdzenie wczytania kopii.
+ *
+ * Dwa przyciski zamiast jednego, bo tryb zmienia **skutek**: „zastąp” usuwa
+ * obecne dane, „dopisz” ich nie rusza. Oba są równorzędne - użytkownik ma
+ * wybrać świadomie, a nie potwierdzić domyślne zachowanie, którego nie widzi.
+ */
+@Composable
+private fun BackupConfirmDialog(
+    header: BackupHeader,
+    onDismiss: () -> Unit,
+    onConfirm: (BackupImportMode) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.settings_backup_dialog_title)) },
+        text = {
+            Text(
+                text = stringResource(
+                    R.string.settings_backup_dialog_message,
+                    formatImportDate(header.exportedAtEpochMs),
+                    header.schemaVersion,
+                    header.rowCount,
+                    header.appVersion,
+                ),
+            )
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { onConfirm(BackupImportMode.APPEND) }) {
+                    Text(text = stringResource(R.string.settings_backup_dialog_append))
+                }
+                TextButton(onClick = { onConfirm(BackupImportMode.REPLACE) }) {
+                    Text(text = stringResource(R.string.settings_backup_dialog_replace))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.action_cancel))
+            }
+        },
+    )
+}
+
 @Composable
 private fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
+    )
+}
+
+@Composable
+private fun SubsectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
     )
 }
 
@@ -458,6 +643,137 @@ private fun ProgramImportStatus(state: ProgramImportState) {
 }
 
 @Composable
+private fun CatalogStatus(state: CatalogState) {
+    val text = when (state) {
+        CatalogState.Idle -> null
+        CatalogState.Working -> stringResource(R.string.settings_catalog_running)
+        is CatalogState.Done -> stringResource(
+            R.string.settings_catalog_done,
+            state.fileName,
+            state.imported,
+            state.skipped,
+        )
+        is CatalogState.Rejected -> stringResource(
+            R.string.settings_catalog_rejected,
+            state.fileName,
+            catalogErrorText(state.errorCode),
+        )
+        CatalogState.Failed -> stringResource(R.string.settings_catalog_failed)
+    } ?: return
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (state is CatalogState.Rejected || state == CatalogState.Failed) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
+}
+
+@Composable
+private fun BackupStatus(state: BackupState) {
+    val text = when (state) {
+        BackupState.Idle -> null
+        BackupState.Working -> stringResource(R.string.settings_backup_running)
+        is BackupState.Exported -> stringResource(
+            R.string.settings_backup_exported,
+            state.rows,
+            state.thumbnails,
+        )
+        is BackupState.Restored -> if (state.mode == BackupImportMode.APPEND) {
+            stringResource(
+                R.string.settings_backup_appended,
+                state.inserted,
+                state.reused,
+                state.skipped,
+            )
+        } else {
+            stringResource(R.string.settings_backup_restored, state.inserted, state.skipped)
+        }
+        is BackupState.Failed -> when (state.error) {
+            BackupImportError.NOT_A_BACKUP -> stringResource(R.string.settings_backup_error_not_a_backup)
+            BackupImportError.TOO_NEW -> stringResource(R.string.settings_backup_error_too_new)
+            BackupImportError.CORRUPT -> stringResource(R.string.settings_backup_error_corrupt)
+            BackupImportError.WORKOUT_IN_PROGRESS -> stringResource(R.string.settings_backup_error_workout)
+            null -> stringResource(R.string.settings_backup_failed)
+        }
+    } ?: return
+
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (state is BackupState.Failed) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
+}
+
+/**
+ * Ostatnie importy katalogów - „skąd przyszły te dane”.
+ *
+ * Pokazujemy też pliki odrzucone: bez tego ten sam plik wracałby po miesiącu
+ * jako nowe, niezrozumiałe „nie udało się”, bez śladu pierwszej próby.
+ */
+@Composable
+private fun ImportJournal(entries: List<SeedImportLog>) {
+    if (entries.isEmpty()) {
+        Text(
+            text = stringResource(R.string.settings_imports_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        entries.forEach { entry ->
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(text = entry.seedId, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "${formatImportDate(entry.importedAtEpochMs)} · ${importStatsText(entry.stats)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (entry.isRejected) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun importStatsText(stats: SeedImportStats?): String = when {
+    stats == null -> stringResource(R.string.settings_imports_unknown)
+    stats.isRejected -> stringResource(
+        R.string.settings_imports_rejected,
+        catalogErrorText(stats.error.orEmpty()),
+    )
+    else -> stringResource(R.string.settings_imports_done, stats.imported, stats.skipped)
+}
+
+/** Kod błędu z dziennika na zdanie w języku interfejsu. */
+@Composable
+private fun catalogErrorText(code: String): String = when (code) {
+    SeedImportErrors.BAD_JSON -> stringResource(R.string.settings_catalog_error_bad_json)
+    SeedImportErrors.MISSING_SCHEMA_VERSION ->
+        stringResource(R.string.settings_catalog_error_missing_schema_version)
+    SeedImportErrors.TOO_NEW_SCHEMA -> stringResource(R.string.settings_catalog_error_too_new_schema)
+    SeedImportErrors.EMPTY_CATALOG -> stringResource(R.string.settings_catalog_error_empty_catalog)
+    SeedImportErrors.IO -> stringResource(R.string.settings_catalog_error_io_error)
+    else -> stringResource(R.string.settings_catalog_error_unknown)
+}
+
+/** Data w dzienniku: „18.10.2026” - bez godziny, bo wpisy są jednodniowe. */
+private fun formatImportDate(epochMs: Long): String =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).toLocalDate().isoText()
+
+@Composable
 private fun ThemeModeRow(
     mode: ThemeMode,
     selected: Boolean,
@@ -495,12 +811,21 @@ private fun SettingsContentPreview() {
             defaultRestSeconds = SettingsDataStore.DEFAULT_REST_SECONDS,
             restSoundEnabled = SettingsDataStore.DEFAULT_REST_ALERT,
             restVibrationEnabled = SettingsDataStore.DEFAULT_REST_ALERT,
+            backupState = BackupState.Idle,
+            pendingBackup = null,
+            catalogState = CatalogState.Idle,
+            recentImports = emptyList(),
             onThemeModeChange = {},
             onImportSeedData = {},
             onImportProgramData = {},
             onDefaultRestChange = {},
             onRestSoundChange = {},
             onRestVibrationChange = {},
+            onExportBackup = {},
+            onPickBackup = {},
+            onPickCatalog = {},
+            onConfirmBackup = {},
+            onDismissBackup = {},
         )
     }
 }

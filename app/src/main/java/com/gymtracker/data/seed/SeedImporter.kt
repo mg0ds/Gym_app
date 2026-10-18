@@ -12,9 +12,13 @@ import com.gymtracker.data.repo.encodeMuscles
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.YouTubeLinks
 import com.gymtracker.domain.time.TimeProvider
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * Import danych startowych: katalog ćwiczeń (`assets/seed/exercises.json`)
@@ -37,6 +41,7 @@ class SeedImporter @Inject constructor(
     private val exerciseDao: ExerciseDao,
     private val planDao: PlanDao,
     private val appMetaDao: AppMetaDao,
+    private val journal: SeedImportJournal,
     private val timeProvider: TimeProvider,
 ) {
 
@@ -52,13 +57,70 @@ class SeedImporter @Inject constructor(
         val seedFile = readExercisesSeed()
         val storedVersion = appMetaDao.get(SeedFiles.META_EXERCISES_VERSION)
         if (storedVersion == seedFile.generatedAt && exerciseDao.count() > 0) return null
-        return importExercises(seedFile)
+        return importExercises(seedFile, seedId = SeedFiles.ASSET_EXERCISES, checksum = null)
     }
 
     /** Import na żądanie (np. przycisk w ustawieniach) - zawsze przechodzi przez bazę. */
-    suspend fun importExercises(): SeedImportResult = importExercises(readExercisesSeed())
+    suspend fun importExercises(): SeedImportResult =
+        importExercises(readExercisesSeed(), seedId = SeedFiles.ASSET_EXERCISES, checksum = null)
 
-    private suspend fun importExercises(seedFile: ExercisesSeedFile): SeedImportResult {
+    /**
+     * Import katalogu z pliku wybranego przez użytkownika (M9).
+     *
+     * Ten sam format, co dane z APK, ale **inny kontrakt**: plik nie jest
+     * wersjonowany razem z aplikacją, więc wszystko może w nim być nie tak.
+     * Dlatego każdą próbę - udaną i odrzuconą - zapisujemy w dzienniku:
+     * przy powtórnym wskazaniu tego samego pliku użytkownik widzi, co się
+     * stało za pierwszym razem.
+     */
+    suspend fun importCatalogFile(displayName: String, text: String): CatalogImportResult {
+        val checksum = sha256Hex(text)
+
+        val root = runCatching { json.parseToJsonElement(text) }.getOrNull()
+        if (root !is JsonObject) {
+            return reject(displayName, checksum, SeedImportErrors.BAD_JSON)
+        }
+
+        val schemaVersion = (root[SeedFiles.SCHEMA_VERSION_FIELD] as? JsonPrimitive)
+            ?.content
+            ?.toIntOrNull()
+        if (schemaVersion == null) {
+            return reject(displayName, checksum, SeedImportErrors.MISSING_SCHEMA_VERSION)
+        }
+        if (schemaVersion > SeedFiles.CATALOG_SCHEMA_VERSION) {
+            return reject(displayName, checksum, SeedImportErrors.TOO_NEW_SCHEMA)
+        }
+
+        val seedFile = runCatching { json.decodeFromJsonElement<ExercisesSeedFile>(root) }
+            .getOrNull()
+            ?: return reject(displayName, checksum, SeedImportErrors.BAD_JSON)
+        if (seedFile.exercises.isEmpty()) {
+            return reject(displayName, checksum, SeedImportErrors.EMPTY_CATALOG)
+        }
+
+        val result = importExercises(seedFile, seedId = displayName, checksum = checksum)
+        return CatalogImportResult.Done(
+            fileName = displayName,
+            imported = result.imported,
+            skipped = result.skipped,
+            total = result.totalInSeed,
+        )
+    }
+
+    private suspend fun reject(
+        displayName: String,
+        checksum: String,
+        errorCode: String,
+    ): CatalogImportResult {
+        journal.recordRejected(displayName, checksum, errorCode)
+        return CatalogImportResult.Rejected(fileName = displayName, errorCode = errorCode)
+    }
+
+    private suspend fun importExercises(
+        seedFile: ExercisesSeedFile,
+        seedId: String,
+        checksum: String?,
+    ): SeedImportResult {
         val now = timeProvider.nowEpochMs()
         val entities = seedFile.exercises.map { exercise -> exercise.toEntity(now) }
 
@@ -71,6 +133,17 @@ class SeedImporter @Inject constructor(
                 key = SeedFiles.META_EXERCISES_VERSION,
                 value = seedFile.generatedAt,
                 updatedAtEpochMs = now,
+            ),
+        )
+
+        journal.recordDone(
+            seedId = seedId,
+            version = seedFile.generatedAt,
+            checksum = checksum,
+            stats = SeedImportStats.done(
+                imported = imported,
+                skipped = entities.size - imported,
+                total = entities.size,
             ),
         )
 
@@ -209,6 +282,17 @@ class SeedImporter @Inject constructor(
             ),
         )
 
+        journal.recordDone(
+            seedId = SeedFiles.ASSET_PROGRAMS,
+            version = version,
+            checksum = null,
+            stats = SeedImportStats.done(
+                imported = plansImported,
+                skipped = plansSkipped,
+                total = files.size,
+            ),
+        )
+
         return SeedProgramImportResult(
             plansImported = plansImported,
             plansSkipped = plansSkipped,
@@ -241,6 +325,29 @@ data class SeedImportResult(
     val totalInSeed: Int,
     val seedVersion: String,
 )
+
+/** Wynik importu katalogu z pliku użytkownika - udało się albo nie. */
+sealed interface CatalogImportResult {
+
+    data class Done(
+        val fileName: String,
+        val imported: Int,
+        val skipped: Int,
+        val total: Int,
+    ) : CatalogImportResult
+
+    data class Rejected(val fileName: String, val errorCode: String) : CatalogImportResult
+}
+
+/**
+ * Odcisk treści pliku (SHA-256, hex) - pozwala rozpoznać „ten sam plik jeszcze
+ * raz”. Liczymy go z tekstu, a nie z bajtów z dysku: plik i tak czytamy jako
+ * tekst (UTF-8) i z niego powstają wiersze.
+ */
+internal fun sha256Hex(text: String): String {
+    val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+    return digest.joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+}
 
 /** Podsumowanie importu planów. */
 data class SeedProgramImportResult(

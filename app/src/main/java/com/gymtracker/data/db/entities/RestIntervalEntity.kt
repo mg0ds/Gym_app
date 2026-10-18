@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Przerwa między seriami - jedno odliczanie, od zalogowania serii do powrotu
@@ -24,6 +25,9 @@ import androidx.room.PrimaryKey
  * ręcznie uruchomionej - na razie zawsze `true`, ale schemat nie chcemy zmieniać
  * w M6, gdy dojdzie „start przerwy z karty ćwiczenia”.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "rest_intervals",
     foreignKeys = [

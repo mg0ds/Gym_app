@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Sesja treningowa (trening, który się dzieje albo się odbył).
@@ -23,6 +24,9 @@ import androidx.room.PrimaryKey
  * Wskazania na plan i dzień są opcjonalne i „miękkie” (`SET NULL`): usunięcie
  * planu nie może skasować historii treningów.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "sessions",
     foreignKeys = [

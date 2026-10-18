@@ -2,6 +2,7 @@ package com.gymtracker.data.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.gymtracker.data.backup.BackupDao
 import com.gymtracker.data.db.daos.AppMetaDao
 import com.gymtracker.data.db.daos.BodyDao
 import com.gymtracker.data.db.daos.CalendarDao
@@ -9,6 +10,7 @@ import com.gymtracker.data.db.daos.ExerciseDao
 import com.gymtracker.data.db.daos.MediaDao
 import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.RestDao
+import com.gymtracker.data.db.daos.SeedImportDao
 import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.db.daos.SetLogDao
 import com.gymtracker.data.db.daos.StatsDao
@@ -24,6 +26,7 @@ import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.db.entities.RecurrenceEntity
 import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.ScheduledSessionEntity
+import com.gymtracker.data.db.entities.SeedImportEntity
 import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SessionExerciseEntity
 import com.gymtracker.data.db.entities.SetLogEntity
@@ -42,6 +45,8 @@ import com.gymtracker.data.db.entities.SetLogEntity
  * z galerii (`exercise_media`) - wskazania do plików, nie ich kopie (M7).
  * Wersja 8: karta postaci - wskaźniki (`metric_types`) i ich pomiary
  * (`body_entries`) (M8).
+ * Wersja 9: dziennik importów katalogów (`seed_imports`) - skąd przyszły
+ * dane i co z tego wyszło, razem z plikami odrzuconymi (M9).
  *
  * Każda zmiana schematu = podbicie wersji + migracja w [DatabaseMigrations]
  * (bez `fallbackToDestructiveMigration`) + wyeksportowany schemat w `app/schemas/`.
@@ -63,8 +68,9 @@ import com.gymtracker.data.db.entities.SetLogEntity
         ExerciseMediaEntity::class,
         MetricTypeEntity::class,
         BodyEntryEntity::class,
+        SeedImportEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -88,6 +94,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mediaDao(): MediaDao
 
     abstract fun bodyDao(): BodyDao
+
+    abstract fun seedImportDao(): SeedImportDao
+
+    abstract fun backupDao(): BackupDao
 
     companion object {
         const val NAME = "gym_tracker.db"

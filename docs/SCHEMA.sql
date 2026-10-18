@@ -1,7 +1,7 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 8 (2026-10-17)
+-- Wersja: 9 (2026-10-18)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
@@ -13,11 +13,12 @@
 --  * v6 (M5): rest_intervals + indeksy                              [WDROZONE]
 --  * v7 (M7): exercises.instructions + exercise_media              [WDROZONE]
 --  * v8 (M8): metric_types + body_entries (karta postaci)          [WDROZONE]
+--  * v9 (M9): seed_imports (dziennik importow katalogow)           [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
 --
--- Uwaga dla wersji 1-8: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- Uwaga dla wersji 1-9: DDL ponizszy dla tabel [WDROZONE] jest przepisany
 -- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
 -- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
 -- "Migration didn't properly handle ...".
@@ -361,18 +362,21 @@ CREATE UNIQUE INDEX idx_body_uniq ON body_entries(metric_type_id, date);
 -- -----------------------------------------------------------------------------
 -- 7. IMPORT SEEDOW I METADANE
 -- -----------------------------------------------------------------------------
--- [M9] Tabela seed_imports NIE istnieje i na razie nie jest planowana:
--- wersje obu seedow (exercises_seed_version, programs_seed_version) leza
--- w app_meta. Osobna tabela ma sens dopiero przy imporcie plikow z urzadzenia,
--- gdy trzeba bedzie pamietac tez pliki odrzucone (docs/PLAN.md 6.8).
+-- [M9, WDROZONE] Dziennik importow katalogow (docs/PLAN.md 6.13):
+-- wersje seedow z APK dalej leza w app_meta (tam liczy sie stan: "ktora wersja
+-- jest w bazie"), a tutaj jest historia zdarzen - skad przyszly dane, co z tego
+-- wyszlo i ktore pliki zostaly odrzucone. Wiersze tylko sie dopisuje.
+-- stats_json: {"status":"done","imported":5,"skipped":2,"total":7}
+--          albo {"status":"rejected","imported":0,"skipped":0,"total":0,"error":"bad_json"}
 CREATE TABLE seed_imports (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    seed_id     TEXT NOT NULL,                  -- 'muscle-strength-full-body-workout-routine'
-    version     TEXT,                           -- generated_at ze seeda
-    checksum    TEXT,
+    seed_id     TEXT NOT NULL,                  -- nazwa pliku uzytkownika albo 'assets/seed/exercises.json'
+    version     TEXT,                           -- generated_at z pliku, jesli jest
+    checksum    TEXT,                           -- SHA-256 tresci pliku (rozpoznanie "ten sam plik")
     imported_at INTEGER NOT NULL,
     stats_json  TEXT
 );
+CREATE INDEX idx_seed_imports_key ON seed_imports(seed_id, checksum);
 
 -- WDROZONE (M0). Pary klucz-wartosc na stan wewnetrzny aplikacji:
 -- exercises_seed_version, programs_seed_version, motyw, ...

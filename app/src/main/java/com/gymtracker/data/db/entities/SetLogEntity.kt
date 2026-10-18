@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Zalogowana seria - jedno wykonanie ćwiczenia w treningu.
@@ -21,6 +22,9 @@ import androidx.room.PrimaryKey
  *
  * [restAfterS] i [restTargetS] wypełnia timer przerwy (M5); w M4 zostają `NULL`.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "set_logs",
     foreignKeys = [

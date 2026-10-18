@@ -12,10 +12,10 @@ kalendarz z harmonogramem „co N dni”, trening z timerem w notyfikacji, pauz�
 logowaniem serii i notatką, timer przerwy z alarmem, celem na ćwiczenie
 i średnimi, historia treningów z filtrami i statystyki ćwiczenia z wykresami,
 zdjęcia i filmy z galerii oraz kroki wykonania na karcie ćwiczenia, karta postaci
-ze wskaźnikami i wykresami zmian, a z M9 ustawienia: alarm przerwy, język
-aplikacji i „O aplikacji”).
-Kolejny krok: kopia zapasowa (eksport/import ZIP), ekran archiwum ćwiczeń
-i wydanie podpisane (reszta M9).
+ze wskaźnikami i wykresami zmian, a z M9 ustawienia — alarm przerwy, język
+aplikacji i „O aplikacji” — oraz kopia zapasowa: eksport i wczytanie ZIP,
+import własnego katalogu ćwiczeń z pliku i dziennik „Ostatnie importy”).
+Kolejny krok: ekran archiwum ćwiczeń i wydanie podpisane (reszta M9).
 
 ## Wymagania
 
@@ -147,6 +147,9 @@ Gym_app/
 | Kroki wykonania | `exercises.instructions` jako lista kroków (jedna linia = jeden krok), obok swobodnego komentarza (`notes`); numerację z linii odcinamy przy zapisie, bo numeruje UI |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
 | Ustawienia | DataStore (Preferences): motyw, domyślna przerwa, alarm przerwy (M9); język wybiera systemowy ekran (`localeConfig`), bez AppCompat |
+| Kopia zapasowa | jeden plik ZIP (`gymtracker.json` + `media/` z własnymi miniaturami) zapisany przez SAF; wczytanie w trybie **„zastąp”** (wierny snapshot: identyfikatory zostają) albo **„dopisz”** (scalenie: nowe identyfikatory, klucze obce przepisane, wiersz rozpoznany po `external_id` albo nazwie wykorzystany zamiast powielony); całość w jednej transakcji, odmowa w trakcie treningu, kontrola ścieżek miniatur; zdjęcia z galerii wracają jako wskazania do ponownego wybrania |
+| Import katalogu z pliku | JSON o formacie danych startowych (`schema_version`, `exercises[]`) wskazany w Ustawieniach; dopisywanie po `external_id`, a brak `schema_version`, nowsza wersja, puste `exercises` i nie-JSON kończą się **kodem** odrzucenia w dzienniku |
+| Dziennik importów | tabela `seed_imports`: skąd przyszły dane, co weszło, co odrzucono i dlaczego (odcisk SHA-256 treści, kod błędu); lista „Ostatnie importy” w Ustawieniach pokazuje też pliki, które **nie** weszły |
 | DI | Hilt (KSP) |
 | Testy | JUnit4 + Robolectric (testy JVM), CI na GitHub Actions |
 | minSdk / targetSdk | 26 / 36 |
@@ -195,7 +198,7 @@ Gym_app/
 | **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 | **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
-| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”), kopia zapasowa ZIP, ekran archiwum, wydanie (R8 + podpisany AAB) | ◐ |
+| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”) ✔, kopia zapasowa ZIP ✔, ekran archiwum, wydanie (R8 + podpisany AAB) | ◐ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

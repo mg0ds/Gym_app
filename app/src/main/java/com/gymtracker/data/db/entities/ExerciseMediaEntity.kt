@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Załącznik ćwiczenia: zdjęcie albo film **z galerii** (M7).
@@ -22,6 +23,9 @@ import androidx.room.PrimaryKey
  * `kind` pilnuje słownika w migracji (`CHECK IN ('image','video','youtube','link')`),
  * bo Room nie umie wygenerować `CHECK` z encji (tak samo jak `rest_intervals`).
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "exercise_media",
     foreignKeys = [

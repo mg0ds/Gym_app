@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Ćwiczenie w dniu planu: cel (serie, powtórzenia albo czas), przerwa,
@@ -17,6 +18,9 @@ import androidx.room.PrimaryKey
  * * [targetRepsUnit] - `reps`, `seconds` albo `meters` (serie na czas, np. deska),
  * * [note] - komentarz do pozycji (z seeda trafia tu np. „Ramped”).
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "plan_day_exercises",
     foreignKeys = [

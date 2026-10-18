@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Plan treningowy (wbudowany z seeda albo ułożony przez użytkownika).
@@ -15,6 +16,9 @@ import androidx.room.PrimaryKey
  * Dni ([PlanDayEntity]) i ćwiczenia dni ([PlanExerciseEntity]) leżą w osobnych
  * tabelach; usunięcie planu kasuje je kaskadowo, więc nie zostają sieroty.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "plans",
     indices = [Index(value = ["external_id"], unique = true, name = "idx_plans_ext")],

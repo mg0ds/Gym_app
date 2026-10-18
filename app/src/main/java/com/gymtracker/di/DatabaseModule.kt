@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.DatabaseMigrations
+import com.gymtracker.data.backup.BackupDao
 import com.gymtracker.data.db.daos.AppMetaDao
 import com.gymtracker.data.db.daos.BodyDao
 import com.gymtracker.data.db.daos.CalendarDao
@@ -11,6 +12,7 @@ import com.gymtracker.data.db.daos.ExerciseDao
 import com.gymtracker.data.db.daos.MediaDao
 import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.RestDao
+import com.gymtracker.data.db.daos.SeedImportDao
 import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.db.daos.SetLogDao
 import com.gymtracker.data.db.daos.StatsDao
@@ -34,6 +36,12 @@ object DatabaseModule {
 
     @Provides
     fun provideAppMetaDao(database: AppDatabase): AppMetaDao = database.appMetaDao()
+
+    @Provides
+    fun provideSeedImportDao(database: AppDatabase): SeedImportDao = database.seedImportDao()
+
+    @Provides
+    fun provideBackupDao(database: AppDatabase): BackupDao = database.backupDao()
 
     @Provides
     fun provideExerciseDao(database: AppDatabase): ExerciseDao = database.exerciseDao()

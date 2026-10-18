@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Pomiar wskaźnika z karty postaci (M8).
@@ -22,6 +23,9 @@ import androidx.room.PrimaryKey
  * nie kasuje wskaźników (archiwizuje), więc kaskada sprząta po testach
  * i ewentualnych operacjach porządkowych.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "body_entries",
     foreignKeys = [

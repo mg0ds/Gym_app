@@ -3,6 +3,7 @@ package com.gymtracker.data.db.entities
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Wskaźnik karty postaci: waga, obwody, procent tłuszczu (M8).
@@ -21,6 +22,9 @@ import androidx.room.PrimaryKey
  * (masa ciała bywa celem w obie strony), a nie co aplikacja uważa za zdrowe.
  * Wartości pilnuje `CHECK` w migracji - Room nie umie go wygenerować z encji.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(tableName = "metric_types")
 data class MetricTypeEntity(
     @PrimaryKey(autoGenerate = true)

@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Dzień planu (np. „Workout A”). Kolejność wyznacza [position] - to ona się
@@ -14,6 +15,9 @@ import androidx.room.PrimaryKey
  * numeru; przestawianie robi się więc w dwóch krokach (najpierw wartości
  * tymczasowe, potem docelowe) - patrz `PlanDao.reorderDays`.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "plan_days",
     foreignKeys = [

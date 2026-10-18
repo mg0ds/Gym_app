@@ -13,6 +13,7 @@ import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.db.entities.RecurrenceEntity
 import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.ScheduledSessionEntity
+import com.gymtracker.data.db.entities.SeedImportEntity
 import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SessionExerciseEntity
 import com.gymtracker.data.db.entities.SetLogEntity
@@ -31,7 +32,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Test migracji schematu: zakłada bazę w wersji 1 (taką, jaką miała użytkownika
- * aplikacja z M0), otwiera ją kodem, który zna wersję 8, i sprawdza, że:
+ * aplikacja z M0), otwiera ją kodem, który zna wersję 9, i sprawdza, że:
  *
  *  * dane użytkownika przetrwały,
  *  * Room zaakceptował schemat po migracji (sam porównuje go z oczekiwanym),
@@ -44,7 +45,9 @@ import org.robolectric.RobolectricTestRunner
  *    znika razem z ćwiczeniem (kaskada),
  *  * karta postaci z migracji 7→8 działa: migracja zakłada dziesięć wbudowanych
  *    wskaźników, pomiar da się zapisać, drugi pomiar tego samego dnia jest
- *    odrzucany kluczem `UNIQUE`, a usunięcie wskaźnika zabiera jego pomiary.
+ *    odrzucany kluczem `UNIQUE`, a usunięcie wskaźnika zabiera jego pomiary,
+ *  * dziennik importów z migracji 8→9 przyjmuje wpisy (także powtórzone klucze
+ *    indeksu - indeks jest zwykły, nie unikalny).
  *
  * Gdyby SQL w [DatabaseMigrations] rozjechał się z tym, co generuje Room
  * (np. brakujący `NOT NULL` czy `DEFAULT` przy dodanej kolumnie), ten test
@@ -66,7 +69,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 8 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media i wskazniki`() = runTest {
+    fun `migracja 1 do 9 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media, wskazniki i dziennik importow`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -337,6 +340,34 @@ class SchemaMigrationTest {
             // przerw (SET NULL), więc statystyki ćwiczenia zostają czytelne.
             database.setLogDao().deleteSet(setWithRest)
             assertNull(requireNotNull(database.restDao().get(restId)).setLogId)
+
+            // Migracja 8→9: dziennik importów. Wpis wchodzi, indeks jest zwykły
+            // (ten sam plik może być wczytany kilka razy), a metadane z M0 są
+            // nietknięte - dziennik dokłada się obok, nie zamiast.
+            database.seedImportDao().insert(
+                SeedImportEntity(
+                    seedId = "moje-cwiczenia.json",
+                    version = "2026-10-01",
+                    checksum = "abc123",
+                    importedAtEpochMs = 8_000L,
+                    statsJson = "{\"status\":\"done\",\"imported\":5,\"skipped\":0,\"total\":5}",
+                ),
+            )
+            database.seedImportDao().insert(
+                SeedImportEntity(
+                    seedId = "moje-cwiczenia.json",
+                    version = "2026-10-01",
+                    checksum = "abc123",
+                    importedAtEpochMs = 9_000L,
+                    statsJson = "{\"status\":\"done\",\"imported\":0,\"skipped\":5,\"total\":5}",
+                ),
+            )
+            assertEquals(2, database.seedImportDao().observeRecent(10).first().size)
+            assertEquals(
+                9_000L,
+                requireNotNull(database.seedImportDao().findLastWithChecksum("abc123")).importedAtEpochMs,
+            )
+            assertEquals("1", database.appMetaDao().get("catalog_version"))
         } finally {
             database.close()
         }

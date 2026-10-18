@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Zaplanowany trening w kalendarzu - **wpis**, nie reguła.
@@ -33,6 +34,9 @@ import androidx.room.PrimaryKey
  * uznaje `NULL` za różne wartości, więc wpisy bez dnia planu (np. po usunięciu
  * planu) nie kolidują ze sobą.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "scheduled_sessions",
     foreignKeys = [

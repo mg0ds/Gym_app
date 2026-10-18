@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * Ćwiczenie w katalogu (wbudowane z seeda albo dodane przez użytkownika).
@@ -15,6 +16,9 @@ import androidx.room.PrimaryKey
  * Listy (mięśnie dodatkowe) trzymamy jako JSON w [secondaryMusclesJson] -
  * to proste i wystarczające, a nie wymaga dodatkowej tabeli.
  */
+// `@Serializable`: wiersz jedzie także do kopii zapasowej (M9) - kopią jest
+// JSON z nazwami pól takimi jak kolumny (`data/backup/BackupModels.kt`).
+@Serializable
 @Entity(
     tableName = "exercises",
     indices = [

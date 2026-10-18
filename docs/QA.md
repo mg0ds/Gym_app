@@ -134,10 +134,23 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 |---|---|---|
 | 5.1 | Pierwsze uruchomienie na czystej instalacji | Katalog: 23 ćwiczenia; plan startowy z 3 dniami wczytuje się razem z nim (albo przyciskiem w Ustawieniach) |
 | 5.2 | Zmień nazwę ćwiczenia z seeda, uruchom re-import | Nazwa użytkownika **nie** nadpisana |
-| 5.3 | Eksport ZIP → odinstaluj → zainstaluj → import | Wszystkie dane i media wracają |
-| 5.4 | Import z pliku o wyższym `schemaVersion` | Czytelny błąd, brak częściowego importu |
-| 5.5 | Wyszukaj „obwod” (bez ogonka) | Znajduje „obwód” |
-| 5.6 | Tryb samolotowy + pełne przejście apki | Wszystko działa, żadne żądanie sieciowe nie jest wymagane |
+| 5.3 | „Eksportuj kopię (ZIP)” → wskaż miejsce | Plik `gymtracker-<data>.zip` w „Pobranych”; komunikat „Kopia zapisana. Wiersze: N, miniatury: M.”; w archiwum `gymtracker.json` i `media/…` |
+| 5.4 | „Wczytaj kopię (ZIP)” → wskaż plik | Pytanie „Wczytać kopię?” z datą, wersją schematu, liczbą wierszy i wersją aplikacji z kopii; „Anuluj” nic nie zmienia |
+| 5.5 | Kopia → „Zastąp dane” | Komunikat „Dane wczytane. Wiersze: N, pominięte: 0.”; liczby wierszy w każdej tabeli jak w kopii; miniatury na miejscu |
+| 5.6 | Kopia → „Dopisz” na bazie, która ma już te same dane | Ćwiczenia, plany, wskaźniki karty postaci, dni planu i pomiary **nie** dublują się (komunikat pokazuje „istniejące”); historia (treningi, serie, przerwy) dopisuje się obok |
+| 5.7 | „Dopisz” kopię z innym ćwiczeniem własnym (bez `external_id`) o tej samej nazwie | Ćwiczenie rozpoznane po nazwie, historia dowiązuje się do niego zamiast tworzyć drugi wiersz |
+| 5.8 | Wczytaj kopię z plikiem niebędącym kopią (`readme.txt` w ZIP) | „To nie jest kopia GymTracker.”; brak zmian w danych |
+| 5.9 | Wczytaj kopię z pliku o wyższym `schema_version` | „Kopia z nowszej wersji aplikacji.”; brak częściowego importu |
+| 5.10 | Wczytaj uszkodzony plik (obcięty JSON) | „Kopia jest uszkodzona.”; brak częściowego importu |
+| 5.11 | Rozpocznij trening i spróbuj wczytać kopię | „Najpierw zakończ trwający trening.”; baza bez zmian |
+| 5.12 | Eksport, wyczyszczenie danych apki, import tej samej kopii | Wszystkie dane i miniatury wracają; zdjęcia z galerii trzeba wskazać na nowo (aplikacja ich nie kopiuje) |
+| 5.13 | „Wczytaj katalog z pliku (JSON)” z poprawnym plikiem (dwa nowe ćwiczenia) | „<plik>: dodano 2, pominięto 0.”; ćwiczenia widoczne w katalogu |
+| 5.14 | Ten sam plik katalogu wczytany drugi raz | „dodano 0, pominięto 2.”; brak duplikatów |
+| 5.15 | Plik katalogu bez `schema_version` / z nowszą wersją / bez ćwiczeń / nie-JSON | Komunikat z powodem w miejscu przycisku; brak zmian w danych |
+| 5.16 | „Ostatnie importy” po imporcie pliku i po odrzuconym pliku | Wpis z nazwą pliku i datą; wpis odrzucony pokazuje powód; pozycja przeżywa restart aplikacji |
+| 5.17 | Wyszukaj „obwod” (bez ogonka) | Znajduje „obwód” |
+| 5.18 | Tryb samolotowy + pełne przejście apki | Wszystko działa, żadne żądanie sieciowe nie jest wymagane |
+| 5.19 | Aktualizacja z M9a (baza v8) na v9 | Migracja 8 → 9 bez błędu; `user_version = 9`, dane i miniatura bez zmian, tabela `seed_imports` pusta |
 
 ## 6. Dostępność
 
