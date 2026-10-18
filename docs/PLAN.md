@@ -144,6 +144,7 @@ com.gymtracker
 │  ├─ model (Exercise, ExerciseMedia, InstructionSteps, Plan, PlanDay, ScheduledSession, Session, SetLog, RestInterval, MetricType, BodyEntry)
 │  ├─ media (MediaLinker)                   # wskazanie pliku, nie kopia (M7)
 │  ├─ repository (ExerciseRepository, MediaRepository, ...)  # interfejsy + wlasne typy
+│  ├─ body (BodyProgressCalculator)         # zmiany, seria i zakres pomiarow (M8)
 │  ├─ schedule (ScheduleGenerator, RecurrenceExpander)
 │  ├─ timer (WorkoutTimerState)             # czysty model zegara treningu (M4)
 │  └─ stats (RestStats, OneRepMax, VolumeStats)
@@ -380,17 +381,73 @@ metric_types 1─* body_entries          (karta postaci)
     przeglądarka). Miniatura z `img.youtube.com` wymagałaby uprawnienia
     sieciowego w aplikacji, która ma zostać w 100% offline (§6.6; odłożone
     w §11) (M7).
+47. **Wskaźnik karty postaci trzyma nazwę w bazie, ale wbudowany ma klucz.**
+    Nazwa jest edytowalna, więc musi leżeć w bazie; żeby jednak polski
+    i angielski interfejs widziały swoje nazwy („Waga” / „Weight”), wbudowane
+    wskaźniki mają `builtin_key`, a ekran pokazuje nazwę z zasobów. Pierwsza
+    własna nazwa czyści klucz i od tej chwili wygrywa wpis użytkownika. To ten
+    sam układ co `muscle_group` w katalogu ćwiczeń (nazwa w bazie, słownik
+    w UI), tylko odwrócony — bo tu edytowalna jest nazwa, a nie etykieta (M8).
+    Nazwa **nie** powtarza jednostki: „Tłuszcz”, a nie „Tłuszcz (%)” — jednostka
+    stoi obok w podpisie wiersza i w podsumowaniu (`% • Bez oceny`, `82.5 kg`).
+    Znak `%` w nazwie wyszedłby na ekran jako `%%`: `stringResource` nie puszcza
+    tekstu przez `String.format`, więc escapowanie formatu nie ma czego
+    rozwinąć (błąd złapany na emulatorze w M8).
+48. **Jeden pomiar na dzień, bo pomiar opisuje stan dnia.** Unikalny indeks
+    `(metric_type_id, date)` zamienia „drugi pomiar z tej samej daty” w poprawkę
+    pierwszego, a nie w pytanie „który jest prawdziwy”. Przeniesienie pomiaru na
+    zajęty dzień zabiera tamten wiersz — inaczej baza odrzuciłaby zapis kluczem,
+    a użytkownik zobaczyłby błąd bez wyjaśnienia (M8).
+49. **Karta postaci jest liczbowa.** Wykresy zmian są sensem tego ekranu, a z
+    tekstu i „tak/nie” wykresu nie ma; dlatego w bazie zostaje sam
+    `value_num`, a nie `kind`/`value_text` z pierwotnego projektu. Gdy pojawi się
+    wskaźnik nie-liczbowy, wróci razem z nim (M8).
+50. **Oś X wykresu to czas, a nie numer pomiaru.** W statystykach ćwiczenia
+    kolejne treningi są równo oddalone (pytanie brzmi „czy rosnę z treningu na
+    trening”); przy wadze pytanie brzmi „co się zmieniło w trzy miesiące”, więc
+    trzymiesięczna przerwa w mierzeniu musi zostać przerwą na osi (x = `epochDay`).
+    Kalkulator i tak sprowadza historię do jednego punktu na dzień, żeby oś się
+    nie cofała (M8).
+51. **Kafelki przełączają wskaźnik, a nie mnożą wykresy.** Pierwotny plan
+    zakładał siatkę mini-wykresów per wskaźnik; przy dziesięciu wbudowanych byłaby
+    to ściana liczb, na której nie widać żadnej zmiany. Chip u góry wybiera jeden
+    wskaźnik, a wykres, podsumowanie i lista pokazują jego historię (M8).
+52. **Deltę liczymy od najnowszego pomiaru z dnia odniesienia albo starszego.**
+    Mierzymy się wtedy, kiedy się mierzymy, więc „zmiana 30 dni” znaczy „od tego,
+    co mieliśmy miesiąc temu”, a nie „od pomiaru dokładnie sprzed 30 dni”. Brak
+    punktu odniesienia to brak zmiany (`null`), a nie zmiana liczona od zera;
+    „seria” liczy się tylko wtedy, gdy ostatni pomiar jest z dziś albo z wczoraj —
+    inaczej seria sprzed pół roku wisiałaby na ekranie jako aktualny wynik (M8).
+
+53. **Wykres karty postaci jest dopasowany do szerokości i nie da się go przesunąć.**
+    Domyślny zoom startowy Vico to `max(fixed(1), Content)`, czyli „bez powiększenia”
+    dla treści szerszej niż ekran - a przy dacie na osi X treść ma stałą liczbę
+    pikseli na jednostkę, więc trzy miesiące pomiarów zajmowały kilka ekranów
+    i widać było pierwsze dziesięć dni. Ustawiamy `Zoom.Content` na sztywno
+    i wyłączamy gesty: okno wykresu wybierają chipy zakresu (1M/3M/…), a wykres
+    przewijany pod palcem gubi jednoznaczną odpowiedź na pytanie „co tu widać”
+    (M8). Na wykresach ćwiczeń zostaje jak było - tam oś X to numer treningu,
+    więc treść jest wąska i domyślne zachowanie jest w porządku.
+54. **Oś wartości liczy się od pomiarów, nie od zera.** Domyślny zakres Vico
+    (`auto()`) wciąga zero, więc waga 82.5-84 kg narysowana od zera to linia
+    prosta przy górnej krawędzi - czyli brak wykresu tam, gdzie ma być widać
+    zmianę. Zakres bierzemy z najniższej i najwyższej narysowanej liczby (razem
+    z linią celu) i przycinamy do „okrągłego” kroku etykiet (1/2/5 × potęga
+    dziesiątki), bo Vico stawia etykiety od dolnej krawędzi zakresu i bez
+    przycięcia wychodzi rząd „82.35, 83.35”. Gdy wszystkie pomiary są równe,
+    podstawiamy rozpiętość 1: bez tego dzielilibyśmy przez zero w połowie rysowania
+    (M8).
 
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
 * Migracje pisane ręcznie + test `MigrationTestHelper` (żadnego `fallbackToDestructiveMigration` w produkcji).
 * Test: migracja z v1 → vN na kopii bazy z danymi.
-* Stan: **v7** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
+* Stan: **v8** (v1 → fundament, v2 → katalog ćwiczeń + FTS4, v3 → plany, dni,
   ćwiczenia dnia i sesje, v4 → reguły harmonogramu i wpisy w kalendarzu,
   v5 → logowanie serii i pauza treningu, v6 → przerwy między seriami,
-  v7 → kroki wykonania i załączniki ćwiczenia).
-  `SchemaMigrationTest` przechodzi całą drogę 1 → 7, a migracje sprawdzamy także
+  v7 → kroki wykonania i załączniki ćwiczenia, v8 → karta postaci).
+  `SchemaMigrationTest` przechodzi całą drogę 1 → 8, a migracje sprawdzamy także
   na urządzeniu z bazą z poprzedniego etapu (2 → 3: 24 ćwiczenia, w tym własne,
   zostały na miejscu; 3 → 4: plany, sesje i historia bez zmian; 4 → 5: treningi
   i kalendarz bez zmian, tabela serii pusta; 5 → 6: treningi, serie i kalendarz
@@ -402,6 +459,17 @@ metric_types 1─* body_entries          (karta postaci)
   `idx_media_exercise`. `CHECK` na `kind` jest tylko w SQL-u migracji: Room nie
   porównuje `CHECK`-ów przy walidacji schematu (tak samo jak przy
   `rest_intervals.ended_reason` w M5), a słownik w bazie nadal pilnuje literówek.
+* Migracja 7 → 8 zakłada dwie tabele karty postaci: `metric_types` (nazwa,
+  jednostka, kierunek, cel, `builtin_key`, archiwizacja, pozycja) i `body_entries`
+  (wskaźnik, dzień, wartość, notatka) z kluczem obcym `ON DELETE CASCADE`
+  oraz **jednym** indeksem `idx_body_uniq` na `(metric_type_id, date)`. Ten
+  indeks jest unikalny, więc pilnuje „jeden pomiar na dzień” i obsługuje zwykłe
+  zapytania po wskaźniku — drugi, nieunikalny indeks na tych samych kolumnach nic
+  by nie dodał poza miejscem na dysku. Migracja **wpisuje też dziesięć
+  wbudowanych wskaźników**: lista jest stała i znana na etapie jej pisania, więc
+  import przy starcie (który musiałby odróżniać „brak wskaźników” od „użytkownik
+  wszystko zarchiwizował”) jest niepotrzebny. `CHECK` na `direction` zostaje
+  w SQL-u migracji — z tego samego powodu co `kind` w v7 i `ended_reason` w v6.
 * Migracje v4 dodają dwie tabele (`recurrences`, `scheduled_sessions`) i trzy
   indeksy; nie zmieniają istniejących kolumn, więc dane z M2 przechodzą bez
   przepisywania. `MigrationTestHelper` porównuje wynikowy schemat z plikiem
@@ -674,6 +742,36 @@ pokazują, a brak wyników mówi wprost, że to filtry — nie brak treningów.
 │ 1.10.2026     3  50 kg      15        —    │
 └───────────────────────────────────────────┘
 ```
+
+**Karta postaci (M8)**
+```
+┌───────────────────────────────────────────┐
+│ Postać                              [☰]   │  <- ☰ = wskaźniki (lista)
+├───────────────────────────────────────────┤
+│ (Waga) (Obwód klatki) (Obwód bicepsa) …   │  <- przełącznik wskaźnika
+├─ Zmiana w czasie ─────────────────────────┤
+│ [1M] [3M] [6M] [1R] [Wszystko]            │
+│ ● Wartość    ● Cel                        │
+│ [linia: 84.5 → 82.0 → 81.5, cel 78]       │
+│ [        Dodaj pomiar        ]            │
+├─ Podsumowanie ────────────────────────────┤
+│ Ostatni pomiar     81.5 kg • 2.09.2026 (dziś)│
+│ Zmiana od poprzedniego     -0.5 kg • 1 dzień│
+│ Zmiana 30 dni              -3.0 kg • 30 dni│
+│ Cel                    78 kg • zostało 3.5 kg│
+│ Seria pomiarów                  5 dni z rzędu│
+│ Pomiary w zakresie                           │
+├─ Pomiary ─────────────────────────────────┤
+│ 81.5 kg   2.09.2026              [Edytuj] │
+│ po treningu                               │
+│ 82.0 kg   1.09.2026              [Edytuj] │
+└───────────────────────────────────────────┘
+```
+Jeden wskaźnik naraz: chip wybiera, a wykres, podsumowanie i lista pokazują jego
+historię (nad siatką mini-wykresów — §4.2 pkt 51). Zmiana dostaje kolor tylko
+wtedy, gdy wskaźnik ma kierunek („w dół dobrze” przy redukcji), bo aplikacja nie
+ocenia, w którą stronę użytkownik chce iść. Wbudowane wskaźniki można
+przemianować (tracą wtedy tłumaczoną nazwę) i zarchiwizować — pomiary zostają.
 
 ---
 
@@ -1050,15 +1148,30 @@ miniatura.
 
 ### 6.7 Karta postaci
 
-* `metric_types` startowo: Waga (kg), Obwód klatki, Obwód bicepsa, Obwód pasa,
-  Obwód uda, Obwód łydki, % tkanki tłuszczowej, Szyja, Barki, Przedramię.
+* `metric_types` startowo (zakłada je migracja 7 → 8): Waga (kg), Obwód klatki,
+  Obwód bicepsa, Obwód pasa, Obwód uda, Obwód łydki, Tłuszcz (%), Szyja, Barki,
+  Przedramię. Wbudowane mają `builtin_key`, więc ekran pokazuje nazwę
+  z zasobów („Waga” / „Weight”), a pierwsza własna nazwa odbiera klucz (§4.2 pkt 47).
 * Użytkownik dodaje własne: nazwa, jednostka, kierunek (`up_good`/`down_good`/`neutral`),
-  opcjonalny cel.
+  opcjonalny cel. Wszystkie wbudowane startują jako `neutral` — kierunek to
+  preferencja użytkownika, a nie ocena aplikacji.
 * Pomiar: data + wartość + notatka; **unikalny indeks (typ, data)** → jeden pomiar
-  dziennie, edycja zamiast duplikatu.
-* Wykres: linia + opcjonalna linia celu; przełącznik kafelków (mini-wykres per wskaźnik).
-* Bonus: `Δ` względem poprzedniego pomiaru, 30 dni i 90 dni + „streak” mierzenia.
-* Archiwizacja typu (nie usuwamy danych historycznych).
+  dziennie, poprawka zamiast duplikatu (§4.2 pkt 48). Data z przyszłości nie jest
+  do wyboru — pomiar opisuje stan ciała, a nie plan.
+* Wykres: linia wartości + linia celu (drugi szereg o stałej wartości), zakres
+  1M/3M/6M/1R/wszystko (wspólne chipy z historią). Oś X to czas (`epochDay`),
+  bo tu pytanie brzmi „co się zmieniło w trzy miesiące” (§4.2 pkt 50).
+  Wykres jest dopasowany do szerokości i nie przewija się (okno ustawiają chipy),
+  a oś wartości liczona jest od pomiarów, z „okrągłym” krokiem etykiet
+  (§4.2 pkt 53-54).
+* Przełącznik wskaźników: chip u góry wybiera jeden, a nie siatka mini-wykresów
+  (§4.2 pkt 51).
+* Podsumowanie: ostatni pomiar (z „dziś / wczoraj / N dni temu”), `Δ` względem
+  poprzedniego pomiaru, `Δ` 30 dni i 90 dni, cel z „zostało”, seria dni
+  z pomiarem, liczba pomiarów w zakresie (§4.2 pkt 52). Zmiana dostaje kolor
+  zgodny z kierunkiem wskaźnika.
+* Archiwizacja typu (nie usuwamy danych historycznych); zarchiwizowany wskaźnik
+  zostaje na liście „Wskaźniki” z podpisem i wraca jednym kliknięciem.
 
 ### 6.8 Import danych startowych
 
@@ -1804,30 +1917,83 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 * **bez `WorkManager`** — osierocone miniatury sprząta jeden skan przy starcie
   (§4.2 pkt 45).
 
+**M8 ✔ (karta postaci)** — w repo działa:
+
+* **Baza w wersji 8**: `metric_types` + `body_entries` (migracja 7 → 8, jeden
+  indeks unikalny `(metric_type_id, date)`, `CHECK` na `direction`, dziesięć
+  wbudowanych wskaźników wpisanych przez migrację — §4.3),
+* **Domena**: `BuiltinMetric`, `MetricDirection`, `MetricType`, `BodyEntry`
+  i `BodyProgressCalculator` — czysta arytmetyka zakresu, zmian (od poprzedniego,
+  30 i 90 dni) i serii pomiarów, bez bazy i bez zegara,
+* **Repozytorium**: `BodyRepositoryImpl` — poprawka pomiaru dnia zamiast duplikatu,
+  przenoszenie daty w transakcji (dzień docelowy zwalniany z innego wiersza),
+  archiwizacja bez kasowania pomiarów, pusta nazwa znaczy „zostaw obecną”
+  (dzięki temu zmiana samego celu nie odbiera wbudowanemu wskaźnikowi
+  tłumaczonej nazwy),
+* **Ekran „Postać”**: przełącznik wskaźników (chipy wspólne z historią), wykres
+  liniowy z linią celu (oś X = czas) i legendą, dopasowany do szerokości i bez
+  przewijania, z osią wartości liczoną od pomiarów (§4.2 pkt 53-54),
+  podsumowanie z kolorowaną zmianą zgodnie z kierunkiem, lista pomiarów
+  w zakresie, „Dodaj pomiar” z datą z `DatePicker` (bez przyszłości) i poprawką/
+  kasowaniem pomiaru z potwierdzeniem,
+* **Ekran „Wskaźniki”** (`body/metrics`): lista aktywnych i zarchiwizowanych
+  (z podpisem), dodawanie, poprawianie (nazwa, jednostka, kierunek, cel)
+  i archiwizacja z przywróceniem,
+* **Nawigacja**: `Routes.BODY` jako piąta pozycja dolnego paska (ikona `Person`)
+  i `Routes.BODY_METRICS` jako pełny ekran bez paska; teksty PL/EN 1:1 — po M8
+  **445 kluczy** w obu plikach,
+* **testy JVM: 242** (doszły: `BodyProgressTest` — zakres, zmiany 30/90 dni, jeden
+  punkt na dzień, seria i kierunek; `BodyRepositoryTest` — poprawka dnia,
+  przenoszenie daty, archiwizacja, klucz wbudowanego wskaźnika, kaskada;
+  `BodyChartRangeTest` — oś wartości od pomiarów i „okrągły” krok etykiet;
+  migracja 7 → 8 i słownik kierunków w `SchemaMigrationTest`). `:app:lintDebug`
+  i `:app:assembleDebug` bez błędów,
+* **naprawiony flak z M7**: `MediaRepositoryTest` podstawia sobie `filesDir`,
+  bo dzielił katalog `thumbs` ze startowym sprzątaniem aplikacji, które
+  w Robolectric potrafi wypaść w środku testu (szczegóły w §9),
+* **Weryfikacja na urządzeniu (emulator API 36)**: patrz §9 (weryfikacja po M8).
+
+Świadome odstępstwa i odroczenia z M8:
+
+* **bez wskaźników nie-liczbowych** (tekst, „tak/nie”) — wykres zmian jest sensem
+  tego ekranu, a z tekstu wykresu nie ma (§4.2 pkt 49, §11),
+* **bez siatki mini-wykresów** — jeden wskaźnik naraz; przy dziesięciu wbudowanych
+  siatka byłaby ścianą liczb, na której nie widać żadnej zmiany (§4.2 pkt 51),
+* **bez przestawiania kolejności wskaźników** — idą po `position` (wbudowane 1..10,
+  własne za nimi); przestawianie wróci, gdy będzie co przestawiać (§11),
+* **bez eksportu pomiarów** do CSV/ZIP — to M9.
+
 ---
 
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika), FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7) | Room in-memory + `runTest` |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
 
-Stan na M7: **210 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
-(Robolelectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
+Stan na M8: **242 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
+(Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3, 3 → 4, 4 → 5, 5 → 6 i 6 → 7.
+2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7 i 7 → 8.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
 test, który pisze coś do tego katalogu, dzieli go z aplikacją. Dlatego
 sprzątanie z założenia nie rusza plików młodszych niż doba (§4.2 pkt 45) — to
 jednocześnie ochrona przed wyścigiem z właśnie podpinanym załącznikiem.
+
+Uwaga z M8: „młodsze niż doba” nie wystarczy, gdy test **celowo** postarza plik,
+żeby sprawdzić, że o zostaniu decyduje wiersz w bazie — startowe sprzątanie
+aplikacji (wątek w tle, więc i moment nieprzewidywalny) nie zna wierszy z bazy
+testu i taki plik skasuje. Dlatego `MediaRepositoryTest` podstawia sobie
+`filesDir` na własny katalog (`ContextWrapper`); flak wychodził raz na kilka
+pełnych przebiegów i nie miał nic wspólnego z kodem produkcyjnym.
 
 Weryfikacja na urządzeniu (emulator API 36) po M3: migracja bazy z M2 bez utraty
 danych i historia treningów bez zmian, kryterium M3 („co 3 dni, od 1.10 do 31.12,
@@ -1906,6 +2072,43 @@ odpięcia mówił „Usuń” zamiast „Odpiąć załącznik” (obok zdjęcia 
 kasowanie pliku). Kafelek dostał też opis dla czytnika ekranu (podpis, a bez
 podpisu „Zdjęcie”/„Film”). Scenariusze: `docs/QA.md`.
 
+Weryfikacja na urządzeniu (emulator API 36) po M8: migracja 7 → 8 na żywej bazie
+z M7 (`user_version = 8`, 25 ćwiczeń, 2 plany, 5 treningów, 17 serii, 9 przerw
+i 1 załącznik bez zmian; `metric_types` = 10 wbudowanych z kluczami, jednostkami
+i pozycjami, `body_entries` puste). Piąta zakładka „Postać” wchodzi na ekran
+z chipami wskaźników, zakresami 1M/3M/6M/1R/Wszystko, wykresem i podsumowaniem;
+wbudowane wskaźniki mają polskie nazwy, jednostki i „Bez oceny”. Trzy pomiary
+(84 → 20.09, 83 → 10.10 z notatką „na czczo”, 82.5 → 17.10, wpisane z klawiatury
+ekranowej) dały podsumowanie „82.5 kg • 17.10.2026 (wczoraj)”, „-0.5 kg • 7 dni”
+i „1 dzień z rzędu”. **Dwa defekty wyłapane dopiero tutaj i naprawione:**
+oś X wykresu pokazywała pierwsze ~10 dni z trzech miesięcy (domyślny zoom Vico
+dla treści szerszej niż ekran; jest §4.2 pkt 53), a oś Y startowała od zera
+(waga 82.5-84 kg to linia prosta przy górnej krawędzi; jest §4.2 pkt 54, zakres
+liczony od pomiarów z „okrągłym” krokiem). Po poprawce: 3M rysuje 20.09 → 18.10
+z etykietami co 4 dni i osią 82.5/83/83.5/84, a 1M zwęża oś do 10.10 → 18.10.
+Cel 78 i kierunek „W dół dobrze” (edycja wskaźnika, pole nazwy zostawione puste)
+dały osobną linię „Cel” z legendą, „zostało 4.5 kg” i kolory: spadek
+„-0.5 kg” jako poprawa, wzrost „+1.5 kg” jako pogorszenie. Dopisanie drugiego
+pomiaru na dziś **nadpisało** wiersz (nadwyżkowe 81.5 zniknęło, „Pomiary
+w zakresie” = 4, nie 5), a „Seria pomiarów” przeskoczyła na 2 dni; przeniesienie
+daty pomiaru 84 kg z 20.09 na zajęty 18.10 przejęło tamten wiersz (3 pomiary
+zamiast 4). W wyborze daty dni od 19.10 wzwyż są nieaktywne, a 18.10 ma podpis
+„Dzisiaj”. Własny wskaźnik „Ramie” (cm, „W górę dobrze”, cel 40) dochodzi na
+koniec listy i chipów; archiwizacja daje podpis „Zarchiwizowany”, chowa go
+z chipów, a „Przywróć wskaźnik” cofa to — po restarcie apki, aktualizacji
+`adb install -r` i obrocie ekranu (tryb poziomy rysuje wykres pełną szerokością)
+wpisy i ustawienia zostają. „Usuń pomiar” pyta „Pomiar z 18.10.2026 zostanie
+usunięty”, a po potwierdzeniu podsumowanie i seria liczą się od nowa. Stan bazy
+po sesji: `metric_types` 11 (10 z `builtin_key`, „Ramie” bez klucza, pozycja 11) —
+wiersz „Weight” trzyma `name = Weight`, `target_num = 78` i „down_good”,
+a „Body fat” — `%` i „neutral”; `body_entries` 2 wiersze. **Trzeci defekt:**
+nazwa wbudowanego wskaźnika pokazywała się jako „Tłuszcz (%%)”, bo
+`stringResource` nie puszcza tekstu przez `String.format` i escapowanie `%%`
+nie ma czego rozwinąć — nazwa nie powtarza już jednostki (§4.2 pkt 47).
+Weryfikacja przez `adb shell input` nie wpisze polskich liter (nazwa własnego
+wskaźnika poszła jako „Ramie”), dlatego scenariusze z polskimi nazwami własnymi
+zostają do przeklikania ręcznie. Scenariusze: `docs/QA.md` rozdział 10.
+
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
 
@@ -1929,12 +2132,12 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV, wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`).
+1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.
 5. **v2.0** — opcjonalna synchronizacja (self-hosted / E2E), udostępnianie planów plikiem JSON.
-6. **Backlog** — TTS/liczenie powtórzeń, kalkulatory (talie, 1RM), katalog >1 planu startowego, przełączanie załączników gestem w podglądzie.
+6. **Backlog** — TTS/liczenie powtórzeń, kalkulatory (talie, 1RM), katalog >1 planu startowego, przełączanie załączników gestem w podglądzie, wskaźniki nie-liczbowe w karcie postaci (tekst, „tak/nie” — §4.2 pkt 49).
 
 ---
 

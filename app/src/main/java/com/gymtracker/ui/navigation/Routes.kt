@@ -23,6 +23,14 @@ object Routes {
     const val ARG_MEDIA_ID = "mediaId"
     const val EXERCISE_MEDIA = "exercise/{$ARG_EXERCISE_ID}/media/{$ARG_MEDIA_ID}"
 
+    // --- karta postaci (M8) ---
+
+    /** Wskaźniki, pomiary i wykres zmian. */
+    const val BODY = "body"
+
+    /** Lista wskaźników: dodawanie, poprawianie i archiwizacja. */
+    const val BODY_METRICS = "body/metrics"
+
     fun exerciseDetail(exerciseId: Long): String = "exercise/$exerciseId"
 
     fun exerciseEdit(exerciseId: Long): String = "exercise/$exerciseId/edit"
@@ -77,5 +85,5 @@ object Routes {
     fun session(sessionId: Long): String = "session/$sessionId"
 
     /** Trasy najwyższego poziomu - na nich pokazujemy dolny pasek nawigacji. */
-    val topLevel: Set<String> = setOf(HOME, EXERCISES, HISTORY, SETTINGS)
+    val topLevel: Set<String> = setOf(HOME, EXERCISES, HISTORY, BODY, SETTINGS)
 }

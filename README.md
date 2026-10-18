@@ -6,12 +6,13 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M7 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
+Stan: **M0–M8 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
 treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
 „co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką,
 timer przerwy z alarmem, celem na ćwiczenie i średnimi, historia treningów
 z filtrami i statystyki ćwiczenia z wykresami, zdjęcia i filmy z galerii oraz
-kroki wykonania na karcie ćwiczenia).
+kroki wykonania na karcie ćwiczenia, karta postaci z wskaźnikami i wykresami
+zmian).
 Kolejny krok: karta postaci z pomiarami i wykresami zmian (M8).
 
 ## Wymagania
@@ -98,14 +99,14 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | główny plan: wymagania, stack, architektura, model danych, ekrany, algorytmy timerów i harmonogramu, kamienie milowe, testy, ryzyka |
 | [`docs/SCHEMA.sql`](docs/SCHEMA.sql) | docelowy DDL bazy lokalnej (Room/SQLite) — realizowany krok po kroku |
-| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki, media i kroki wykonania) |
+| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki, media i kroki wykonania, karta postaci) |
 | [`data/seed/`](data/seed) | dane startowe do importu: `exercises.json` + `programs/*.json` |
 | `app/` | kod aplikacji (Kotlin + Compose, Room, Hilt) |
 
 ```
 Gym_app/
 ├── app/                               # moduł aplikacji
-│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 7.json)
+│   ├── schemas/                       # wyeksportowane schematy Room (1.json … 8.json)
 │   └── src/
 │       ├── main/java/com/gymtracker/  # data/ (db, search, seed, prefs, repo), domain/, di/, ui/
 │       ├── main/res/                  # teksty PL (domyślne) + EN, motyw, ikony
@@ -132,7 +133,7 @@ Gym_app/
 |---|---|
 | Język / UI | Kotlin 2.3 + Jetpack Compose (Material 3) |
 | Budowanie | AGP 9.4, Gradle 9.8, wersje w `gradle/libs.versions.toml` |
-| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 7) |
+| Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 8) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
@@ -191,6 +192,7 @@ Gym_app/
 | **M5** | timer przerwy: start po zalogowanej serii, cel przerwy na ćwiczenie (sesja → karta ćwiczenia → 90 s z ustawień), alarm z dźwiękiem i wibracją przy końcu (także po ubiciu aplikacji), „-15 s” / „+15 s” / „Pomiń”, wliczanie w czas treningu i „pod sztangą”, średnia oraz historia przerw per ćwiczenie | ✔ |
 | **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
+| **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

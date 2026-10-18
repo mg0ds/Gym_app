@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -30,6 +31,8 @@ import com.gymtracker.ui.exercises.ExerciseDetailScreen
 import com.gymtracker.ui.exercises.ExerciseEditScreen
 import com.gymtracker.ui.exercises.ExerciseListScreen
 import com.gymtracker.ui.calendar.CalendarScreen
+import com.gymtracker.ui.body.BodyMetricsScreen
+import com.gymtracker.ui.body.BodyScreen
 import com.gymtracker.ui.calendar.ScheduleFormScreen
 import com.gymtracker.ui.history.ExerciseStatsScreen
 import com.gymtracker.ui.history.HistoryScreen
@@ -43,8 +46,8 @@ import com.gymtracker.ui.settings.SettingsScreen
 
 /**
  * Nawigacja aplikacji: dolny pasek z sekcjami najwyższego poziomu
- * (Dziś / Ćwiczenia / Ustawienia) i ekrany pełnoekranowe (szczegóły, formularz),
- * na których paska nie pokazujemy.
+ * (Kalendarz / Ćwiczenia / Historia / Postać / Ustawienia) i ekrany pełnoekranowe
+ * (szczegóły, formularz), na których paska nie pokazujemy.
  */
 @Composable
 fun GymTrackerNavHost(
@@ -135,6 +138,14 @@ fun GymTrackerNavHost(
                     // Wracamy do szczegółów, które pokażą już zapisane dane.
                     onSaved = { navController.popBackStack() },
                 )
+            }
+
+            composable(Routes.BODY) {
+                BodyScreen(onOpenMetrics = { navController.navigate(Routes.BODY_METRICS) })
+            }
+
+            composable(Routes.BODY_METRICS) {
+                BodyMetricsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.SETTINGS) {
@@ -255,6 +266,10 @@ private enum class BottomDestination(
     // `material-icons-extended` dla jednego glifu to przesada. Gwiazda czyta się
     // jak „rekordy” - i o rekordy w tej zakładce chodzi.
     HISTORY(Routes.HISTORY, Icons.Filled.Star, R.string.nav_history),
+    // Karta postaci to „ja”, więc ikona postaci czyta się dosłownie; wykresu
+    // `material-icons-core` nie ma, a dokładanie `-extended` dla jednego glifu
+    // to przesada (tak samo jak przy gwieździe w historii).
+    BODY(Routes.BODY, Icons.Filled.Person, R.string.nav_body),
     SETTINGS(Routes.SETTINGS, Icons.Filled.Settings, R.string.nav_settings),
 }
 

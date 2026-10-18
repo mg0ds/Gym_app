@@ -2,6 +2,7 @@ package com.gymtracker.data.db
 
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.gymtracker.domain.model.BuiltinMetric
 
 /**
  * Zasady zmian schematu:
@@ -428,6 +429,69 @@ object DatabaseMigrations {
         }
     }
 
+    /**
+     * 7 → 8 (M8): karta postaci - wskaźniki i pomiary.
+     *
+     * `metric_types` trzyma **nazwę**, a nie klucz słownika: użytkownik może
+     * wskaźnik przemianować, więc nazwa musi być edytowalna. Wbudowane mają
+     * jednak `builtin_key` (i dopóki go mają, UI pokazuje nazwę z zasobów),
+     * dzięki czemu polski i angielski interfejs widzą swoje nazwy. Pierwsza
+     * zmiana nazwy czyści klucz - wtedy wygrywa wpis użytkownika.
+     *
+     * `CHECK` na `direction` jest jedynym miejscem, gdzie baza pilnuje słownika
+     * kierunków (Room nie umie go wygenerować z encji - tak jak przy
+     * `rest_intervals.ended_reason` i `exercise_media.kind`).
+     *
+     * Migracja **zakłada od razu dziesięć wbudowanych wskaźników**: lista jest
+     * stała i znana na etapie pisania migracji, a dzięki temu nie potrzebujemy
+     * importu przy starcie, który musiałby odróżniać „brak wskaźników” od
+     * „użytkownik wszystko zarchiwizował”. Pomiary startują puste.
+     */
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `metric_types` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`name` TEXT NOT NULL, " +
+                    "`unit` TEXT, " +
+                    "`direction` TEXT NOT NULL CHECK (`direction` IN " +
+                    "('up_good','down_good','neutral')), " +
+                    "`target_num` REAL, " +
+                    "`builtin_key` TEXT, " +
+                    "`is_archived` INTEGER NOT NULL, " +
+                    "`position` INTEGER NOT NULL, " +
+                    "`created_at` INTEGER NOT NULL)",
+            )
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `body_entries` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`metric_type_id` INTEGER NOT NULL, " +
+                    "`date` TEXT NOT NULL, " +
+                    "`measured_at` INTEGER NOT NULL, " +
+                    "`value_num` REAL NOT NULL, " +
+                    "`note` TEXT, " +
+                    "FOREIGN KEY(`metric_type_id`) REFERENCES `metric_types`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            // Jeden indeks unikalny zamiast dwóch: pilnuje „jeden pomiar na
+            // dzień” i obsługuje zapytania po wskaźniku (liczy się od lewej).
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `idx_body_uniq` " +
+                    "ON `body_entries` (`metric_type_id`, `date`)",
+            )
+
+            BuiltinMetric.entries.forEachIndexed { index, metric ->
+                db.execSQL(
+                    "INSERT INTO `metric_types` (`name`, `unit`, `direction`, `target_num`, " +
+                        "`builtin_key`, `is_archived`, `position`, `created_at`) " +
+                        "VALUES (?, ?, 'neutral', NULL, ?, 0, ?, " +
+                        "CAST(strftime('%s','now') AS INTEGER) * 1000)",
+                    arrayOf<Any?>(metric.defaultName, metric.unit, metric.wire, index + 1),
+                )
+            }
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -435,5 +499,6 @@ object DatabaseMigrations {
         MIGRATION_4_5,
         MIGRATION_5_6,
         MIGRATION_6_7,
+        MIGRATION_7_8,
     )
 }

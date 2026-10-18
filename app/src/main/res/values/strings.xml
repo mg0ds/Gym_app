@@ -489,6 +489,87 @@
     <string name="exercise_stats_table_reps">Powt.</string>
     <string name="exercise_stats_table_rest">Przerwa</string>
 
+
+    <!-- Karta postaci (M8) -->
+    <string name="nav_body">Postać</string>
+    <string name="metric_title">Postać</string>
+    <string name="metric_manage_open">Zarządzaj wskaźnikami</string>
+    <string name="metric_metrics_title">Wskaźniki</string>
+    <string name="metric_add_type">Dodaj wskaźnik</string>
+    <string name="metric_add_entry">Dodaj pomiar</string>
+    <string name="metric_chart_title">Zmiana w czasie</string>
+    <string name="metric_chart_too_few">Wykres pojawi się przy dwóch pomiarach.</string>
+    <string name="metric_chart_legend_value">Wartość</string>
+    <string name="metric_chart_legend_target">Cel</string>
+    <string name="metric_summary_title">Podsumowanie</string>
+    <string name="metric_summary_empty">Brak pomiarów. Dodaj pierwszy, żeby zobaczyć zmiany.</string>
+    <string name="metric_summary_latest">Ostatni pomiar</string>
+    <string name="metric_summary_previous">Zmiana od poprzedniego</string>
+    <string name="metric_summary_days_30">Zmiana 30 dni</string>
+    <string name="metric_summary_days_90">Zmiana 90 dni</string>
+    <string name="metric_summary_target">Cel</string>
+    <string name="metric_summary_streak">Seria pomiarów</string>
+    <string name="metric_summary_entries">Pomiary w zakresie</string>
+    <string name="metric_entries_title">Pomiary</string>
+    <string name="metric_entries_empty">Brak pomiarów w tym zakresie.</string>
+    <string name="metric_empty">Nie masz żadnych wskaźników. Dodaj własny albo przywróć wbudowany.</string>
+    <string name="metric_type_dialog_new">Nowy wskaźnik</string>
+    <string name="metric_type_dialog_edit">Wskaźnik</string>
+    <string name="metric_type_name">Nazwa</string>
+    <string name="metric_type_unit">Jednostka (opcjonalnie)</string>
+    <string name="metric_type_direction">Kierunek zmian</string>
+    <string name="metric_direction_up">W górę dobrze</string>
+    <string name="metric_direction_down">W dół dobrze</string>
+    <string name="metric_direction_neutral">Bez oceny</string>
+    <string name="metric_type_target">Cel (opcjonalnie)</string>
+    <string name="metric_type_archive">Zarchiwizuj wskaźnik</string>
+    <string name="metric_type_restore">Przywróć wskaźnik</string>
+    <string name="metric_type_archived_tag">Zarchiwizowany</string>
+    <string name="metric_entry_dialog_new">Nowy pomiar</string>
+    <string name="metric_entry_dialog_edit">Popraw pomiar</string>
+    <string name="metric_entry_value">Wartość</string>
+    <string name="metric_entry_date">Data</string>
+    <string name="metric_entry_note">Notatka (opcjonalnie)</string>
+    <string name="metric_entry_delete">Usuń pomiar</string>
+    <string name="metric_entry_delete_confirm_title">Usunąć pomiar?</string>
+    <string name="metric_entry_delete_confirm_text">Pomiar z %1$s zostanie usunięty.</string>
+    <string name="metric_value_with_unit">%1$s %2$s</string>
+    <string name="metric_value_with_date">%1$s • %2$s</string>
+    <string name="metric_value_with_days_ago">%1$s (%2$s)</string>
+    <string name="metric_change_with_span">%1$s • %2$s</string>
+    <string name="metric_days_today">dziś</string>
+    <string name="metric_days_yesterday">wczoraj</string>
+    <string name="metric_target_remaining">%1$s • zostało %2$s</string>
+    <string name="metric_target_reached">%1$s • osiągnięty</string>
+    <string name="metric_builtin_weight">Waga</string>
+    <string name="metric_builtin_chest">Obwód klatki</string>
+    <string name="metric_builtin_biceps">Obwód bicepsa</string>
+    <string name="metric_builtin_waist">Obwód pasa</string>
+    <string name="metric_builtin_thigh">Obwód uda</string>
+    <string name="metric_builtin_calf">Obwód łydki</string>
+    <string name="metric_builtin_body_fat">Tłuszcz</string>
+    <string name="metric_builtin_neck">Szyja</string>
+    <string name="metric_builtin_shoulders">Barki</string>
+    <string name="metric_builtin_forearm">Przedramię</string>
+    <plurals name="metric_days_ago">
+        <item quantity="one">%1$d dzień temu</item>
+        <item quantity="few">%1$d dni temu</item>
+        <item quantity="many">%1$d dni temu</item>
+        <item quantity="other">%1$d dni temu</item>
+    </plurals>
+    <plurals name="metric_days_span">
+        <item quantity="one">%1$d dzień</item>
+        <item quantity="few">%1$d dni</item>
+        <item quantity="many">%1$d dni</item>
+        <item quantity="other">%1$d dni</item>
+    </plurals>
+    <plurals name="metric_streak_days">
+        <item quantity="one">%1$d dzień z rzędu</item>
+        <item quantity="few">%1$d dni z rzędu</item>
+        <item quantity="many">%1$d dni z rzędu</item>
+        <item quantity="other">%1$d dni z rzędu</item>
+    </plurals>
+
     <!-- Dostępność -->
     <string name="cd_back">Wstecz</string>
 </resources>

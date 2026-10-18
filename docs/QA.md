@@ -220,3 +220,34 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 9.20 | Zmiana zakresu na wykresach | Wykresy i tabela przeliczają się na nowy zakres, chips zaznacza wybór |
 | 9.21 | Przeciągnięcie/pinch na wykresie | Wykres da się przesunąć i przybliżyć (domyślny zoom Vico) |
 | 9.22 | Ćwiczenie raz na czas (bez ciężaru), raz z ciężarem - oba w zakresie | Rekordy bez „0 kg”; wykres ciężaru ma punkt tylko z dnia z ciężarem, a tabela wykonań oba wiersze |
+
+## 10. Karta postaci (M8)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 10.1 | Aktualizacja z M7 (baza v7, z treningami i mediami) | Migracja 7 → 8: `user_version` = 8, ćwiczenia/plany/treningi/załączniki bez zmian, a na zakładce „Postać” jest dziesięć wbudowanych wskaźników z pustą historią |
+| 10.2 | Zakładka „Postać” na czystej instalacji | Dolny pasek ma pięć pozycji (Kalendarz, Ćwiczenia, Historia, Postać, Ustawienia); na ekranie przełącznik wskaźników i „Waga” jako pierwszą |
+| 10.3 | Przełączanie wskaźników chipami | Wykres, podsumowanie i lista zmieniają się natychmiast; wybór nie dokłada ekranu do stosu |
+| 10.4 | Wskaźnik bez pomiarów | „Wykres pojawi się przy dwóch pomiarach.”, w podsumowaniu „Brak pomiarów. Dodaj pierwszy, żeby zobaczyć zmiany.”, lista pusta |
+| 10.5 | „Dodaj pomiar”: wartość 82,5 (przecinek) | Zapisane jako 82.5; data domyślnie dzisiejsza; w polu wartości jest sufiks jednostki (kg) |
+| 10.6 | Data pomiaru z przyszłości | Nie da się wybrać w kalendarzu (dni po dzisiejszym są zablokowane) |
+| 10.7 | Drugi pomiar tego samego dnia | Pomiar jest **poprawiany**, a nie dublowany: jedna pozycja na liście, jedna wartość w bazie |
+| 10.8 | Poprawka pomiaru z 1.09 na 3.09 | Wiersz przenosi się na 3.09 (nie zostaje duplikat na 1.09); jeśli 3.09 miał już pomiar, zostaje przenoszony |
+| 10.9 | Wpisanie daty pomiaru sprzed 5 dni | „Ostatni pomiar” pokazuje „(5 dni temu)”, a „Seria pomiarów” = 0 (seria się skończyła) |
+| 10.10 | Pomiary w kolejne dni (wczoraj i dziś) | „Seria pomiarów: 2 dni z rzędu” |
+| 10.11 | Trzy pomiary w zakresie 3M | Wykres: linia po dniach (oś X to daty), punkty tam, gdzie są pomiary, legenda „Wartość” |
+| 10.12 | Wskaźnik z celem, np. 78 kg przy kierunku „w dół dobrze” | Na wykresie druga linia (cel) i legenda „Cel”; w podsumowaniu „78 kg • zostało 3.5 kg” |
+| 10.13 | Cel osiągnięty (np. 78 kg przy wartości 77 kg, kierunek „w dół dobrze”) | „78 kg • osiągnięty” |
+| 10.14 | Zmiana w dobrym i złym kierunku | Wartość zmiany na zielono (dobra strona) albo czerwono (zła); przy kierunku „Bez oceny” — zwykłym kolorem |
+| 10.15 | Zmiana zakresu 1M/3M/6M/1R/Wszystko | Wykres i lista pomiarów przeliczają się, a podsumowanie (ostatni pomiar, zmiany, seria) zostaje z całej historii |
+| 10.16 | „Usuń pomiar” | Dialog potwierdzenia z datą pomiaru; po potwierdzeniu wiersz znika także z wykresu |
+| 10.17 | „Zarządzaj wskaźnikami” (ikona w pasku) | Lista wskaźników: nazwa, jednostka, kierunek; dodawanie w pasku |
+| 10.18 | Dodanie własnego wskaźnika: „Obwód bicepsa”, cm, „w górę dobrze”, cel 40 | Chip na ekranie „Postać” i pusty wykres do pierwszego pomiaru |
+| 10.19 | Wskaźnik bez nazwy | „Zapisz” nieaktywny |
+| 10.20 | Poprawka wbudowanego wskaźnika bez zmiany nazwy (sam cel) | Nazwa zostaje przetłumaczona („Waga” / „Weight” zależnie od języka), bez jednostki w nazwie („Tłuszcz”, nie „Tłuszcz (%)” — jednostka stoi w podpisie wiersza) |
+| 10.21 | Zmiana nazwy „Waga” na „Waga ciała” | Od tej chwili widać wpisaną nazwę — także po zmianie języka aplikacji na angielski |
+| 10.22 | „Zarchiwizuj wskaźnik” z pomiarami | Znika z przełącznika, ale zostaje na liście „Wskaźniki” z podpisem „Zarchiwizowany”, a pomiary są nietknięte; „Przywróć wskaźnik” go wraca |
+| 10.23 | Zarchiwizowanie wszystkich wskaźników | Ekran „Postać”: „Nie masz żadnych wskaźników. Dodaj własny albo przywróć wbudowany.” i przycisk do listy |
+| 10.24 | Obrót ekranu na ekranie „Postać” | Wybrany wskaźnik i zakres zostają |
+| 10.25 | TalkBack na liście pomiarów i chipach | Czyta nazwę wskaźnika, wartość z jednostką i datę; przyciski mają opisy |
+| 10.26 | Aplikacja w trybie offline (bez sieci) | Karta postaci działa w całości — nic nie wymaga połączenia |

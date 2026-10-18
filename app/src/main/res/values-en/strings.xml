@@ -469,6 +469,80 @@
     <string name="exercise_stats_table_reps">Reps</string>
     <string name="exercise_stats_table_rest">Rest</string>
 
+    <!-- Karta postaci (M8) -->
+    <string name="nav_body">Body</string>
+    <string name="metric_title">Body</string>
+    <string name="metric_manage_open">Manage metrics</string>
+    <string name="metric_metrics_title">Metrics</string>
+    <string name="metric_add_type">Add metric</string>
+    <string name="metric_add_entry">Add measurement</string>
+    <string name="metric_chart_title">Change over time</string>
+    <string name="metric_chart_too_few">The chart appears once there are two measurements.</string>
+    <string name="metric_chart_legend_value">Value</string>
+    <string name="metric_chart_legend_target">Goal</string>
+    <string name="metric_summary_title">Summary</string>
+    <string name="metric_summary_empty">No measurements yet. Add the first one to see changes.</string>
+    <string name="metric_summary_latest">Latest measurement</string>
+    <string name="metric_summary_previous">Change since previous</string>
+    <string name="metric_summary_days_30">Change over 30 days</string>
+    <string name="metric_summary_days_90">Change over 90 days</string>
+    <string name="metric_summary_target">Goal</string>
+    <string name="metric_summary_streak">Measurement streak</string>
+    <string name="metric_summary_entries">Measurements in range</string>
+    <string name="metric_entries_title">Measurements</string>
+    <string name="metric_entries_empty">No measurements in this range.</string>
+    <string name="metric_empty">You have no metrics. Add your own or restore a built-in one.</string>
+    <string name="metric_type_dialog_new">New metric</string>
+    <string name="metric_type_dialog_edit">Metric</string>
+    <string name="metric_type_name">Name</string>
+    <string name="metric_type_unit">Unit (optional)</string>
+    <string name="metric_type_direction">Direction of change</string>
+    <string name="metric_direction_up">Up is good</string>
+    <string name="metric_direction_down">Down is good</string>
+    <string name="metric_direction_neutral">No preference</string>
+    <string name="metric_type_target">Goal (optional)</string>
+    <string name="metric_type_archive">Archive metric</string>
+    <string name="metric_type_restore">Restore metric</string>
+    <string name="metric_type_archived_tag">Archived</string>
+    <string name="metric_entry_dialog_new">New measurement</string>
+    <string name="metric_entry_dialog_edit">Edit measurement</string>
+    <string name="metric_entry_value">Value</string>
+    <string name="metric_entry_date">Date</string>
+    <string name="metric_entry_note">Note (optional)</string>
+    <string name="metric_entry_delete">Delete measurement</string>
+    <string name="metric_entry_delete_confirm_title">Delete measurement?</string>
+    <string name="metric_entry_delete_confirm_text">The measurement from %1$s will be deleted.</string>
+    <string name="metric_value_with_unit">%1$s %2$s</string>
+    <string name="metric_value_with_date">%1$s • %2$s</string>
+    <string name="metric_value_with_days_ago">%1$s (%2$s)</string>
+    <string name="metric_change_with_span">%1$s • %2$s</string>
+    <string name="metric_days_today">today</string>
+    <string name="metric_days_yesterday">yesterday</string>
+    <string name="metric_target_remaining">%1$s • %2$s to go</string>
+    <string name="metric_target_reached">%1$s • reached</string>
+    <string name="metric_builtin_weight">Weight</string>
+    <string name="metric_builtin_chest">Chest</string>
+    <string name="metric_builtin_biceps">Biceps</string>
+    <string name="metric_builtin_waist">Waist</string>
+    <string name="metric_builtin_thigh">Thigh</string>
+    <string name="metric_builtin_calf">Calf</string>
+    <string name="metric_builtin_body_fat">Body fat</string>
+    <string name="metric_builtin_neck">Neck</string>
+    <string name="metric_builtin_shoulders">Shoulders</string>
+    <string name="metric_builtin_forearm">Forearm</string>
+    <plurals name="metric_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <plurals name="metric_days_span">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="metric_streak_days">
+        <item quantity="one">%1$d day in a row</item>
+        <item quantity="other">%1$d days in a row</item>
+    </plurals>
+
     <!-- Accessibility -->
     <string name="cd_back">Back</string>
 </resources>

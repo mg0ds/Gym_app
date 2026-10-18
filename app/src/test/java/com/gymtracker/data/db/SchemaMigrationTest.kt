@@ -3,8 +3,10 @@ package com.gymtracker.data.db
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.gymtracker.data.db.entities.BodyEntryEntity
 import com.gymtracker.data.db.entities.ExerciseEntity
 import com.gymtracker.data.db.entities.ExerciseMediaEntity
+import com.gymtracker.data.db.entities.MetricTypeEntity
 import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
@@ -29,7 +31,7 @@ import org.robolectric.RobolectricTestRunner
 
 /**
  * Test migracji schematu: zakłada bazę w wersji 1 (taką, jaką miała użytkownika
- * aplikacja z M0), otwiera ją kodem, który zna wersję 7, i sprawdza, że:
+ * aplikacja z M0), otwiera ją kodem, który zna wersję 8, i sprawdza, że:
  *
  *  * dane użytkownika przetrwały,
  *  * Room zaakceptował schemat po migracji (sam porównuje go z oczekiwanym),
@@ -39,7 +41,10 @@ import org.robolectric.RobolectricTestRunner
  *  * przerwy z migracji 5→6 da się zapisać i domknąć, a baza pilnuje słownika
  *    powodów zakończenia,
  *  * kroki wykonania i załączniki z migracji 6→7 da się zapisać, a załącznik
- *    znika razem z ćwiczeniem (kaskada).
+ *    znika razem z ćwiczeniem (kaskada),
+ *  * karta postaci z migracji 7→8 działa: migracja zakłada dziesięć wbudowanych
+ *    wskaźników, pomiar da się zapisać, drugi pomiar tego samego dnia jest
+ *    odrzucany kluczem `UNIQUE`, a usunięcie wskaźnika zabiera jego pomiary.
  *
  * Gdyby SQL w [DatabaseMigrations] rozjechał się z tym, co generuje Room
  * (np. brakujący `NOT NULL` czy `DEFAULT` przy dodanej kolumnie), ten test
@@ -61,7 +66,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 6 zachowuje dane i dodaje katalog, plany, kalendarz, serie i przerwy`() = runTest {
+    fun `migracja 1 do 8 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media i wskazniki`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -263,6 +268,56 @@ class SchemaMigrationTest {
             assertEquals(0, database.mediaDao().maxPosition(exerciseId))
             assertEquals(-1, database.mediaDao().maxPosition(exerciseId + 1))
 
+            // Migracja 7→8: karta postaci. Wbudowane wskaźniki zakłada migracja,
+            // a klucz (`builtin_key`) pozwala pokazać ich nazwę w języku interfejsu.
+            val builtins = database.bodyDao().observeActiveTypes().first()
+            assertEquals(10, builtins.size)
+            val weight = builtins.single { type -> type.builtinKey == "weight" }
+            assertEquals("Weight", weight.name)
+            assertEquals("kg", weight.unit)
+            assertEquals(1, weight.position)
+            assertEquals("neutral", weight.direction)
+
+            val metricId = database.bodyDao().insertType(
+                MetricTypeEntity(
+                    name = "Obwód bicepsa",
+                    unit = "cm",
+                    direction = "up_good",
+                    position = 11,
+                    createdAtEpochMs = 6_000L,
+                ),
+            )
+            val entryId = database.bodyDao().insertEntry(
+                BodyEntryEntity(
+                    metricTypeId = metricId,
+                    date = "2026-09-02",
+                    measuredAtEpochMs = 6_000L,
+                    value = 39.5,
+                    note = "po treningu",
+                ),
+            )
+            val entry = database.bodyDao().observeEntries(metricId).first().single()
+            assertEquals(entryId, entry.id)
+            assertEquals(39.5, entry.value, 0.0001)
+            assertEquals("po treningu", entry.note)
+
+            // Jeden pomiar na dzień pilnuje klucz `UNIQUE`, a nie tylko kod Kotlina.
+            val duplicate = runCatching {
+                database.bodyDao().insertEntry(
+                    BodyEntryEntity(
+                        metricTypeId = metricId,
+                        date = "2026-09-02",
+                        measuredAtEpochMs = 7_000L,
+                        value = 40.0,
+                    ),
+                )
+            }.exceptionOrNull()
+            assertNotNull("drugi pomiar tego samego dnia nie może wejść do bazy", duplicate)
+
+            // Kaskada: pomiar bez wskaźnika nie znaczy nic.
+            database.openHelper.writableDatabase.execSQL("DELETE FROM metric_types")
+            assertTrue(database.bodyDao().allEntries().isEmpty())
+
             // Kaskada: usunięcie planu zabiera dni, ćwiczenia dni i reguły,
             // a wpis w kalendarzu zostaje - tylko bez wskazania (SET NULL).
             database.planDao().deletePlan(planId)
@@ -409,6 +464,39 @@ class SchemaMigrationTest {
             // Rodzaj ze słownika przechodzi.
             raw.execSQL("UPDATE exercise_media SET kind = 'video' WHERE id = $mediaId")
             assertEquals("video", requireNotNull(database.mediaDao().findById(mediaId)).kind)
+        } finally {
+            database.close()
+        }
+    }
+
+    /**
+     * Słownik kierunków zmiany pilnuje SQL z migracji (`CHECK`), a nie tylko kod
+     * Kotlina - inaczej kierunek z literówki wszedłby do bazy i zmiana nigdy nie
+     * dostałaby koloru (mapowanie nieznanych kierunków daje `neutral`).
+     */
+    @Test
+    fun `baza odrzuca nieznany kierunek zmian wskaznika`() = runTest {
+        createVersion1Database()
+
+        val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+            .addMigrations(*DatabaseMigrations.ALL)
+            .build()
+
+        try {
+            val raw = database.openHelper.writableDatabase
+            val typeId = database.bodyDao().observeActiveTypes().first().single { type ->
+                type.builtinKey == "weight"
+            }.id
+
+            val rejected = runCatching {
+                raw.execSQL("UPDATE metric_types SET direction = 'w_gore_dobrze' WHERE id = $typeId")
+            }.exceptionOrNull()
+            assertNotNull("nieznany kierunek nie może wejść do bazy", rejected)
+
+            // Kierunek ze słownika przechodzi i zaraz jest widoczny w modelu.
+            raw.execSQL("UPDATE metric_types SET direction = 'down_good' WHERE id = $typeId")
+            val weight = database.bodyDao().observeActiveTypes().first().single { type -> type.id == typeId }
+            assertEquals("down_good", weight.direction)
         } finally {
             database.close()
         }

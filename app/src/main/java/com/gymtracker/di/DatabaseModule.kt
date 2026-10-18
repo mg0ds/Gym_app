@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.DatabaseMigrations
 import com.gymtracker.data.db.daos.AppMetaDao
+import com.gymtracker.data.db.daos.BodyDao
 import com.gymtracker.data.db.daos.CalendarDao
 import com.gymtracker.data.db.daos.ExerciseDao
 import com.gymtracker.data.db.daos.MediaDao
@@ -57,4 +58,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMediaDao(database: AppDatabase): MediaDao = database.mediaDao()
+
+    @Provides
+    fun provideBodyDao(database: AppDatabase): BodyDao = database.bodyDao()
 }

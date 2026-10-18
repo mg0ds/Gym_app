@@ -1,6 +1,7 @@
 package com.gymtracker.data.repo
 
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.gymtracker.data.db.AppDatabase
@@ -44,13 +45,17 @@ class MediaRepositoryTest {
     private lateinit var linker: FakeMediaLinker
     private lateinit var repository: MediaRepositoryImpl
 
+    /** Katalog na miniatury tylko dla tego testu - patrz [isolatedFiles]. */
+    private lateinit var thumbsRoot: File
+
     private var now = 1_000L
     private var exerciseId = 0L
 
     @Before
     fun setUp() = runTest {
+        thumbsRoot = File(context.cacheDir, "media-test-${System.nanoTime()}").apply { mkdirs() }
         database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
-        thumbnails = ThumbnailStore(context)
+        thumbnails = ThumbnailStore(isolatedFiles(thumbsRoot))
         linker = FakeMediaLinker(thumbnails)
         repository = MediaRepositoryImpl(
             mediaDao = database.mediaDao(),
@@ -70,7 +75,20 @@ class MediaRepositoryTest {
     @After
     fun tearDown() {
         database.close()
-        File(context.filesDir, "thumbs").deleteRecursively()
+        thumbsRoot.deleteRecursively()
+    }
+
+    /**
+     * `filesDir` podstawiony na katalog tego testu.
+     *
+     * W `filesDir/thumbs` grzebie sprzątanie sierot, które `GymTrackerApplication`
+     * puszcza w tle przy starcie. Robolectric uruchamia prawdziwą aplikację (i jej
+     * Hilt), więc ten przebieg potrafi wypaść w środku testu i skasować plik
+     * postarzony **celowo** na dwa dni - a wtedy test sprawdza nie regułę
+     * („o zostaniu decyduje wiersz w bazie”), tylko kto był pierwszy.
+     */
+    private fun isolatedFiles(root: File): Context = object : ContextWrapper(context) {
+        override fun getFilesDir(): File = root
     }
 
     @Test

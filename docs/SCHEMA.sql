@@ -1,7 +1,7 @@
 -- =============================================================================
 -- GymTracker - schemat bazy lokalnej (SQLite / Room)
 -- Plik referencyjny. Zrodlo prawdy w kodzie: app/src/main/java/.../data/db/*.
--- Wersja: 7 (2026-10-17)
+-- Wersja: 8 (2026-10-17)
 --
 -- Stan implementacji (szczegoly: docs/PLAN.md 8.1):
 --  * v1 (M0): app_meta                                            [WDROZONE]
@@ -12,11 +12,12 @@
 --  * v5 (M4): set_logs + kolumny pauzy w sessions                  [WDROZONE]
 --  * v6 (M5): rest_intervals + indeksy                              [WDROZONE]
 --  * v7 (M7): exercises.instructions + exercise_media              [WDROZONE]
+--  * v8 (M8): metric_types + body_entries (karta postaci)          [WDROZONE]
 --  * reszta tabel oznaczone [Mx]: docelowe, dochodza w pozniejszych
 --    kamieniach milowych. DDL trzymamy z gory, zeby caly model byl w jednym
 --    miejscu - ale to jeszcze nie jest kod.
 --
--- Uwaga dla wersji 1-7: DDL ponizszy dla tabel [WDROZONE] jest przepisany
+-- Uwaga dla wersji 1-8: DDL ponizszy dla tabel [WDROZONE] jest przepisany
 -- znak w znak z SQL, ktory generuje Room (app/schemas/...). Migracje w
 -- DatabaseMigrations musza byc identyczne - inaczej Room zglasza
 -- "Migration didn't properly handle ...".
@@ -30,9 +31,10 @@
 --  * Wartosci "enum" (jednostka powtorzen, status sesji) walidujemy w warstwie
 --    domeny (RepsUnit.fromWire, SessionStatus), a nie CHECK-iem w bazie: latwiej
 --    dodac nowa wartosc bez migracji, a baza i tak nie jest dostepna z zewnatrz.
---    Wyjatki: rest_intervals.ended_reason oraz exercise_media.kind - powod
---    przerwy decyduje o tym, czy wpis wchodzi do statystyk, a rodzaj zalacznika
---    o tym, jak plik jest pokazywany, wiec literowka nie moze przejsc po cichu. Room sam takiego CHECK-a nie generuje, ale
+--    Wyjatki: rest_intervals.ended_reason, exercise_media.kind oraz
+--    metric_types.direction - powod przerwy decyduje o tym, czy wpis wchodzi do
+--    statystyk, rodzaj zalacznika o tym, jak plik jest pokazywany, a kierunek
+--    wskaznika o kolorze zmiany, wiec literowka nie moze przejsc po cichu. Room sam takiego CHECK-a nie generuje, ale
 --    TableInfo go ignoruje, wiec walidacja schematu po migracji przechodzi.
 -- =============================================================================
 
@@ -321,33 +323,39 @@ CREATE INDEX idx_rest_session ON rest_intervals(session_id);
 CREATE INDEX idx_rest_set ON rest_intervals(set_log_id);
 
 -- -----------------------------------------------------------------------------
--- 6. KARTA POSTACI (waga + customowe wskazniki)                           [M8]
+-- 6. KARTA POSTACI (waga + customowe wskazniki)                [WDROZONE M8]
 -- -----------------------------------------------------------------------------
+-- Wskaznik trzyma nazwe w bazie (jest edytowalna), a wbudowany ma dodatkowo
+-- builtin_key: dopoki go ma, UI pokazuje nazwe z zasobow ("Waga" / "Weight").
+-- Pierwsza wlasna nazwa czysci klucz (PLAN.md 4.2 pkt 47).
+-- Karta jest liczbowa - wykresy zmian sa jej sensem, a z tekstu wykresu nie ma
+-- (PLAN.md 4.2 pkt 49), dlatego jest samo value_num, bez kind i value_text.
 CREATE TABLE metric_types (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,                  -- 'Waga', 'Obwod klatki', 'Obwod bicepsa'
+    name        TEXT NOT NULL,                  -- 'Weight', 'Biceps', albo nazwa uzytkownika
     unit        TEXT,                           -- 'kg', 'cm', '%'
-    kind        TEXT NOT NULL DEFAULT 'numeric'
-                CHECK (kind IN ('numeric','text','boolean')),
-    direction   TEXT NOT NULL DEFAULT 'neutral'
+    direction   TEXT NOT NULL
                 CHECK (direction IN ('up_good','down_good','neutral')),
     target_num  REAL,                           -- opcjonalny cel
-    is_builtin  INTEGER NOT NULL DEFAULT 0,
-    is_archived INTEGER NOT NULL DEFAULT 0,
-    position    INTEGER NOT NULL DEFAULT 0,
+    builtin_key TEXT,                           -- 'weight', 'biceps'; NULL = wlasna nazwa
+    is_archived INTEGER NOT NULL,
+    position    INTEGER NOT NULL,
     created_at  INTEGER NOT NULL
 );
+-- Dziesiec wbudowanych wskaznikow (Waga, Obwod klatki, Obwod bicepsa, Obwod
+-- pasa, Obwod uda, Obwod lydki, Tluszcz (%), Szyja, Barki, Przedramie) wpisuje
+-- migracja 7 -> 8: lista jest stala, wiec import przy starcie jest niepotrzebny.
 
 CREATE TABLE body_entries (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     metric_type_id INTEGER NOT NULL REFERENCES metric_types(id) ON DELETE CASCADE,
     date           TEXT NOT NULL,               -- 'YYYY-MM-DD'
     measured_at    INTEGER NOT NULL,
-    value_num      REAL,
-    value_text     TEXT,
+    value_num      REAL NOT NULL,
     note           TEXT
 );
-CREATE INDEX idx_body_type_date ON body_entries(metric_type_id, date);
+-- Jeden indeks unikalny zamiast dwoch: pilnuje "jeden pomiar na dzien"
+-- i obsluguje zwykle zapytania po wskazniku (liczy sie od lewej kolumny).
 CREATE UNIQUE INDEX idx_body_uniq ON body_entries(metric_type_id, date);
 
 -- -----------------------------------------------------------------------------
