@@ -6,15 +6,16 @@ Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalo
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
 Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
 
-Stan: **M0–M8 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem, plany
-treningowe z edytorem dni i start treningu z planu, kalendarz z harmonogramem
-„co N dni”, trening z timerem w notyfikacji, pauzą, logowaniem serii i notatką,
-timer przerwy z alarmem, celem na ćwiczenie i średnimi, historia treningów
-z filtrami i statystyki ćwiczenia z wykresami, zdjęcia i filmy z galerii oraz
-kroki wykonania na karcie ćwiczenia, karta postaci z wskaźnikami i wykresami
-zmian).
-Kolejny krok: ustawienia, kopia zapasowa (ZIP), tłumaczenia i wydanie podpisane
-(M9).
+Stan: **M0–M8 ukończone**, **M9 w toku** (fundament, katalog ćwiczeń
+z wyszukiwaniem, plany treningowe z edytorem dni i start treningu z planu,
+kalendarz z harmonogramem „co N dni”, trening z timerem w notyfikacji, pauzą,
+logowaniem serii i notatką, timer przerwy z alarmem, celem na ćwiczenie
+i średnimi, historia treningów z filtrami i statystyki ćwiczenia z wykresami,
+zdjęcia i filmy z galerii oraz kroki wykonania na karcie ćwiczenia, karta postaci
+ze wskaźnikami i wykresami zmian, a z M9 ustawienia: alarm przerwy, język
+aplikacji i „O aplikacji”).
+Kolejny krok: kopia zapasowa (eksport/import ZIP), ekran archiwum ćwiczeń
+i wydanie podpisane (reszta M9).
 
 ## Wymagania
 
@@ -100,7 +101,7 @@ migracji i auto-migracji, a w CI powstają tylko na czas budowania.
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | główny plan: wymagania, stack, architektura, model danych, ekrany, algorytmy timerów i harmonogramu, kamienie milowe, testy, ryzyka |
 | [`docs/SCHEMA.sql`](docs/SCHEMA.sql) | docelowy DDL bazy lokalnej (Room/SQLite) — realizowany krok po kroku |
-| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki, media i kroki wykonania, karta postaci) |
+| [`docs/QA.md`](docs/QA.md) | scenariusze testów ręcznych (timer, odtwarzanie po ubiciu apki, kalendarz i reguły, zmiana czasu, historia i statystyki, media i kroki wykonania, karta postaci, ustawienia) |
 | [`data/seed/`](data/seed) | dane startowe do importu: `exercises.json` + `programs/*.json` |
 | `app/` | kod aplikacji (Kotlin + Compose, Room, Hilt) |
 
@@ -140,12 +141,12 @@ Gym_app/
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
 | Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
 | Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
-| Przerwy | przerwa rusza po zalogowanej serii: cel na ćwiczenie (sesja → karta ćwiczenia → ustawienie globalne 90 s), pasek z odliczaniem i akcjami „-15 s” / „+15 s” / „Pomiń”, notyfikacja odliczająca w dół, alarm z dźwiękiem i wibracją na końcu, historia i średnia per ćwiczenie; przerwa liczy się do czasu treningu, a obok widać „pod sztangą” |
+| Przerwy | przerwa rusza po zalogowanej serii: cel na ćwiczenie (sesja → karta ćwiczenia → ustawienie globalne 90 s), pasek z odliczaniem i akcjami „-15 s” / „+15 s” / „Pomiń”, notyfikacja odliczająca w dół, alarm z dźwiękiem i wibracją na końcu (dźwięk i wibrację można wyłączyć w Ustawieniach — para przełączników wybiera jeden z czterech kanałów powiadomień), historia i średnia per ćwiczenie; przerwa liczy się do czasu treningu, a obok widać „pod sztangą” |
 | Historia i statystyki | zakładka „Historia”: zakończone treningi od najnowszych (data, czas bez pauz, serie, objętość, średnia przerwa) z filtrami zakresu (1M/3M/6M/1R/wszystko), ćwiczenia i nazwy dnia; statystyki ćwiczenia: rekordy z całej historii (najcięższa seria, 1RM Epleya, największa objętość, przerwy) oraz wykresy postępu ciężaru i objętości na **Vico 3.2.3** — jednostką wykresu jest **dzień** (dwa treningi jednego dnia to jeden punkt) |
 | Media na karcie ćwiczenia | **Wskazanie, nie kopia**: w bazie URI pliku z galerii + metadane (rodzaj, rozmiar, czas trwania, opis), a jedyny nasz plik to własna miniatura ~200 px w `filesDir/thumbs` (Photo Picker bez uprawnień, `loadThumbnail` / ręczny dekod z EXIF niżej, filmy przez Media3, link YouTube otwierany poza aplikacją — bez sieci i bez `INTERNET` w manifeście); osierocone miniatury (starsze niż doba) sprząta jeden skan przy starcie |
 | Kroki wykonania | `exercises.instructions` jako lista kroków (jedna linia = jeden krok), obok swobodnego komentarza (`notes`); numerację z linii odcinamy przy zapisie, bo numeruje UI |
 | Daty | `java.time` (`LocalDate`, `YearMonth`) na poziomie API 26 — bez dodatkowych zależności; w bazie ISO `YYYY-MM-DD` |
-| Ustawienia | DataStore (Preferences) |
+| Ustawienia | DataStore (Preferences): motyw, domyślna przerwa, alarm przerwy (M9); język wybiera systemowy ekran (`localeConfig`), bez AppCompat |
 | DI | Hilt (KSP) |
 | Testy | JUnit4 + Robolectric (testy JVM), CI na GitHub Actions |
 | minSdk / targetSdk | 26 / 36 |
@@ -194,6 +195,7 @@ Gym_app/
 | **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 | **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
+| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”), kopia zapasowa ZIP, ekran archiwum, wydanie (R8 + podpisany AAB) | ◐ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

@@ -251,3 +251,17 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 10.24 | Obrót ekranu na ekranie „Postać” | Wybrany wskaźnik i zakres zostają |
 | 10.25 | TalkBack na liście pomiarów i chipach | Czyta nazwę wskaźnika, wartość z jednostką i datę; przyciski mają opisy |
 | 10.26 | Aplikacja w trybie offline (bez sieci) | Karta postaci działa w całości — nic nie wymaga połączenia |
+
+## 11. Ustawienia: alarm przerwy, język, o aplikacji (M9)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 11.1 | Wyłącz „Dźwięk na koniec przerwy” i doczekaj końca przerwy | Alarm się nie odzywa dźwiękiem, komunikat nadal pojawia się na ekranie |
+| 11.2 | Wyłącz też wibrację | Alarm jest cichy — zostaje sam komunikat (heads-up), bez dźwięku i wibracji |
+| 11.3 | Ustawienia systemowe → Powiadomienia → kanały aplikacji | Widać kanał zgodny z ustawieniem: „Koniec przerwy”, „Koniec przerwy: dźwięk”, „…: wibracja” albo „…: cicho” |
+| 11.4 | Włącz dźwięk z powrotem po wcześniejszym wyłączeniu | Alarm idzie na kanał „Koniec przerwy: dźwięk”; w systemie widać oba kanały — ten, którego używałeś, i ten, którego używasz teraz |
+| 11.5 | Zmień ręcznie dźwięk w kanale (ustawienia systemu), potem przełącz nasze ustawienie | Nasze przełączenie nie kasuje tego, co ustawiłeś w systemie — kanału nie nadpisujemy |
+| 11.6 | „Język aplikacji” na Androidzie 13+ | Otwiera się systemowy wybór języka z „Polski” i „English”; po zmianie interfejs i powiadomienia mówią wybranym językiem |
+| 11.7 | „Język aplikacji” na Androidzie 12 i starszym | Wiersz pokazuje podpowiedź, że język idzie za systemem (żadnego martwego kliknięcia) |
+| 11.8 | „O aplikacji” | Wersja zgodna z `versionName`; zdania o danych na urządzeniu i o mediach z galerii |
+| 11.9 | TalkBack na wierszach z przełącznikami | Ustawienie czytane raz, dotknięcie całego wiersza przełącza wartość |

@@ -126,11 +126,19 @@
     <string name="settings_theme_system">Zgodny z systemem</string>
     <string name="settings_theme_light">Jasny</string>
     <string name="settings_theme_dark">Ciemny</string>
+    <string name="settings_language">Język aplikacji</string>
+    <string name="settings_language_description">Polski i angielski. Wybór zapisuje system — dotyczy też powiadomień wysyłanych poza aplikacją.</string>
+    <string name="settings_language_action">Wybierz język</string>
+    <string name="settings_language_unavailable">Wybór języka jest dostępny od Androida 13. Na starszych wersjach język idzie za językiem systemu.</string>
     <string name="settings_section_training">Trening</string>
     <string name="settings_default_rest">Domyślna przerwa między seriami</string>
     <string name="settings_default_rest_description">Brana tylko wtedy, gdy plan ani karta ćwiczenia nie mówią, ile przerwy zrobić.</string>
     <string name="settings_default_rest_dialog_title">Domyślna przerwa</string>
     <string name="settings_default_rest_hint">Sekundy</string>
+    <string name="settings_rest_sound">Dźwięk na koniec przerwy</string>
+    <string name="settings_rest_sound_description">Krótki dźwięk powiadomienia. Wyłącz, gdy ćwiczysz w słuchawkach.</string>
+    <string name="settings_rest_vibration">Wibracja na koniec przerwy</string>
+    <string name="settings_rest_vibration_description">Trzy krótkie wibracje, także przy zgaszonym ekranie.</string>
     <string name="settings_section_data">Dane</string>
     <string name="settings_import_description">Wczytuje brakujące ćwiczenia z katalogu startowego. Twoich zmian i własnych ćwiczeń nie nadpisuje.</string>
     <string name="settings_import_action">Wczytaj katalog startowy</string>
@@ -142,6 +150,10 @@
     <string name="settings_import_programs_running">Wczytywanie planów…</string>
     <string name="settings_import_programs_done">Gotowe: plany +%1$d, pominięto %2$d, dni %3$d.</string>
     <string name="settings_import_programs_failed">Nie udało się wczytać planów startowych.</string>
+    <string name="settings_section_about">O aplikacji</string>
+    <string name="settings_about_version">Wersja %1$s</string>
+    <string name="settings_about_offline">Wszystkie dane — treningi, plany, pomiary i zdjęcia — zostają na tym urządzeniu. Bez konta, chmury i analityki.</string>
+    <string name="settings_about_media">Zdjęcia i filmy z galerii są tylko wskazywane: aplikacja nie kopiuje cudzych plików, a gdy znikną z galerii, przestają być widoczne.</string>
 
     <!-- Słownik katalogu: partie mięśniowe -->
     <string name="muscle_chest">Klatka piersiowa</string>
@@ -377,6 +389,12 @@
     <!-- Przerwa w powiadomieniu (M5) -->
     <string name="rest_channel_name">Koniec przerwy</string>
     <string name="rest_channel_description">Dźwięk i wibracja, gdy skończy się przerwa między seriami</string>
+    <string name="rest_channel_sound_name">Koniec przerwy: dźwięk</string>
+    <string name="rest_channel_sound_description">Dźwięk bez wibracji, gdy skończy się przerwa między seriami</string>
+    <string name="rest_channel_vibration_name">Koniec przerwy: wibracja</string>
+    <string name="rest_channel_vibration_description">Wibracja bez dźwięku, gdy skończy się przerwa między seriami</string>
+    <string name="rest_channel_silent_name">Koniec przerwy: cicho</string>
+    <string name="rest_channel_silent_description">Sam komunikat na ekranie, gdy skończy się przerwa między seriami</string>
     <string name="rest_notification_running">Przerwa</string>
     <string name="rest_notification_finished_title">Przerwa skończona</string>
     <string name="rest_action_extend">+15 s</string>

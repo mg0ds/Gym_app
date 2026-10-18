@@ -437,6 +437,32 @@ metric_types 1─* body_entries          (karta postaci)
     przycięcia wychodzi rząd „82.35, 83.35”. Gdy wszystkie pomiary są równe,
     podstawiamy rozpiętość 1: bez tego dzielilibyśmy przez zero w połowie rysowania
     (M8).
+55. **Alarm przerwy: para przełączników wybiera kanał, a nie przestawia jednego.**
+    Kanału powiadomień nie da się przestawić po utworzeniu: dźwięk i wibrację
+    ustawia się raz, a potem zmienia je tylko użytkownik w ustawieniach systemu
+    (kolejne `createNotificationChannel` z tym samym identyfikatorem nie
+    nadpisze tych cech). Dlatego „Dźwięk na koniec przerwy” i „Wibracja na koniec
+    przerwy” wybierają jeden z czterech kanałów: `rest_timer` (dźwięk +
+    wibracja), `rest_timer_sound`, `rest_timer_vibration`, `rest_timer_silent`.
+    Kanał powstaje **leniwie**, przy pierwszym alarmie - w systemowych
+    ustawieniach widać tylko ten, którego użytkownik naprawdę używa.
+    Identyfikator pary „dźwięk + wibracja” zostaje bez zmian z M5, żeby
+    aktualizacja nie zgubiła tego, co użytkownik już w tym kanale ustawił.
+    Wszystkie cztery są `IMPORTANCE_HIGH`: cisza znaczy „bez dźwięku i wibracji”,
+    a nie „bez komunikatu na ekranie”. Dźwięk idzie z kanału - nie z
+    `Ringtone.play()` - bo tylko wtedy szanuje tryb cichy i „Nie przeszkadzać”
+    (M9).
+56. **Język wybiera system, nie własny przełącznik.** Wiersz „Język aplikacji”
+    w Ustawieniach otwiera systemowy ekran języka **tej** aplikacji
+    (`ACTION_APP_LOCALE_SETTINGS`), dostępny od Androida 13, a wybór opiera się
+    na `res/xml/locales_config.xml` (`pl`, `en`) wskazanym przez
+    `android:localeConfig`. Świadomie **nie** dokładamy AppCompat
+    (`AppCompatDelegate.setApplicationLocales`): wymagałby `AppCompatActivity`
+    i motywu z rodziny `Theme.AppCompat`, a na Androidzie 12 i starszym ustawiałby
+    locale tylko aktywnościom - czyli notyfikacje przerwy i treningu (budowane
+    z kontekstu aplikacji) mówiłyby innym językiem niż ekran. Na starszych
+    wersjach język idzie za systemem, a interfejs i tak jest przetłumaczony
+    w całości (M9).
 
 ### 4.3 Migracje
 
@@ -1295,6 +1321,33 @@ Czego jeszcze nie ma: przeglądania i przywracania z archiwum oraz trwałego
 „opróżnij archiwum” (`ExerciseDao.deleteById` czeka na ten ekran). To M9 — razem
 z importem plików, bo dopiero wtedy pojawia się pytanie „co leży w archiwum i dlaczego”.
 
+### 6.12 Ustawienia: alarm przerwy, język i „O aplikacji” (M9)
+
+Panel ustawień rośnie o trzy rzeczy — wszystkie z myślą o wydaniu, nie o nowych
+danych:
+
+* **Alarm przerwy** (§4.2 pkt 55): dwa przełączniki (dźwięk, wibracja) w sekcji
+  „Trening”. Zapisy idą do DataStore (`rest_sound_enabled`,
+  `rest_vibration_enabled`, domyślnie oba włączone — tak było od M5), a
+  `RestNotifier` czyta je przy każdym alarmie i wybiera kanał powiadomień.
+  Wybór kanału to czysta funkcja `restAlertChannel(sound, vibration)`, więc
+  testy JVM pilnują czterech wariantów, a test Robolectric sprawdza to, co
+  widzi system: `shouldVibrate`, `sound` i `IMPORTANCE_HIGH`. Kanał, który już
+  istnieje, zostaje nietknięty — nawet gdy ustawienie się zmieni.
+* **Język aplikacji** (§4.2 pkt 56): wiersz otwierający systemowy wybór języka
+  (`ACTION_APP_LOCALE_SETTINGS`). `locales_config.xml` deklaruje `pl` i `en`;
+  polski zostaje językiem domyślnym zasobów (produkt pisany po polsku),
+  angielski ma `values-en`. Na Androidzie 12 i starszym wiersz pokazuje, że
+  język idzie za systemem — zamiast prowadzić donikąd.
+* **O aplikacji**: wersja z `BuildConfig.VERSION_NAME` i dwa zdania, które
+  warto mieć pod ręką: że dane zostają na urządzeniu (bez konta, chmury
+  i analityki) i że media z galerii są tylko wskazywane.
+
+Teksty pilnuje `StringResourcesTest`: polski i angielski muszą mieć **ten sam
+zestaw kluczy**, żadnego duplikatu, a każdy tekst z `%` musi mieć argument
+formatu — błąd „Tłuszcz (%)” z M8 (`%%` pokazane dosłownie) przeszedłby przez
+kompilację i wyszedł dopiero na ekranie.
+
 ---
 
 ## 7. Dane startowe
@@ -1941,7 +1994,7 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
   i archiwizacja z przywróceniem,
 * **Nawigacja**: `Routes.BODY` jako piąta pozycja dolnego paska (ikona `Person`)
   i `Routes.BODY_METRICS` jako pełny ekran bez paska; teksty PL/EN 1:1 — po M8
-  **445 kluczy** w obu plikach,
+  **432 klucze** w obu plikach,
 * **testy JVM: 242** (doszły: `BodyProgressTest` — zakres, zmiany 30/90 dni, jeden
   punkt na dzień, seria i kierunek; `BodyRepositoryTest` — poprawka dnia,
   przenoszenie daty, archiwizacja, klucz wbudowanego wskaźnika, kaskada;
@@ -1963,21 +2016,53 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
   własne za nimi); przestawianie wróci, gdy będzie co przestawiać (§11),
 * **bez eksportu pomiarów** do CSV/ZIP — to M9.
 
+**M9a ✔ (ustawienia: alarm przerwy, język, o aplikacji)** — w repo działa:
+
+* **Alarm przerwy do ustawienia**: dwa przełączniki w sekcji „Trening”
+  (dźwięk, wibracja; domyślnie oba włączone), zapisy w DataStore, a
+  `RestNotifier` przy każdym alarmie czyta je i wybiera kanał powiadomień
+  (§4.2 pkt 55). Kanał tworzy się przy pierwszym alarmie, a istniejący zostaje
+  nietknięty — nawet po zmianie ustawienia widać to w systemowych ustawieniach
+  powiadomień,
+* **„Język aplikacji”**: wiersz otwiera systemowy wybór języka tej aplikacji
+  (Android 13+), a `res/xml/locales_config.xml` (`pl`, `en`) deklaruje języki
+  w manifeście; na starszych wersjach wiersz mówi, że język idzie za systemem
+  (§4.2 pkt 56),
+* **„O aplikacji”**: wersja z `BuildConfig.VERSION_NAME` i zdania o danych na
+  urządzeniu oraz o mediach z galerii (wskazanie, nie kopia),
+* **teksty PL/EN 1:1 — 450 kluczy** w obu plikach; nowy `StringResourcesTest`
+  pilnuje parytetu kluczy, braku duplikatów i tego, że żaden tekst z `%` nie
+  jest literałem (pułapka „Tłuszcz (%)” z M8),
+* **testy JVM: 260** (doszły: `RestAlertChannelTest` — cztery warianty kanału
+  i identyfikator z M5 dla pary domyślnej; `RestNotifierTest` — co o kanale wie
+  system, cisza nie zdejmuje komunikatu z ekranu, kanału nie przestawiamy po
+  fakcie; `AppLanguageSettingsTest` — od której wersji wiersz działa i że
+  zamiar celuje w tę aplikację; `StringResourcesTest`). `:app:lintDebug`
+  i `:app:assembleDebug` bez błędów.
+
+Świadome odroczenia z M9 (szczegóły w §11):
+
+* **jednostki kg/lb i format czasu** — baza trzyma kilogramy i tak zostaje;
+  przeliczanie na funty to warstwa prezentacji, której nikt dziś nie potrzebuje
+  (§11),
+* **baseline profile i makrobenchmark startu** — pomiar na emulatorze jest
+  niemiarodajny, a profil bez urządzenia to plik bez pokrycia (§11).
+
 ---
 
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9) | JUnit4 + `TimeProvider` wstrzykiwany |
 | Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS | Room in-memory + `MigrationTestHelper` na Robolectric |
 | Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
-| Wydajność | baseline profile, makrobenchmark startu, brak zapytań na głównym wątku | Macrobenchmark (M9) |
+| Wydajność | brak zapytań na głównym wątku (pilnuje tego lint i przegląd); baseline profile i makrobenchmark startu **odłożone do v1.1** — na emulatorze liczby są niemiarodajne (§11) | Macrobenchmark (v1.1) |
 
-Stan na M8: **242 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M9a: **260 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
 2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7 i 7 → 8.
@@ -2109,6 +2194,35 @@ Weryfikacja przez `adb shell input` nie wpisze polskich liter (nazwa własnego
 wskaźnika poszła jako „Ramie”), dlatego scenariusze z polskimi nazwami własnymi
 zostają do przeklikania ręcznie. Scenariusze: `docs/QA.md` rozdział 10.
 
+Weryfikacja na urządzeniu (emulator API 36) po M9a: bez migracji (schemat
+zostaje na 8). Ekran „Ustawienia” pokazuje nowe sekcje — „Wygląd” z wierszem
+„Język aplikacji”, „Trening” z domyślną przerwą i dwoma przełącznikami oraz
+„O aplikacji” z wersją (`0.1.0`) i zdaniami o danych na urządzeniu i o mediach
+z galerii. Przełączniki zapisują się w DataStore (`rest_sound_enabled`,
+`rest_vibration_enabled`) i przeżywają `am force-stop` + restart aplikacji.
+Wybór języka otwiera systemowy ekran „Język aplikacji” **tej** aplikacji
+(`AppLocalePickerActivity`), a po wybraniu „English (Poland)” interfejs
+przechodzi na angielski (`cmd locale get-app-locales com.gymtracker` → `[en-PL]`).
+**Defekt wyłapany dopiero tutaj i naprawiony:** zamiar niósł nazwę pakietu
+w ekstra, a filtr systemowy wymaga **danych** `package:<nazwa>` — ekran się nie
+otwierał (`result code=-91`, brak rozwiązania zamiaru). Po poprawce wiersz pyta
+też `PackageManager`, czy system naprawdę ma ten ekran, więc w okrojonym wydaniu
+systemu pokaże podpowiedź zamiast prowadzić donikąd.
+Alarm przerwy sprawdzony na prawdziwym `NotificationManagerService`: przy obu
+przełącznikach wyłączonych powstał kanał `rest_timer_silent`
+(`IMPORTANCE_HIGH`, `mSound=null`, `mVibrationEnabled=false`,
+`mName=„Rest finished: silent”`), a powiadomienie „Rest finished” poszło na niego
+jako `mIsInterruptive=true` — czyli cisza nie odbiera komunikatu z ekranu.
+Po włączeniu przełączników **w trakcie trwającej przerwy** ten sam alarm poszedł
+na kanał `rest_timer` z dźwiękiem i wzorem wibracji, a `rest_timer_silent`
+został w systemie: istniejącego kanału nikt nie przestawiał. Wiersz przerwy
+domknął się jako `completed`, seria zalogowała się z ciężarem i powtórzeniami,
+a czas przerwy wszedł do treningu („Under the bar 2:06 • rests 1:30”) — M5 po
+przebudowie `RestNotifier` działa jak przedtem. Budzik poza ekranem treningu
+spóźnił się 49 s i wykonał w `maxWhenElapsed` (bez zgody na dokładne alarmy
+system ma okno — ten sam efekt opisany po M5). Scenariusze: `docs/QA.md`
+rozdział 11.
+
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.
 
@@ -2132,7 +2246,7 @@ dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmieni
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`).
+1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.

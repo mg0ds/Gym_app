@@ -14,6 +14,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -57,5 +59,23 @@ class SettingsDataStoreTest {
         settings.setThemeMode(ThemeMode.DARK)
 
         assertEquals(ThemeMode.DARK, settings.themeMode.first())
+    }
+
+    @Test
+    fun `alarm Przerwy ma domyslnie i dzwiek, i wibracje`() = runTest {
+        val settings = SettingsDataStore(dataStore)
+
+        assertTrue(settings.restSoundEnabled.first())
+        assertTrue(settings.restVibrationEnabled.first())
+    }
+
+    @Test
+    fun `wylaczone skladowe alarmu sa zapamietywane`() = runTest {
+        val settings = SettingsDataStore(dataStore)
+
+        settings.setRestSoundEnabled(false)
+
+        assertFalse(settings.restSoundEnabled.first())
+        assertTrue("wibracja zostaje bez zmian", settings.restVibrationEnabled.first())
     }
 }

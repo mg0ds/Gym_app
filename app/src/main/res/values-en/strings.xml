@@ -122,11 +122,19 @@
     <string name="settings_theme_system">Follow system</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_language">App language</string>
+    <string name="settings_language_description">Polish and English. The system stores the choice — it also covers notifications sent outside the app.</string>
+    <string name="settings_language_action">Choose language</string>
+    <string name="settings_language_unavailable">Choosing the app language is available from Android 13. On older versions the language follows the system.</string>
     <string name="settings_section_training">Workout</string>
     <string name="settings_default_rest">Default rest between sets</string>
     <string name="settings_default_rest_description">Used only when neither the plan nor the exercise card says how long to rest.</string>
     <string name="settings_default_rest_dialog_title">Default rest</string>
     <string name="settings_default_rest_hint">Seconds</string>
+    <string name="settings_rest_sound">Sound when rest ends</string>
+    <string name="settings_rest_sound_description">A short notification sound. Turn it off when you train in headphones.</string>
+    <string name="settings_rest_vibration">Vibration when rest ends</string>
+    <string name="settings_rest_vibration_description">Three short vibrations, also with the screen off.</string>
     <string name="settings_section_data">Data</string>
     <string name="settings_import_description">Loads the exercises that are missing from the starter catalogue. It never overwrites your changes or your own exercises.</string>
     <string name="settings_import_action">Load starter catalogue</string>
@@ -138,6 +146,10 @@
     <string name="settings_import_programs_running">Loading plans…</string>
     <string name="settings_import_programs_done">Done: plans +%1$d, skipped %2$d, days %3$d.</string>
     <string name="settings_import_programs_failed">Could not load the starter plans.</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_offline">All data — workouts, plans, measurements and photos — stays on this device. No account, no cloud, no analytics.</string>
+    <string name="settings_about_media">Photos and videos from the gallery are only referenced: the app never copies files that belong to anyone else, and when they disappear from the gallery they stop being visible.</string>
 
     <!-- Catalogue vocabulary: muscle groups -->
     <string name="muscle_chest">Chest</string>
@@ -371,6 +383,12 @@
     <!-- Rest notification (M5) -->
     <string name="rest_channel_name">Rest finished</string>
     <string name="rest_channel_description">Sound and vibration when the rest between sets is over</string>
+    <string name="rest_channel_sound_name">Rest finished: sound</string>
+    <string name="rest_channel_sound_description">Sound without vibration when the rest between sets is over</string>
+    <string name="rest_channel_vibration_name">Rest finished: vibration</string>
+    <string name="rest_channel_vibration_description">Vibration without sound when the rest between sets is over</string>
+    <string name="rest_channel_silent_name">Rest finished: silent</string>
+    <string name="rest_channel_silent_description">An on-screen message only, when the rest between sets is over</string>
     <string name="rest_notification_running">Rest</string>
     <string name="rest_notification_finished_title">Rest finished</string>
     <string name="rest_action_extend">+15 s</string>

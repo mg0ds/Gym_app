@@ -63,12 +63,34 @@ class SettingsViewModel @Inject constructor(
         initialValue = SettingsDataStore.DEFAULT_REST_SECONDS,
     )
 
+    /** Czy koniec przerwy ma się odezwać dźwiękiem (M9). */
+    val restSoundEnabled: StateFlow<Boolean> = settings.restSoundEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        initialValue = SettingsDataStore.DEFAULT_REST_ALERT,
+    )
+
+    /** Czy koniec przerwy ma się odezwać wibracją (M9). */
+    val restVibrationEnabled: StateFlow<Boolean> = settings.restVibrationEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        initialValue = SettingsDataStore.DEFAULT_REST_ALERT,
+    )
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
     }
 
     fun setDefaultRestSeconds(seconds: Int) {
         viewModelScope.launch { settings.setDefaultRestSeconds(seconds) }
+    }
+
+    fun setRestSoundEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setRestSoundEnabled(enabled) }
+    }
+
+    fun setRestVibrationEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setRestVibrationEnabled(enabled) }
     }
 
     /**
