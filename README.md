@@ -13,7 +13,8 @@ timer przerwy z alarmem, celem na ćwiczenie i średnimi, historia treningów
 z filtrami i statystyki ćwiczenia z wykresami, zdjęcia i filmy z galerii oraz
 kroki wykonania na karcie ćwiczenia, karta postaci z wskaźnikami i wykresami
 zmian).
-Kolejny krok: karta postaci z pomiarami i wykresami zmian (M8).
+Kolejny krok: ustawienia, kopia zapasowa (ZIP), tłumaczenia i wydanie podpisane
+(M9).
 
 ## Wymagania
 
