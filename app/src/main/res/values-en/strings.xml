@@ -333,6 +333,16 @@
     <string name="calendar_day_empty">Nothing planned for this day.</string>
     <string name="calendar_plan_workout">Plan a workout</string>
     <string name="calendar_entry_actions">Actions for this day</string>
+    <string name="calendar_start_workout">Start workout</string>
+    <string name="calendar_start_for">Workout on %1$s</string>
+    <string name="calendar_start_date_hint">%1$s - the workout is saved under this date.</string>
+    <string name="calendar_start_blank">New workout</string>
+    <string name="calendar_start_blank_hint">No plan - add exercises as you go</string>
+    <string name="calendar_start_no_plans">You have no plan days yet. Add a plan to pick a workout from a list.</string>
+    <plurals name="calendar_start_exercises">
+        <item quantity="one">%1$d exercise</item>
+        <item quantity="other">%1$d exercises</item>
+    </plurals>
 
     <!-- Calendar entries -->
     <string name="schedule_start">Start workout</string>
@@ -382,7 +392,10 @@
     <!-- Workout -->
     <string name="session_finish">Finish workout</string>
     <string name="session_cancel">Discard workout</string>
-    <string name="session_no_exercises">This day has no exercises yet.</string>
+    <string name="session_no_exercises">This workout has no exercises yet.</string>
+    <string name="session_add_exercise">Add exercise</string>
+    <string name="session_workout_default_name">Workout</string>
+    <string name="session_pick_exercise_title">Add exercise to workout</string>
     <string name="session_cancel_confirm_title">Discard the workout?</string>
     <string name="session_cancel_confirm_body">The workout will not be saved as completed.</string>
     <string name="session_in_progress">Workout in progress</string>

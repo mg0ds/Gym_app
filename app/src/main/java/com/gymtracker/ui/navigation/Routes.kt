@@ -68,6 +68,13 @@ object Routes {
     const val PLAN_SCHEDULE = "plan/{$ARG_PLAN_ID}/schedule?$ARG_RECURRENCE_ID={$ARG_RECURRENCE_ID}"
     const val SESSION = "session/{$ARG_SESSION_ID}"
 
+    /**
+     * Wybór ćwiczenia do **trwającego** treningu - dla treningu „od zera”
+     * (bez planu) i dla dopisania czegoś w trakcie. Trasa jest pod sesją, a nie
+     * pod dniem planu, bo wynik idzie do sesji, nie do planu.
+     */
+    const val SESSION_EXERCISE_PICKER = "session/{$ARG_SESSION_ID}/pickExercise"
+
     fun planDetail(planId: Long): String = "plan/$planId"
 
     /** Nowy harmonogram planu. */
@@ -90,6 +97,9 @@ object Routes {
         "planDay/$dayId/pickExercise?$ARG_ANCHOR_ID=$anchorPlanExerciseId"
 
     fun session(sessionId: Long): String = "session/$sessionId"
+
+    /** Wybór ćwiczenia do trwającego treningu ([SESSION_EXERCISE_PICKER]). */
+    fun sessionExercisePicker(sessionId: Long): String = "session/$sessionId/pickExercise"
 
     /** Trasy najwyższego poziomu - na nich pokazujemy dolny pasek nawigacji. */
     val topLevel: Set<String> = setOf(HOME, EXERCISES, HISTORY, BODY, SETTINGS)

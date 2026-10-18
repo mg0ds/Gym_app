@@ -83,10 +83,10 @@ private fun ExercisePickerContent(
                 title = {
                     Text(
                         text = stringResource(
-                            if (uiState.isAlternative) {
-                                R.string.plan_pick_alternative_title
-                            } else {
-                                R.string.plan_pick_exercise_title
+                            when {
+                                uiState.isSession -> R.string.session_pick_exercise_title
+                                uiState.isAlternative -> R.string.plan_pick_alternative_title
+                                else -> R.string.plan_pick_exercise_title
                             },
                         ),
                     )

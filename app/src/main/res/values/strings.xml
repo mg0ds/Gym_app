@@ -345,6 +345,18 @@
     <string name="calendar_day_empty">Nic nie zaplanowano na ten dzień.</string>
     <string name="calendar_plan_workout">Zaplanuj trening</string>
     <string name="calendar_entry_actions">Działania dla tego dnia</string>
+    <string name="calendar_start_workout">Rozpocznij trening</string>
+    <string name="calendar_start_for">Trening na %1$s</string>
+    <string name="calendar_start_date_hint">%1$s - trening zapisze się pod tą datą.</string>
+    <string name="calendar_start_blank">Nowy trening</string>
+    <string name="calendar_start_blank_hint">Bez planu - ćwiczenia dodasz w trakcie</string>
+    <string name="calendar_start_no_plans">Nie masz jeszcze dni planu. Dodaj plan, żeby wybierać trening z listy.</string>
+    <plurals name="calendar_start_exercises">
+        <item quantity="one">%1$d ćwiczenie</item>
+        <item quantity="few">%1$d ćwiczenia</item>
+        <item quantity="many">%1$d ćwiczeń</item>
+        <item quantity="other">%1$d ćwiczenia</item>
+    </plurals>
 
     <!-- Wpisy w kalendarzu -->
     <string name="schedule_start">Rozpocznij trening</string>
@@ -394,7 +406,10 @@
     <!-- Trening -->
     <string name="session_finish">Zakończ trening</string>
     <string name="session_cancel">Przerwij trening</string>
-    <string name="session_no_exercises">Ten dzień nie ma jeszcze ćwiczeń.</string>
+    <string name="session_no_exercises">Ten trening nie ma jeszcze ćwiczeń.</string>
+    <string name="session_add_exercise">Dodaj ćwiczenie</string>
+    <string name="session_workout_default_name">Trening</string>
+    <string name="session_pick_exercise_title">Dodaj ćwiczenie do treningu</string>
     <string name="session_cancel_confirm_title">Przerwać trening?</string>
     <string name="session_cancel_confirm_body">Trening nie zostanie zapisany jako odbyty.</string>
     <string name="session_in_progress">Trening w toku</string>

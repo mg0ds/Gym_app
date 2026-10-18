@@ -2,10 +2,12 @@ package com.gymtracker.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.ScheduleStatus
 import com.gymtracker.domain.model.ScheduledWorkout
 import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.domain.repository.CalendarRepository
+import com.gymtracker.domain.repository.PlanRepository
 import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.domain.schedule.ScheduleLimits
 import com.gymtracker.domain.time.TimeProvider
@@ -32,6 +34,8 @@ data class CalendarUiState(
     val selectedDate: LocalDate = LocalDate.now(),
     val cells: List<CalendarCell> = emptyList(),
     val entriesByDate: Map<LocalDate, List<ScheduledWorkout>> = emptyMap(),
+    /** Dni planów do wyboru przy „rozpocznij trening” na wybrany dzień. */
+    val dayOptions: List<PlanDayOption> = emptyList(),
     val activeSession: SessionDetails? = null,
 ) {
     val selectedEntries: List<ScheduledWorkout> get() = entriesByDate[selectedDate].orEmpty()
@@ -51,6 +55,7 @@ data class CalendarUiState(
 class CalendarViewModel @Inject constructor(
     private val calendar: CalendarRepository,
     private val sessions: SessionRepository,
+    plans: PlanRepository,
     timeProvider: TimeProvider,
 ) : ViewModel() {
 
@@ -70,7 +75,8 @@ class CalendarViewModel @Inject constructor(
         month,
         selectedDate,
         sessions.observeActiveSession(),
-    ) { entries, yearMonth, selected, activeSession ->
+        plans.observeDayOptions(),
+    ) { entries, yearMonth, selected, activeSession, dayOptions ->
         CalendarUiState(
             isLoading = false,
             month = yearMonth,
@@ -79,6 +85,7 @@ class CalendarViewModel @Inject constructor(
             selectedDate = selected,
             cells = monthGrid(yearMonth),
             entriesByDate = entries.groupBy { entry -> entry.date },
+            dayOptions = dayOptions,
             activeSession = activeSession,
         )
     }.stateIn(
@@ -121,6 +128,16 @@ class CalendarViewModel @Inject constructor(
     fun startWorkout(entryId: Long, onStarted: (Long) -> Unit) {
         viewModelScope.launch {
             sessions.startFromSchedule(entryId)?.let { sessionId -> onStarted(sessionId) }
+        }
+    }
+
+    /**
+     * Rozpoczyna trening przypisany do wybranego dnia. [planDayId] = `null`
+     * tworzy trening „od zera” - wtedy [name] jest jego nazwą.
+     */
+    fun startForDay(date: LocalDate, planDayId: Long?, name: String, onStarted: (Long) -> Unit) {
+        viewModelScope.launch {
+            sessions.startForDay(date, planDayId, name)?.let { sessionId -> onStarted(sessionId) }
         }
     }
 

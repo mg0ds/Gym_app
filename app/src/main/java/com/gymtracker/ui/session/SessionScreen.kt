@@ -5,16 +5,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,6 +79,7 @@ import java.time.format.DateTimeFormatter
 fun SessionScreen(
     onBack: () -> Unit,
     onFinished: () -> Unit,
+    onAddExercise: () -> Unit,
     viewModel: SessionViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -95,6 +100,7 @@ fun SessionScreen(
         onRestDue = viewModel::restDue,
         onFinish = { viewModel.finishSession(onFinished) },
         onCancel = { viewModel.cancelSession(onFinished) },
+        onAddExercise = onAddExercise,
     )
 }
 
@@ -116,6 +122,7 @@ private fun SessionContent(
     onRestDue: () -> Unit,
     onFinish: () -> Unit,
     onCancel: () -> Unit,
+    onAddExercise: () -> Unit,
 ) {
     var showCancelConfirm by remember { mutableStateOf(false) }
     var showNoteDialog by remember { mutableStateOf(false) }
@@ -157,9 +164,14 @@ private fun SessionContent(
                     ) {
                         Text(text = stringResource(R.string.session_finish))
                     }
+                    // Porzucenie treningu nie zapisuje niczego, więc ma kolor
+                    // błędu - nie wygląda jak zwykłe, bezpieczne wyjście.
                     TextButton(
                         onClick = { showCancelConfirm = true },
                         modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
                     ) {
                         Text(text = stringResource(R.string.session_cancel))
                     }
@@ -210,7 +222,7 @@ private fun SessionContent(
                     text = stringResource(R.string.session_no_exercises),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             } else {
                 uiState.exercises.forEachIndexed { index, exercise ->
@@ -228,6 +240,25 @@ private fun SessionContent(
                         },
                         onEditRest = { restDialog = exercise },
                     )
+                }
+            }
+
+            // Dopisywanie ćwiczeń w trakcie jest tym, czym żyje trening „od
+            // zera” - bez tego nowy trening nie miałby jak zacząć.
+            if (uiState.isActive) {
+                TextButton(
+                    onClick = onAddExercise,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(text = stringResource(R.string.session_add_exercise))
                 }
             }
         }
@@ -295,6 +326,9 @@ private fun SessionContent(
                         showCancelConfirm = false
                         onCancel()
                     },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
                 ) {
                     Text(text = stringResource(R.string.session_cancel))
                 }

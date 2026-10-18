@@ -231,11 +231,23 @@ fun GymTrackerNavHost(
             composable(
                 route = Routes.SESSION,
                 arguments = listOf(navArgument(Routes.ARG_SESSION_ID) { type = NavType.LongType }),
-            ) {
+            ) { backStackEntry ->
+                val sessionId = backStackEntry.arguments?.getLong(Routes.ARG_SESSION_ID) ?: 0L
                 SessionScreen(
                     onBack = { navController.popBackStack() },
                     onFinished = { navController.popBackStack() },
+                    onAddExercise = {
+                        navController.navigate(Routes.sessionExercisePicker(sessionId))
+                    },
                 )
+            }
+
+            composable(
+                route = Routes.SESSION_EXERCISE_PICKER,
+                arguments = listOf(navArgument(Routes.ARG_SESSION_ID) { type = NavType.LongType }),
+            ) {
+                // Wybór dopisuje ćwiczenie do sesji, więc wystarczy wrócić.
+                ExercisePickerScreen(onBack = { navController.popBackStack() })
             }
         }
     }

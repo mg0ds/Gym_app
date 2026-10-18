@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
@@ -32,9 +33,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
@@ -51,15 +55,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
+import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.ScheduleStatus
 import com.gymtracker.domain.model.ScheduledWorkout
 import com.gymtracker.domain.model.SessionDetails
@@ -70,10 +77,10 @@ import java.util.Locale
 /**
  * Kalendarz: miesiąc z zaznaczonymi treningami i lista wpisów wybranego dnia.
  *
- * Kropki w komórkach mówią, co się w danym dniu dzieje:
- * zielone/pełne = odbyty, obwódka = zaplanowany, blade = pominięty. Z komórki
- * wybieramy dzień, a z listy pod siatką - rozpoczynamy trening, odhaczamy dzień,
- * przenosimy go albo usuwamy z planu.
+ * Dzień, w którym coś się dzieje, dostaje **ramkę** (kolor mówi, co: odbyty,
+ * zaplanowany, pominięty), a kropki w środku pokazują, ile wpisów jest w dniu.
+ * Z komórki wybieramy dzień, a z sekcji pod siatką - rozpoczynamy trening
+ * (z listy dni planu albo od zera), odhaczamy dzień, przenosimy go albo usuwamy.
  */
 @Composable
 fun CalendarScreen(
@@ -82,6 +89,7 @@ fun CalendarScreen(
     viewModel: CalendarViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val blankWorkoutName = stringResource(R.string.session_workout_default_name)
 
     CalendarContent(
         uiState = uiState,
@@ -90,6 +98,9 @@ fun CalendarScreen(
         onToday = viewModel::showToday,
         onSelectDate = viewModel::selectDate,
         onStart = { entryId -> viewModel.startWorkout(entryId, onOpenSession) },
+        onStartForDay = { date, planDayId ->
+            viewModel.startForDay(date, planDayId, blankWorkoutName, onOpenSession)
+        },
         onStatus = viewModel::markStatus,
         onMove = viewModel::moveEntry,
         onRemove = viewModel::removeEntry,
@@ -107,6 +118,7 @@ internal fun CalendarContent(
     onToday: () -> Unit,
     onSelectDate: (LocalDate) -> Unit,
     onStart: (Long) -> Unit,
+    onStartForDay: (LocalDate, Long?) -> Unit,
     onStatus: (Long, ScheduleStatus) -> Unit,
     onMove: (Long, LocalDate) -> Unit,
     onRemove: (Long) -> Unit,
@@ -114,6 +126,7 @@ internal fun CalendarContent(
     onOpenSession: (Long) -> Unit,
 ) {
     var entryToMove by remember { mutableStateOf<ScheduledWorkout?>(null) }
+    var startForDate by remember { mutableStateOf<LocalDate?>(null) }
     val locale = LocalConfiguration.current.locales[0]
 
     Scaffold(
@@ -163,6 +176,7 @@ internal fun CalendarContent(
                     uiState = uiState,
                     locale = locale,
                     onStart = onStart,
+                    onStartForDay = { startForDate = uiState.selectedDate },
                     onStatus = onStatus,
                     onMoveClick = { entry -> entryToMove = entry },
                     onRemove = onRemove,
@@ -185,6 +199,23 @@ internal fun CalendarContent(
                 entryToMove = null
                 onMove(entry.id, date)
             },
+        )
+    }
+
+    startForDate?.let { date ->
+        StartWorkoutSheet(
+            date = date,
+            locale = locale,
+            options = uiState.dayOptions,
+            onPick = { option ->
+                startForDate = null
+                onStartForDay(date, option.id)
+            },
+            onBlank = {
+                startForDate = null
+                onStartForDay(date, null)
+            },
+            onDismiss = { startForDate = null },
         )
     }
 }
@@ -287,12 +318,28 @@ private fun RowScope.DayCell(
     entries: List<ScheduledWorkout>,
     onClick: () -> Unit,
 ) {
+    val dayEntries = entries.takeIf { cell.inMonth }.orEmpty()
+    // Ramka wokół całego dnia mówi, że tego dnia coś jest - kropka została jako
+    // „ile tego jest”. Kolejność jest zgodna z wagą zdarzenia: odbyty wygrywa
+    // z zaplanowanym, a status ramki dobieramy tym samym kluczem co w legendzie.
+    val frameStatus = when {
+        dayEntries.any { entry -> entry.status == ScheduleStatus.DONE } -> ScheduleStatus.DONE
+        dayEntries.any { entry -> entry.status == ScheduleStatus.PLANNED } -> ScheduleStatus.PLANNED
+        dayEntries.isNotEmpty() -> ScheduleStatus.SKIPPED
+        else -> null
+    }
+    val frameColor = frameStatus?.let { status -> statusFrameColor(status) }
     val background = when {
         isSelected -> MaterialTheme.colorScheme.primaryContainer
-        isToday -> MaterialTheme.colorScheme.surfaceVariant
+        isToday -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> Color.Transparent
     }
-    val statuses = entries.map { entry -> stringResource(statusLabelRes(entry.status)) }
+    val digitColor = when {
+        !cell.inMonth -> MaterialTheme.colorScheme.outline
+        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val statuses = dayEntries.map { entry -> stringResource(statusLabelRes(entry.status)) }
         .joinToString(separator = ", ")
     val description = if (statuses.isEmpty()) {
         cell.date.dayOfMonth.toString()
@@ -305,26 +352,34 @@ private fun RowScope.DayCell(
             .weight(1f)
             .height(CELL_HEIGHT)
             .padding(2.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(CELL_SHAPE)
             .background(background)
+            .then(
+                if (frameColor == null) {
+                    Modifier
+                } else {
+                    Modifier.border(
+                        width = if (isSelected) FRAME_WIDTH_SELECTED else FRAME_WIDTH,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else frameColor,
+                        shape = CELL_SHAPE,
+                    )
+                },
+            )
             .clickable(onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = cell.date.dayOfMonth.toString(),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (cell.inMonth) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.outline
-                },
+                fontWeight = if (isToday || isSelected) FontWeight.Bold else null,
+                color = digitColor,
             )
-            StatusDots(entries = entries.takeIf { cell.inMonth }.orEmpty())
+            StatusDots(entries = dayEntries)
         }
     }
 }
@@ -366,6 +421,17 @@ private fun statusDotColor(status: ScheduleStatus): Color = when (status) {
     ScheduleStatus.SKIPPED -> MaterialTheme.colorScheme.outlineVariant
 }
 
+/**
+ * Kolor ramki dnia dla jednego statusu. Wspólny dla siatki i legendy, żeby
+ * legenda nie kłamała: „zaplanowany” w siatce jest stalowy, nie szary.
+ */
+@Composable
+private fun statusFrameColor(status: ScheduleStatus): Color = when (status) {
+    ScheduleStatus.DONE -> MaterialTheme.colorScheme.primary
+    ScheduleStatus.PLANNED -> MaterialTheme.colorScheme.secondary
+    ScheduleStatus.SKIPPED -> MaterialTheme.colorScheme.outlineVariant
+}
+
 @Composable
 private fun StatusLegend() {
     Row(
@@ -384,7 +450,16 @@ private fun LegendItem(status: ScheduleStatus) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        StatusDot(status = status)
+        // Legenda pokazuje to samo, co komórka dnia: ramkę z kropką w środku.
+        Box(
+            modifier = Modifier
+                .size(LEGEND_SWATCH)
+                .clip(RoundedCornerShape(5.dp))
+                .border(FRAME_WIDTH, statusFrameColor(status), RoundedCornerShape(5.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            StatusDot(status = status)
+        }
         Text(
             text = stringResource(statusLabelRes(status)),
             style = MaterialTheme.typography.labelSmall,
@@ -398,6 +473,7 @@ private fun SelectedDaySection(
     uiState: CalendarUiState,
     locale: Locale,
     onStart: (Long) -> Unit,
+    onStartForDay: () -> Unit,
     onStatus: (Long, ScheduleStatus) -> Unit,
     onMoveClick: (ScheduledWorkout) -> Unit,
     onRemove: (Long) -> Unit,
@@ -425,6 +501,21 @@ private fun SelectedDaySection(
             }
         }
 
+        // Rozpoczęcie treningu jest dostępne dla **każdego** dnia, nie tylko dla
+        // pustego: wybrany dzień to dzień treningu, a nie dzień kliknięcia.
+        Button(
+            onClick = onStartForDay,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(BUTTON_ICON),
+            )
+            Spacer(modifier = Modifier.size(8.dp))
+            Text(text = stringResource(R.string.calendar_start_workout))
+        }
+
         if (uiState.selectedEntries.isEmpty()) {
             Text(
                 text = stringResource(R.string.calendar_day_empty),
@@ -444,6 +535,97 @@ private fun SelectedDaySection(
                     onRemove = { onRemove(entry.id) },
                     onOpenSession = onOpenSession,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Wybór treningu na konkretny dzień: dzień planu z listy albo trening od zera.
+ *
+ * Lista jest spłaszczona („plan → dzień” w jednym wierszu), bo użytkownik
+ * wybiera trening na dzień, a nie plan - schodzenie do planu i z powrotem
+ * byłoby tu zbędnym klikaniem.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun StartWorkoutSheet(
+    date: LocalDate,
+    locale: Locale,
+    options: List<PlanDayOption>,
+    onPick: (PlanDayOption) -> Unit,
+    onBlank: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.calendar_start_for, date.dayMonthText(locale)),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+            )
+            Text(
+                text = stringResource(
+                    R.string.calendar_start_date_hint,
+                    date.weekdayText(locale),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+            )
+
+            ListItem(
+                modifier = Modifier.clickable(onClick = onBlank),
+                leadingContent = {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                headlineContent = { Text(text = stringResource(R.string.calendar_start_blank)) },
+                supportingContent = {
+                    Text(
+                        text = stringResource(R.string.calendar_start_blank_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            if (options.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.calendar_start_no_plans),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+            } else {
+                options.forEach { option ->
+                    ListItem(
+                        modifier = Modifier.clickable { onPick(option) },
+                        headlineContent = { Text(text = option.dayName) },
+                        supportingContent = {
+                            Text(
+                                text = listOf(
+                                    option.planName,
+                                    pluralStringResource(
+                                        R.plurals.calendar_start_exercises,
+                                        option.exerciseCount,
+                                        option.exerciseCount,
+                                    ),
+                                ).joinToString(separator = " • "),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        },
+                    )
+                }
             }
         }
     }
@@ -636,4 +818,9 @@ private fun weekdaysFromMonday(): List<DayOfWeek> =
 private const val DAYS_IN_WEEK = 7
 private const val MAX_DOTS = 3
 private val CELL_HEIGHT = 52.dp
+private val CELL_SHAPE = RoundedCornerShape(12.dp)
+private val FRAME_WIDTH = 1.5.dp
+private val FRAME_WIDTH_SELECTED = 2.dp
 private val DOT_SIZE = 7.dp
+private val LEGEND_SWATCH = 18.dp
+private val BUTTON_ICON = 18.dp
