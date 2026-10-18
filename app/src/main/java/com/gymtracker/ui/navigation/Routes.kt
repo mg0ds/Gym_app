@@ -19,6 +19,13 @@ object Routes {
     const val EXERCISE_EDIT = "exercise/{$ARG_EXERCISE_ID}/edit"
     const val EXERCISE_STATS = "exercise/{$ARG_EXERCISE_ID}/stats"
 
+    /**
+     * Archiwum ćwiczeń (M9). Trasa jest dłuższa niż [EXERCISES], a nie krótsza
+     * („archive”), żeby widać było, gdzie ten ekran wisi - i żeby nie kolidowała
+     * z trasami pojedynczego ćwiczenia (`exercise/...`).
+     */
+    const val EXERCISE_ARCHIVE = "exercises/archive"
+
     /** Podgląd załącznika (M7) - zdjęcia, filmu albo linku. */
     const val ARG_MEDIA_ID = "mediaId"
     const val EXERCISE_MEDIA = "exercise/{$ARG_EXERCISE_ID}/media/{$ARG_MEDIA_ID}"

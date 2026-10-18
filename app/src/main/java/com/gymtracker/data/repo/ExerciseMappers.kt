@@ -1,6 +1,8 @@
 package com.gymtracker.data.repo
 
 import com.gymtracker.data.db.entities.ExerciseEntity
+import com.gymtracker.data.db.rows.ArchiveImpactRow
+import com.gymtracker.domain.model.ArchiveImpact
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseDraft
 import com.gymtracker.domain.model.InstructionSteps
@@ -63,6 +65,17 @@ internal fun ExerciseEntity.toDomain(): Exercise = Exercise(
     notes = notes,
     isFavourite = isFavourite,
     isArchived = isArchived,
+)
+
+/**
+ * Wynik zapytania o archiwum → model domenowy. Trzymamy go osobno, bo UI
+ * dostaje gotowe liczby, a nie wiersz z bazy z nazwami kolumn.
+ */
+internal fun ArchiveImpactRow.toDomain(): ArchiveImpact = ArchiveImpact(
+    exercises = exercises,
+    planPositions = planPositions,
+    sessionPositions = sessionPositions,
+    media = media,
 )
 
 /**

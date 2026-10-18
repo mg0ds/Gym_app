@@ -524,6 +524,21 @@ app_meta, seed_imports                 (poza relacjami: stan i dziennik importó
     sprząta osierocone miniatury (te, do których nie prowadzi już żaden wiersz)
     - kopia mogła przywieźć własne pliki i zostawić stare.
 
+63. **Archiwum jest ekranem decyzji, nie koszem na pliki.** Archiwizacja istnieje
+    po to, żeby plan i historia zostały czytelne (§6.11), więc ekran archiwum
+    **nie** jest miejscem, gdzie „sprząta się” jednym kliknięciem: pokazuje
+    najpierw, ile pozycji w planach i wpisów w historii zniknie razem
+    z ćwiczeniami, i dopiero potem pozwala je skasować. Przywrócenie oddaje ten
+    sam wiersz (`is_archived = 0`), więc historia wraca **na miejsce** - nowy
+    wiersz o tej samej nazwie byłby drugim ćwiczeniem z rozjechaną historią.
+    Trwałe kasowanie jest twarde i polega na kaskadzie ze schematu: skoro baza już
+    wie, co wisi na ćwiczeniu, powtarzanie tego w Kotlinie byłoby drugim opisem
+    tych samych zależności. Cena porządku jest liczona **jednym zapytaniem**
+    (cztery podzapytania), bo i tak trafia do jednego zdania - a liczby muszą być
+    prawdziwe, bo po kasowaniu nie ma czego odtworzyć. Nowej migracji nie ma:
+    `is_archived` jest w schemacie od M2, więc archiwum to nowe zapytania, nie
+    nowe kolumny (§6.11).
+
 ### 4.3 Migracje
 
 * `Room` z `exportSchema = true`, schematy w `app/schemas/`.
@@ -613,7 +628,7 @@ Ustawienia
  └─ O aplikacji, licencje
 ```
 
-**Co z tego istnieje po M7** (stan faktyczny, trasy z `Routes.kt`):
+**Co z tego istnieje po M9c** (stan faktyczny, trasy z `Routes.kt`):
 
 ```
 Kalendarz (home)                 ← dolny pasek
@@ -624,7 +639,8 @@ Kalendarz (home)                 ← dolny pasek
  ├─ exercise/new, exercise/{id}, exercise/{id}/edit
  ├─ exercise/{id} → „Pełna historia i statystyki” → exercise/{id}/stats
  ├─ exercise/{id} → kafelek zdjęcia/filmu → exercise/{id}/media/{mediaId}
- └─ akcja „plany” w nagłówku → plans
+ ├─ akcja „plany” w nagłówku → plans
+ └─ menu „więcej działań” → exercises/archive  (podgląd, przywracanie, opróżnianie)
 Plany (plans)                    ← bez dolnego paska
  └─ plan/{planId}
       ├─ sekcja „Harmonogram”:
@@ -638,14 +654,17 @@ Historia (history)               ← dolny pasek
  ├─ lista zakończonych treningów (zakres / ćwiczenie / nazwa dnia)
  │    └─ session/{id}            (podgląd do czytania, ten sam co z kalendarza)
  └─ exercise/{id}/stats          (wejście z karty ćwiczenia)
+Karta postaci (body)             ← dolny pasek
+ ├─ wskaźniki, wykresy i pomiary: dodawanie w miejscu (karta + wpis)
+ └─ body/metrics                 (lista wskaźników: dodawanie, poprawianie, archiwizacja)
 Ustawienia (settings)            ← dolny pasek
 ```
 
 Dolny pasek pokazuje się tylko na trasach najwyższego poziomu
-(`Routes.topLevel`: Kalendarz / Ćwiczenia / Historia / Ustawienia); ekrany
-ćwiczeń, załącznika, planów, statystyk, harmonogramu i treningu są
-„pełnoekranowe”, żeby nie kusiło wyjście z formularza reguły, z wykresu albo
-z filmu w połowie oglądania. Argumenty opcjonalne trasy mają wartość
+(`Routes.topLevel`: Kalendarz / Ćwiczenia / Historia / Karta postaci /
+Ustawienia); ekrany ćwiczeń, załącznika, archiwum, planów, statystyk,
+harmonogramu i treningu są „pełnoekranowe”, żeby nie kusiło wyjście
+z formularza reguły, z wykresu albo z filmu w połowie oglądania. Argumenty opcjonalne trasy mają wartość
 `Routes.NO_ID` (`0`) — `recurrenceId = 0` znaczy „nowa reguła”.
 
 ### 5.2 Kluczowe ekrany — makiety opisowe
@@ -1446,9 +1465,30 @@ Co to znaczy w praktyce:
   4 pozycje.”, „Zostanie w historii treningów: 1 wpis.”) — to spokojna
   informacja, nie straszenie.
 
-Czego jeszcze nie ma: przeglądania i przywracania z archiwum oraz trwałego
-„opróżnij archiwum” (`ExerciseDao.deleteById` czeka na ten ekran). To M9 — razem
-z importem plików, bo dopiero wtedy pojawia się pytanie „co leży w archiwum i dlaczego”.
+**Ekran archiwum (M9).** Wejście jest tam, gdzie ćwiczenia: „więcej działań”
+na liście katalogu, z licznikiem w etykiecie (`Archiwum (3)`). Ekran odpowiada
+na trzy pytania i tylko na nie:
+
+* **co tam leży** - lista po nazwie (bez wielkości liter), z partią mięśniową
+  i sprzętem, czyli z tym, po czym ćwiczenie się rozpoznaje,
+* **jak je odzyskać** - „Przywróć” ustawia `is_archived = 0` i podbija
+  `updated_at`. Ćwiczenie wraca **tym samym wierszem**, więc plan, historia
+  i ulubione zostają na miejscu: to nie jest nowe ćwiczenie o tej samej nazwie,
+* **ile kosztuje porządek** - `observeArchiveImpact` liczy jednym zapytaniem, ile
+  zniknie razem z archiwum: ćwiczenia, pozycje w planach, wpisy w historii
+  treningów i załączniki. Stopka listy pokazuje to na bieżąco (liczby zmieniają
+  się, gdy użytkownik coś przywróci), a pytanie „Opróżnić archiwum?” powtarza to
+  razem z liczbą ćwiczeń. Kasowanie pojedynczego wiersza ma swoje pytanie.
+
+Skasowanie na stałe jest **twarde** (`DELETE`): kaskada w schemacie wie, co zabrać,
+i to ona wykonuje robotę - nie powtarzamy tej wiedzy w Kotlinie. Miniatur nie
+sprzątamy przy okazji: po skasowanych załącznikach zostają pliki, których
+`sweepOrphanThumbnails` nie ruszy, bo są świeże (M7) - startowy przegląd zabierze
+je dobę później. To ta sama reguła co wszędzie indziej: świeżego pliku nie
+odróżnimy od tego, którego wiersz właśnie powstaje.
+
+Schemat się **nie zmienia**: archiwizacja i tak siedzi w `is_archived`, więc
+podgląd, przywracanie i trwałe kasowanie to nowe zapytania, nie nowa migracja.
 
 ### 6.12 Ustawienia: alarm przerwy, język i „O aplikacji” (M9)
 
@@ -2204,6 +2244,28 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
   `stats_json` nie wywraca ekranu). `:app:lintDebug` i `:app:assembleDebug` bez
   błędów, lint bez nowych ostrzeżeń.
 
+**M9c ✔ (ekran archiwum ćwiczeń)** — w repo działa:
+
+* **wejście z listy katalogu**: „więcej działań” z licznikiem (`Archiwum (3)`;
+  gdy archiwum jest puste, zostaje sama nazwa) i trasą `exercises/archive`,
+* **lista archiwum** po nazwie bez wielkości liter, z partią mięśniową i sprzętem.
+  „Przywróć” oddaje **ten sam wiersz** do katalogu - razem z planami i historią,
+  bo to nie nowe ćwiczenie o tej samej nazwie,
+* **cena porządku**: `observeArchiveImpact` liczy jednym zapytaniem, ile zniknie
+  razem z archiwum (ćwiczenia, pozycje w planach, wpisy w historii, załączniki).
+  Stopka listy pokazuje to na bieżąco, pytanie „Opróżnić archiwum?” powtarza to
+  z liczbą ćwiczeń, a pojedynczy wiersz ma własne pytanie - ekran nie pozwala
+  skasować niczego, nie mówiąc, co to kosztuje (§4.2 pkt 63),
+* **trwałe kasowanie** idzie kaskadą schematu (bez powtarzania zależności
+  w Kotlinie) i **bez nowej migracji**: `is_archived` jest w bazie od M2, więc
+  archiwum to nowe zapytania, nie nowe kolumny,
+* **testy JVM: 290** (doszedł `ExerciseArchiveTest` - przywrócenie oddaje wiersz
+  do katalogu, kolejność po nazwie niezależna od wielkości liter, cena opróżnienia
+  liczy plany, historię i załączniki (a nie liczy ćwiczeń spoza archiwum), puste
+  archiwum nic nie zabiera, skasowanie na stałe sprząta plany i historię,
+  opróżnienie nie rusza katalogu). `:app:lintDebug` i `:app:assembleDebug` bez
+  błędów.
+
 Świadome odroczenia z M9 (szczegóły w §11):
 * **jednostki kg/lb i format czasu** — baza trzyma kilogramy i tak zostaje;
   przeliczanie na funty to warstwa prezentacji, której nikt dziś nie potrzebuje
@@ -2218,17 +2280,19 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
 | Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9), kaskady, unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym (M9) | Room in-memory + `runTest` |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
 | Wydajność | brak zapytań na głównym wątku (pilnuje tego lint i przegląd); baseline profile i makrobenchmark startu **odłożone do v1.1** — na emulatorze liczby są niemiarodajne (§11) | Macrobenchmark (v1.1) |
 
-Stan na M9b: **284 testy JVM**, wszystkie zielone, uruchamiane bez emulatora
+Stan na M9c: **290 testów JVM**, wszystkie zielone, uruchamiane bez emulatora
 (Robolectric). Każdy krok, który zmienia schemat, dowozi migrację **i** test
 przejścia całej drogi (nie tylko ostatniego skoku) — tak było przy 1 → 2,
-2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7, 7 → 8 i 8 → 9.
+2 → 3, 3 → 4, 4 → 5, 5 → 6, 6 → 7, 7 → 8 i 8 → 9. M9c schematu nie zmienia:
+archiwizacja siedzi w `is_archived` od M2, więc nowe zapytania nie potrzebują
+migracji.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
@@ -2412,6 +2476,20 @@ historią serii i przerw. Katalog z pliku: `katalog-test.json` dodał dwa
 odrzucony z powodem w miejscu przycisku, a wpis w dzienniku niósł sam **kod**
 (`{"status":"rejected","error":"too_new_schema"}`) i odcisk SHA-256 treści.
 Scenariusze: `docs/QA.md` rozdział 5.
+
+Weryfikacja na urządzeniu (emulator API 36) po M9c: bez migracji (schemat zostaje
+na 9). Na liście katalogu doszedł wiersz „Archiwum (2)” - dwa ćwiczenia zostały
+w archiwum po wcześniejszych próbach - a ekran archiwum pokazał oba z partią
+mięśniową i sprzętem oraz z ceną opróżnienia: „Znikną 2 pozycje w planach.” i nic
+więcej, bo te wiersze nie miały ani historii, ani załączników. Pytanie „Opróżnić
+archiwum?” powtórzyło obie liczby (ćwiczenia i pozycje w planach), a po
+potwierdzeniu baza zeszła z 29 do 27 ćwiczeń i z 34 do 32 pozycji w planach
+(kaskada), status pokazał „Archiwum opróżnione. Skasowano: 2.”, a ekran - pusty
+stan z licznikiem znikniętym z menu. Osobno: „Usuń” w karcie ćwiczenia (2 pozycje
+w planach, 20 wpisów w historii) → ten sam wiersz pojawił się w archiwum z ceną
+zgodną z pytaniem z karty ćwiczenia, a „Przywróć” oddał go do katalogu
+(`is_archived = 0`) z komunikatem w miejscu listy i pustym archiwum. Logcat bez
+wyjątków. Scenariusze: `docs/QA.md` rozdział 4.
 
 **Definicja ukończenia (DoD) dla zadania:** kod + testy + brak ostrzeżeń lintera +
 dokumentacja w `docs/` jeśli zmienia model danych + migracja Room jeśli zmienia schemat.

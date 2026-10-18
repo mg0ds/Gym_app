@@ -22,6 +22,8 @@ data class ExerciseListUiState(
     val favouritesOnly: Boolean = false,
     val muscleGroups: List<String> = emptyList(),
     val exercises: List<Exercise> = emptyList(),
+    /** Ile ćwiczeń czeka w archiwum - etykieta wejścia do archiwum (M9). */
+    val archivedCount: Int = 0,
     val isLoading: Boolean = true,
 )
 
@@ -54,13 +56,15 @@ class ExerciseListViewModel @Inject constructor(
         },
         filters,
         repository.observeMuscleGroups(),
-    ) { exercises, current, groups ->
+        repository.observeArchivedCount(),
+    ) { exercises, current, groups, archivedCount ->
         ExerciseListUiState(
             query = current.query,
             muscleGroup = current.muscleGroup,
             favouritesOnly = current.favouritesOnly,
             muscleGroups = groups,
             exercises = exercises,
+            archivedCount = archivedCount,
             isLoading = false,
         )
     }.stateIn(

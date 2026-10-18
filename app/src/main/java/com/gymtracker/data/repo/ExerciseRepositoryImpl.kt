@@ -4,6 +4,7 @@ import com.gymtracker.data.db.daos.ExerciseDao
 import com.gymtracker.data.db.daos.PlanDao
 import com.gymtracker.data.db.daos.SessionDao
 import com.gymtracker.data.search.ExerciseSearchQuery
+import com.gymtracker.domain.model.ArchiveImpact
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseDraft
 import com.gymtracker.domain.model.ExerciseUsage
@@ -92,4 +93,30 @@ class ExerciseRepositoryImpl @Inject constructor(
     override suspend fun archiveExercise(id: Long) {
         exerciseDao.archive(id = id, updatedAtEpochMs = timeProvider.nowEpochMs())
     }
+
+    override fun observeArchivedExercises(): Flow<List<Exercise>> =
+        exerciseDao.observeArchived().map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeArchivedCount(): Flow<Int> = exerciseDao.observeArchivedCount()
+
+    override fun observeArchiveImpact(): Flow<ArchiveImpact> =
+        exerciseDao.observeArchiveImpact().map { row -> row.toDomain() }
+
+    override suspend fun restoreExercise(id: Long) {
+        exerciseDao.restore(id = id, updatedAtEpochMs = timeProvider.nowEpochMs())
+    }
+
+    /**
+     * Kasowanie z archiwum jest twarde i **celowo** nie przechodzi przez żadną
+     * warstwę pośrednią: kaskada w schemacie wie, co zabrać (pozycje w planach,
+     * wpisy w historii, załączniki), a my nie powtarzamy tej wiedzy w Kotlinie.
+     * Dlatego nie ma tu też sprzątania miniatur: pliki po skasowanych
+     * załącznikach są młode, a `sweepOrphanThumbnails` z założenia nie rusza
+     * świeżych plików (M7) - zabierze je dopiero start doby później.
+     */
+    override suspend fun deleteExercisePermanently(id: Long) {
+        exerciseDao.deleteById(id)
+    }
+
+    override suspend fun emptyArchive(): Int = exerciseDao.deleteArchived()
 }

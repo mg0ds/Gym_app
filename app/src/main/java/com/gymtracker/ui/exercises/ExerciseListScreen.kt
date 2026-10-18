@@ -20,7 +20,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -34,6 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -55,6 +61,7 @@ fun ExerciseListScreen(
     onExerciseClick: (Long) -> Unit,
     onAddExercise: () -> Unit,
     onOpenPlans: () -> Unit,
+    onOpenArchive: () -> Unit,
     viewModel: ExerciseListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -68,6 +75,7 @@ fun ExerciseListScreen(
         onExerciseClick = onExerciseClick,
         onAddExercise = onAddExercise,
         onOpenPlans = onOpenPlans,
+        onOpenArchive = onOpenArchive,
     )
 }
 
@@ -82,7 +90,10 @@ private fun ExerciseListContent(
     onExerciseClick: (Long) -> Unit,
     onAddExercise: () -> Unit,
     onOpenPlans: () -> Unit,
+    onOpenArchive: () -> Unit,
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,6 +104,40 @@ private fun ExerciseListContent(
                             imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = stringResource(R.string.plans_title),
                         )
+                    }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.exercises_more_actions),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false },
+                        ) {
+                            // Archiwum pokazujemy zawsze: gdy jest puste, sam
+                            // wiersz jest odpowiedzią na „co się dzieje z
+                            // usuniętym ćwiczeniem?”.
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = if (uiState.archivedCount > 0) {
+                                            stringResource(
+                                                R.string.exercises_archive_open,
+                                                uiState.archivedCount,
+                                            )
+                                        } else {
+                                            stringResource(R.string.archive_title)
+                                        },
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    onOpenArchive()
+                                },
+                            )
+                        }
                     }
                 },
             )

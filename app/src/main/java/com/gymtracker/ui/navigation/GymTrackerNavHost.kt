@@ -27,6 +27,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.gymtracker.R
+import com.gymtracker.ui.exercises.ExerciseArchiveScreen
 import com.gymtracker.ui.exercises.ExerciseDetailScreen
 import com.gymtracker.ui.exercises.ExerciseEditScreen
 import com.gymtracker.ui.exercises.ExerciseListScreen
@@ -87,7 +88,12 @@ fun GymTrackerNavHost(
                     },
                     onAddExercise = { navController.navigate(Routes.EXERCISE_NEW) },
                     onOpenPlans = { navController.navigate(Routes.PLANS) },
+                    onOpenArchive = { navController.navigate(Routes.EXERCISE_ARCHIVE) },
                 )
+            }
+
+            composable(Routes.EXERCISE_ARCHIVE) {
+                ExerciseArchiveScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.EXERCISE_NEW) {

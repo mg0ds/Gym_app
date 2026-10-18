@@ -73,6 +73,48 @@
         <item quantity="other">Zostanie w historii treningów: %1$d wpisów.</item>
     </plurals>
 
+    <!-- Archiwum ćwiczeń (M9) -->
+    <string name="exercises_more_actions">Więcej działań</string>
+    <string name="exercises_archive_open">Archiwum (%1$d)</string>
+    <string name="archive_title">Archiwum</string>
+    <string name="archive_description">Zdjęte z katalogu, ale wciąż obecne w planach i w historii treningów.</string>
+    <string name="archive_restore">Przywróć</string>
+    <string name="archive_delete">Skasuj na stałe</string>
+    <string name="archive_empty_title">Archiwum jest puste</string>
+    <string name="archive_empty_body">Tutaj trafiają ćwiczenia zdjęte z katalogu. Możesz je przywrócić albo skasować na stałe.</string>
+    <string name="archive_empty_action">Opróżnij archiwum</string>
+    <string name="archive_delete_title">Skasować na stałe?</string>
+    <string name="archive_delete_message">„%1$s” zniknie razem ze swoimi pozycjami w planach i wpisami w historii treningów. Tego nie da się cofnąć.</string>
+    <string name="archive_empty_dialog_title">Opróżnić archiwum?</string>
+    <string name="archive_empty_dialog_message">Wszystko, co jest w archiwum, zniknie na stałe. Tego nie da się cofnąć.</string>
+    <plurals name="archive_impact_exercises">
+        <item quantity="one">Zniknie %1$d ćwiczenie.</item>
+        <item quantity="few">Znikną %1$d ćwiczenia.</item>
+        <item quantity="many">Zniknie %1$d ćwiczeń.</item>
+        <item quantity="other">Zniknie %1$d ćwiczeń.</item>
+    </plurals>
+    <plurals name="archive_impact_plans">
+        <item quantity="one">Zniknie %1$d pozycja w planach.</item>
+        <item quantity="few">Znikną %1$d pozycje w planach.</item>
+        <item quantity="many">Zniknie %1$d pozycji w planach.</item>
+        <item quantity="other">Zniknie %1$d pozycji w planach.</item>
+    </plurals>
+    <plurals name="archive_impact_history">
+        <item quantity="one">Zniknie %1$d wpis w historii treningów.</item>
+        <item quantity="few">Znikną %1$d wpisy w historii treningów.</item>
+        <item quantity="many">Zniknie %1$d wpisów w historii treningów.</item>
+        <item quantity="other">Zniknie %1$d wpisów w historii treningów.</item>
+    </plurals>
+    <plurals name="archive_impact_media">
+        <item quantity="one">Zniknie %1$d załącznik.</item>
+        <item quantity="few">Znikną %1$d załączniki.</item>
+        <item quantity="many">Zniknie %1$d załączników.</item>
+        <item quantity="other">Zniknie %1$d załączników.</item>
+    </plurals>
+    <string name="archive_restored">„%1$s” wróciło do katalogu.</string>
+    <string name="archive_deleted">„%1$s” skasowane na stałe.</string>
+    <string name="archive_emptied">Archiwum opróżnione. Skasowano: %1$d.</string>
+
     <!-- Formularz ćwiczenia -->
     <string name="exercise_new_title">Nowe ćwiczenie</string>
     <string name="exercise_edit_title">Edycja ćwiczenia</string>

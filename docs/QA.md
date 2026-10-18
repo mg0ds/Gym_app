@@ -127,6 +127,13 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 4.17 | Usuń ćwiczenie z 2 załącznikami, zrestartuj aplikację | Wiersze załączników znikają kaskadą; osierocone miniatury sprząta start aplikacji (świeże pliki zostają, kasowane są starsze niż doba) |
 | 4.18 | Aktualizacja z M6 (baza v6: katalog, plany, historia, przerwy) | Migracja 6 → 7 bez błędu; `user_version = 7`, katalog/plany/historia bez zmian, kolumna `instructions` pusta, lista załączników pusta |
 | 4.19 | Interfejs po angielsku | „Add photo”, „Add video”, „Photos, videos and links”, „How to perform”, „Unlink this attachment?” |
+| 4.20 | Menu „więcej działań” na liście katalogu | Wiersz „Archiwum” przy pustym archiwum, „Archiwum (N)” gdy coś w nim leży |
+| 4.21 | Archiwum z jednym ćwiczeniem, „Przywróć” | Ćwiczenie wraca do katalogu **tym samym wierszem**: plany, historia i ulubione bez zmian |
+| 4.22 | Archiwum z ćwiczeniem używanym w planie i w historii | Stopka listy mówi, ile pozycji w planach i wpisów w historii zniknie razem z archiwum |
+| 4.23 | „Opróżnij archiwum” | Pytanie z liczbą ćwiczeń i ceną; po potwierdzeniu ćwiczenia znikają z bazy (także z planów i historii), status „Archiwum opróżnione. Skasowano: N.”, pusty stan |
+| 4.24 | Kasowanie jednego wiersza z archiwum | Osobne pytanie; po potwierdzeniu znika tylko ten wiersz, resztę archiwum zostaje |
+| 4.25 | „Anuluj” w obu pytaniach | Nic się nie zmienia - ani wiersze, ani liczniki |
+| 4.26 | Aktualizacja z M9b na M9c | Bez migracji (`user_version` zostaje 9), archiwum działa na istniejących danych |
 
 ## 5. Dane i backup
 

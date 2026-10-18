@@ -13,9 +13,10 @@ logowaniem serii i notatką, timer przerwy z alarmem, celem na ćwiczenie
 i średnimi, historia treningów z filtrami i statystyki ćwiczenia z wykresami,
 zdjęcia i filmy z galerii oraz kroki wykonania na karcie ćwiczenia, karta postaci
 ze wskaźnikami i wykresami zmian, a z M9 ustawienia — alarm przerwy, język
-aplikacji i „O aplikacji” — oraz kopia zapasowa: eksport i wczytanie ZIP,
-import własnego katalogu ćwiczeń z pliku i dziennik „Ostatnie importy”).
-Kolejny krok: ekran archiwum ćwiczeń i wydanie podpisane (reszta M9).
+aplikacji i „O aplikacji” — kopia zapasowa: eksport i wczytanie ZIP,
+import własnego katalogu ćwiczeń z pliku i dziennik „Ostatnie importy” — oraz
+archiwum ćwiczeń z przywracaniem i trwałym kasowaniem).
+Kolejny krok: wydanie podpisane (R8 + AAB) — reszta M9.
 
 ## Wymagania
 
@@ -138,6 +139,7 @@ Gym_app/
 | Baza | Room (SQLite) + migracje, eksport schematów do `app/schemas/` (obecnie wersja 8) |
 | Wyszukiwanie | SQLite FTS4 (`unicode61`) na tabeli `exercises` — znajduje też bez polskich ogonków |
 | Usuwanie ćwiczenia | Archiwizacja (`is_archived = 1`), nie kasowanie wiersza — plany i historia treningów zostają czytelne |
+| Archiwum ćwiczeń | wejście z menu listy katalogu („Archiwum (N)”); podgląd z partią mięśniową i sprzętem, „Przywróć” (ten sam wiersz, ta sama historia) i trwałe skasowanie; cena porządku - pozycje w planach, wpisy w historii, załączniki - liczona jednym zapytaniem i pokazywana **przed** potwierdzeniem |
 | Plany | plany → dni → ćwiczenia dnia: kolejność (przeciąganie + menu), superserie, alternatywy („albo”); start treningu kopiuje dzień do sesji |
 | Kalendarz | miesiąc z wpisami (odbyty / zaplanowany / pominięty); reguła „co N dni” z rotacją dni A/B/C rozwijana do dat, horyzont **20 tygodni** w przód; start treningu z wpisu |
 | Trening | timer jako usługa pierwszoplanowa (notyfikacja z chronometrem, akcje „Pauza” / „Wznów” / „Zakończ”), czas i pauzy zapisane w bazie od razu, logowanie serii (kg × powtórzenia albo czas), notatka do treningu |
@@ -198,7 +200,7 @@ Gym_app/
 | **M6** | historia i statystyki: zakładka „Historia” z listą zakończonych treningów i filtrami (zakres, ćwiczenie, nazwa dnia), podgląd treningu do czytania, karta historii na ćwiczeniu, statystyki ćwiczenia (rekordy z całej historii + wykresy ciężaru i objętości oraz tabela wykonań w zakresie) na Vico 3.2.3; bez zmian schematu bazy | ✔ |
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 | **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
-| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”) ✔, kopia zapasowa ZIP ✔, ekran archiwum, wydanie (R8 + podpisany AAB) | ◐ |
+| **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”) ✔, kopia zapasowa ZIP ✔, ekran archiwum ✔, wydanie (R8 + podpisany AAB) | ◐ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

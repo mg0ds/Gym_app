@@ -69,6 +69,40 @@
         <item quantity="other">It will stay in your workout history: %1$d entries.</item>
     </plurals>
 
+    <!-- Exercise archive (M9) -->
+    <string name="exercises_more_actions">More actions</string>
+    <string name="exercises_archive_open">Archive (%1$d)</string>
+    <string name="archive_title">Archive</string>
+    <string name="archive_description">Out of the catalogue, but still present in your plans and workout history.</string>
+    <string name="archive_restore">Restore</string>
+    <string name="archive_delete">Delete for good</string>
+    <string name="archive_empty_title">The archive is empty</string>
+    <string name="archive_empty_body">Exercises taken out of the catalogue land here. You can bring them back or delete them for good.</string>
+    <string name="archive_empty_action">Empty the archive</string>
+    <string name="archive_delete_title">Delete for good?</string>
+    <string name="archive_delete_message">“%1$s” will go together with its plan positions and workout history entries. This cannot be undone.</string>
+    <string name="archive_empty_dialog_title">Empty the archive?</string>
+    <string name="archive_empty_dialog_message">Everything in the archive will be gone for good. This cannot be undone.</string>
+    <plurals name="archive_impact_exercises">
+        <item quantity="one">%1$d exercise will go.</item>
+        <item quantity="other">%1$d exercises will go.</item>
+    </plurals>
+    <plurals name="archive_impact_plans">
+        <item quantity="one">%1$d plan position will go.</item>
+        <item quantity="other">%1$d plan positions will go.</item>
+    </plurals>
+    <plurals name="archive_impact_history">
+        <item quantity="one">%1$d workout history entry will go.</item>
+        <item quantity="other">%1$d workout history entries will go.</item>
+    </plurals>
+    <plurals name="archive_impact_media">
+        <item quantity="one">%1$d attachment will go.</item>
+        <item quantity="other">%1$d attachments will go.</item>
+    </plurals>
+    <string name="archive_restored">“%1$s” is back in the catalogue.</string>
+    <string name="archive_deleted">“%1$s” deleted for good.</string>
+    <string name="archive_emptied">Archive emptied. Deleted: %1$d.</string>
+
     <!-- Exercise form -->
     <string name="exercise_new_title">New exercise</string>
     <string name="exercise_edit_title">Edit exercise</string>

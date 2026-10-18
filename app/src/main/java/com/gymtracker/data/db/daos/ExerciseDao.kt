@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.gymtracker.data.db.entities.ExerciseEntity
+import com.gymtracker.data.db.rows.ArchiveImpactRow
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -80,6 +81,34 @@ interface ExerciseDao {
     @Query("SELECT COUNT(*) FROM exercises WHERE is_archived = 0")
     fun observeActiveCount(): Flow<Int>
 
+    /**
+     * Archiwum: ćwiczenia zdjęte z katalogu (M9). Wiersze żyją dalej, bo trzymają
+     * plany i historię - tu pokazujemy je użytkownikowi, żeby mógł je przywrócić.
+     */
+    @Query("SELECT * FROM exercises WHERE is_archived = 1 ORDER BY name COLLATE NOCASE ASC")
+    fun observeArchived(): Flow<List<ExerciseEntity>>
+
+    @Query("SELECT COUNT(*) FROM exercises WHERE is_archived = 1")
+    fun observeArchivedCount(): Flow<Int>
+
+    /**
+     * Ile zniknie, gdy archiwum zostanie opróżnione (M9). Jedno zapytanie,
+     * cztery liczby - patrz [com.gymtracker.data.db.rows.ArchiveImpactRow].
+     */
+    @Query(
+        """
+        SELECT
+          (SELECT COUNT(*) FROM exercises WHERE is_archived = 1) AS exercises,
+          (SELECT COUNT(*) FROM plan_day_exercises
+            WHERE exercise_id IN (SELECT id FROM exercises WHERE is_archived = 1)) AS plan_positions,
+          (SELECT COUNT(*) FROM session_exercises
+            WHERE exercise_id IN (SELECT id FROM exercises WHERE is_archived = 1)) AS session_positions,
+          (SELECT COUNT(*) FROM exercise_media
+            WHERE exercise_id IN (SELECT id FROM exercises WHERE is_archived = 1)) AS media
+        """,
+    )
+    fun observeArchiveImpact(): Flow<ArchiveImpactRow>
+
     @Query("SELECT COUNT(*) FROM exercises")
     suspend fun count(): Int
 
@@ -97,17 +126,27 @@ interface ExerciseDao {
     suspend fun update(exercise: ExerciseEntity)
 
     /**
-     * Twarde kasowanie. Produkcja z niego **nie** korzysta (patrz [archive]):
-     * wiersz ćwiczenia trzyma ze sobą plany i historię treningów, więc
-     * usunięcie z katalogu to archiwizacja. Metoda zostaje, bo z niej korzysta
-     * test triggerów FTS i przyszłe „opróżnij archiwum” (M9).
+     * Twarde kasowanie. W samym katalogu z niego **nie** korzystamy (patrz
+     * [archive]): wiersz ćwiczenia trzyma ze sobą plany i historię treningów,
+     * więc usunięcie z katalogu to archiwizacja. Twardo kasujemy tylko
+     * z archiwum ([deleteArchived] albo pojedynczy wiersz z ekranu archiwum) -
+     * i wtedy użytkownik wie, co robi, bo widzi, ile pozycji w planach i wpisów
+     * w historii zniknie razem z nim ([observeArchiveImpact]).
      */
     @Query("DELETE FROM exercises WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    /** Opróżnienie archiwum. Zwraca liczbę skasowanych ćwiczeń (do komunikatu). */
+    @Query("DELETE FROM exercises WHERE is_archived = 1")
+    suspend fun deleteArchived(): Int
+
     /** Usunięcie z katalogu bez ruszania planów i historii. */
     @Query("UPDATE exercises SET is_archived = 1, updated_at = :updatedAtEpochMs WHERE id = :id")
     suspend fun archive(id: Long, updatedAtEpochMs: Long)
+
+    /** Powrót z archiwum do katalogu. */
+    @Query("UPDATE exercises SET is_archived = 0, updated_at = :updatedAtEpochMs WHERE id = :id")
+    suspend fun restore(id: Long, updatedAtEpochMs: Long)
 
     @Query(
         """
