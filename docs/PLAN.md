@@ -975,6 +975,24 @@ zakończeniu sesji), `skipped` (pominięty). Nie ma osobnego statusu
 treningu i nie odhaczyć dnia. Przerwany trening wpisu nie odhacza. Trening bez
 planu też jest dozwolony (sesja bez ćwiczeń, z nazwą wpisu).
 
+**Dzień treningu, nie dzień kliknięcia (M10).** Trening puszczony z wpisu należy
+do **dnia wpisu**: sesja dostaje `session_date` z daty wpisu, więc historia
+i statystyki pokazują go tam, gdzie był zaplanowany (także w przyszłości). Sesje
+bez przypisanej daty — te sprzed M10 i te startowane z dnia planu bez wpisu —
+liczą się do dnia startu w strefie urządzenia (`WorkoutSession.dateIn`).
+Poprawka po fakcie: ekran zakończonego treningu ma akcję „Zmień dzień”
+(`setSessionDate`, wybór w oknie od doby przed startem do końca horyzontu),
+a wpis odhaczony przez ten trening **idzie za nim** — inaczej „odbyty” zostałby
+na dniu, w którym nic się nie stało. Gdy nowy dzień jest już zajęty przez wpis
+tego samego dnia planu, wpis wraca do „zaplanowany” (unikalny indeks
+`(date, plan_day_id)` nie zmieści dwóch).
+
+**Trening bez wpisu (M10).** Kalendarz czyta nie tylko wpisy, ale i treningi
+z pokazywanego miesiąca (`SessionRepository.observeWorkoutsBetween`; dzień
+z `session_date`, a bez niego ze `started_at`; przerwane odsiane), więc dzień
+z „Nowym treningiem” nie wygląda na pusty. Kropkę i kartę dnia dostaje tylko
+trening bez wpisu (`workoutsWithoutEntry`) — powiązany pokazuje już jego wpis,
+a trwający jest „w toku” (jak zaplanowany), dopóki się nie skończy.
 
 ### 6.2 Timer całego treningu
 
@@ -1158,7 +1176,9 @@ przyszły widać pod tym dniem, a nie pod dniem kliknięcia. Zakres statystyk
 (`StatsRange.contains`) patrzy **tylko w tył** i nie odrzuca dni przyszłych —
 inaczej taki trening zniknąłby z historii i wykresu. Sesje z M1–M9 mają
 `session_date` = NULL i liczą się do dnia startu (migracja 9 → 10 nic nie
-przestawia).
+przestawia). Dzień da się też poprawić po fakcie („Zmień dzień” na ekranie
+treningu): trening i wpis kalendarza, który go odhaczył, idą razem, więc
+historia, statystyki i siatka miesiąca mówią to samo.
 
 **Rekordy z całej historii, wykresy i tabela z zakresu** (§4.2 pkt 32). W UI
 widać to wprost: karta rekordów ma na dole sekcję „… w zakresie”.
@@ -1751,7 +1771,8 @@ M7 i M8 są niezależne — można je zrównoleglić albo przesunąć za release
 
 **M10** to poprawki zgłoszone **po** wydaniu, poza szacunkiem do 1.0: dzień
 treningu zamiast dnia kliknięcia (baza v10), start treningu z wybranego dnia
-w kalendarzu, dopisywanie ćwiczeń do trwającego treningu i własna szata
+w kalendarzu, dopisywanie ćwiczeń do trwającego treningu, znacznik dnia dla
+treningu bez wpisu w planie, poprawka dnia zakończonego treningu i własna szata
 graficzna w palecie użytkownika. Szczegóły i weryfikacja: §8.1.
 
 ### 8.1 Stan realizacji
@@ -1906,7 +1927,12 @@ widać je w podglądzie przed zapisem i w kalendarzu.
   dnia z listą wpisów i menu („rozpocznij”, „przenieś” = zmiana daty tego samego
   wiersza, „oznacz jako odbyty” / „pominięty”, „przywróć do zaplanowanych”,
   „usuń wpis”). Ekran „Dziś” z M2 **stał się kalendarzem**, a karta
-  „Kontynuuj trening” została na górze, a od M10 dzień z treningiem ma **także ramkę** w kolorze statusu (kropka zostaje — kolor sam nie jest nośnikiem informacji dla TalkBacku), a wybrany dzień ma przycisk „Rozpocznij trening” z arkuszem wyboru: dni planów („plan → dzień”, liczba ćwiczeń) albo „Nowy trening” bez planu,
+  „Kontynuuj trening” została na górze. Od M10 dzień z treningiem ma **także
+  ramkę** w kolorze statusu (kropka zostaje — kolor sam nie jest nośnikiem
+  informacji dla TalkBacku), znacznik dostaje też trening bez wpisu w planie
+  (dzień z „Nowym treningiem” nie jest pusty), a wybrany dzień ma przycisk
+  „Rozpocznij trening” z arkuszem wyboru: dni planów („plan → dzień”, liczba
+  ćwiczeń) albo „Nowy trening” bez planu,
 * **Formularz harmonogramu** (trasa `plan/{planId}/schedule`): dwa tryby —
   reguła (data od, data do, co ile dni, dni tygodnia) albo wybrane dni
   (multi-select na siatce miesiąca); oba z wyborem konkretnego dnia planu albo
@@ -2350,8 +2376,8 @@ wykonania przechodzą z formularza na kartę ćwiczenia.
 
 ---
 
-**M10 ✔ (poprawki po M9: dzień treningu i szata graficzna)** — baza **v10**.
-Cztery rzeczy zgłoszone po wydaniu, wszystkie w jednym miejscu, bo pociągały
+**M10 ✔ (poprawki po M9: dzień treningu, kalendarz i szata graficzna)** — baza **v10**.
+Sześć rzeczy zgłoszonych po wydaniu, wszystkie w jednym miejscu, bo pociągały
 za sobą ten sam łańcuch: dzień treningu → kalendarz → historia → wygląd.
 
 * **Dzień treningu, nie moment kliknięcia (v10).** Do `sessions` doszła kolumna
@@ -2378,6 +2404,27 @@ za sobą ten sam łańcuch: dzień treningu → kalendarz → historia → wygl�
   (`SessionRepository.addExerciseToSession`). Bez tego „nowy trening” byłby
   pustym ekranem: ekran sesji ma teraz przycisk „Dodaj ćwiczenie” (także przy
   pustej liście), a wybór dopisuje ćwiczenie na koniec i wraca.
+* **Trening bez wpisu też zaznacza dzień.** Kalendarz czytał dotąd same
+  `scheduled_sessions`, więc „Nowy trening” puszczony z dnia bez planu nie
+  zostawiał w siatce śladu — dzień wyglądał na pusty, choć historia miała pod
+  nim trening. Doszło `SessionDao.observeWorkoutsBetween` (dzień z
+  `session_date`, a gdy go brak — ze `started_at` w strefie urządzenia;
+  przerwane odsiane, bo przerwany trening się nie odbył), a `CalendarViewModel`
+  scala oba źródła w `CalendarUiState` (`workoutsByDate`). Znaczniki są wspólne
+  z wpisami — odbyty trening to „odbyty”, trwający „zaplanowany” (`DayWorkout.mark`)
+  — a `workoutsWithoutEntry` odsiewa trening powiązany z wpisem, żeby nie
+  dublował się z jego kartą. W sekcji dnia taka pozycja jest osobną kartą
+  („odbyty • bez wpisu w planie”) i otwiera trening.
+* **Poprawka dnia zakończonego treningu.** Ekran treningu ma akcję „Zmień dzień”
+  (tylko dla zakończonych — trwającemu dzień wybiera się przy starcie). Wybór
+  idzie przez wspólny `DatePickerRangeDialog` (`ui/components`) w oknie od doby
+  przed startem do końca horyzontu planowania (`WorkoutSession.dayEditRange`),
+  a `SessionRepository.setSessionDate` przestawia razem z treningiem wpis
+  w kalendarzu, który go odhaczył — inaczej „odbyty” zostałby na dniu, w którym
+  nic się nie stało. Gdy nowy dzień jest już zajęty przez wpis tego samego dnia
+  planu (`UNIQUE(date, plan_day_id)`), wpis zostaje odczepiony i wraca do
+  „zaplanowany”. Ten sam dialog obsługuje odtąd przenoszenie wpisu w kalendarzu
+  (wcześniejszy `MoveEntryDialog` zniknął).
 * **Szata graficzna (cała aplikacja).** Paleta użytkownika —
   `#1d3557` granat, `#457b9d` stal, `#a8dadc` błękit, `#f1faee` kość słoniowa,
   `#e63946` czerwień — w pełnych schematach jasnym i ciemnym: `primary` to
@@ -2390,7 +2437,8 @@ za sobą ten sam łańcuch: dzień treningu → kalendarz → historia → wygl�
   (pogrubione nagłówki), a „Przerwij trening” dostał kolor błędu.
 * **Legenda i ramka dnia** — oprócz kropki statusu każdy dzień z treningiem ma
   ramkę w kolorze statusu (`odbyty` granat, `zaplanowany` stal, `pominięty`
-  szary); legenda pokazuje próbki ramek, nie tylko kropek.
+  szary); legenda pokazuje próbki ramek, nie tylko kropek. Ramkę dobiera
+  `dayFrameStatus` (odbyty bije zaplanowany), wspólny dla siatki i legendy.
 
 Weryfikacja na urządzeniu (emulator API 36) po M10: migracja `9 → 10` przeszła
 na bazie z M9 (`pragma user_version` = 10) i nie ruszyła danych — 6 treningów
@@ -2401,6 +2449,19 @@ odhaczony, a historia i seria ćwiczenia pokazują go pod 27.10, nie pod dniem
 kliknięcia. „Nowy trening” bez planu: dodanie ćwiczenia w trakcie, seria, koniec
 — wszystko na swoim miejscu; oba motywy przeszły wzrokowy przegląd na
 kalendarzu, ekranie sesji i wykresach.
+
+Druga rundka M10 (znacznik treningu bez wpisu i poprawka dnia) na tej samej
+bazie: dni z treningiem bez wpisu w planie (8.10, 18.10, 27.10) dostały ramkę
+i kropkę, a w sekcji dnia kartę „odbyty • bez wpisu w planie”; trening powiązany
+z wpisem nie dublował się na liście (18.10 — wpis „z reguły” osobno, obok sześciu
+treningów bez wpisu; siódmy trening tego dnia to właśnie ten z wpisu). „Zmień dzień” przeniosło trening
+z 18.10 na 20.10 **razem z wpisem** (wpis i `session_date` na nowym dniu), a próba
+przeniesienia na dzień z tym samym dniem planu (27.10) odczepiła wpis i cofnęła
+go do „zaplanowany”, zostawiając wpis na nowym dniu bez zmian. Okno wyboru nie
+wpuszczało dat przed dobą startu (12–16.10 nieaktywne, 17.10 aktywne) ani za
+horyzont, a nagłówek trwającego treningu nie pokazywał akcji „Zmień dzień”
+(tylko „Dzień treningu” i „Start o”). Oba motywy przeszły wzrokowy przegląd
+siatki, karty dnia i ekranu treningu.
 
 Świadome odroczenia z M10:
 * **przestawianie kolejności ćwiczeń w trwającym treningu** — dopisywanie jest
@@ -2415,9 +2476,9 @@ kalendarzu, ekranie sesji i wykresach.
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9), znaczniki dnia w kalendarzu i okno poprawki dnia treningu (M10) | JUnit4 + `TimeProvider` wstrzykiwany |
 | Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
-| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9) | Room in-memory + `runTest` |
+| Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9), zakres dni treningów i poprawka dnia z wpisem w kalendarzu (M10) | Room in-memory + `runTest` |
 | UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
 | Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
@@ -2435,15 +2496,19 @@ zbudowanie release i przejście po ścieżkach wrażliwych na urządzeniu — do
 tyle, ile widać w akapicie o weryfikacji wyżej. Do tego CI buduje `bundleRelease`
 na każdym pushu, więc defekt konfiguracji R8 wychodzi od razu, a nie przy wydaniu.
 
-Stan na M10: **298 testów JVM**, wszystkie zielone. Doszły testy nowego
+Stan na M10: **310 testów JVM**, wszystkie zielone. Doszły testy nowego
 zachowania, nie „na wszelki wypadek”: migracja 9 → 10 w teście całej drogi
 (1 → 10) sprawdza, że sesja z M9 zostaje z `session_date` = NULL, a nowa
 przechodzi przez bazę z datą; `SessionRepositoryTest` — dzień z wpisu
 w kalendarzu, `startForDay` z dniem planu i bez planu, dopisanie ćwiczenia
-(w trakcie działa, po zakończeniu nie rusza historii); `PlanRepositoryTest` —
-lista dni do wyboru; `StatsRepositoryTest` — trening na dzień przyszły widać
-w historii i w statystykach ćwiczenia pod tą datą. `ExerciseStatsCalculatorTest`
-zmienił asercję: zakres **nie** odrzuca już dni przyszłych.
+(w trakcie działa, po zakończeniu nie rusza historii), zakres dni treningów
+(dzień przypisany i dzień startu, przerwany odsiany) i poprawka dnia
+(wpis idzie za treningiem, zajęty dzień odczepia wpis, trwającego nie ruszamy);
+`PlanRepositoryTest` — lista dni do wyboru; `StatsRepositoryTest` — trening na
+dzień przyszły widać w historii i w statystykach ćwiczenia pod tą datą;
+`CalendarDayMarksTest` i `WorkoutSessionTest` — czyste funkcje znaczników dnia
+i okna poprawki daty. `ExerciseStatsCalculatorTest` zmienił asercję: zakres
+**nie** odrzuca już dni przyszłych.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc

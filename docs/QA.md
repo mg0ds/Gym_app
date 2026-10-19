@@ -117,6 +117,12 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 3b.11 | Aktualizacja z M9 (baza v9 z 6 treningami) | Migracja 9 → 10 bez błędu; `user_version = 10`, stara historia bez zmian (sesje bez `session_date` liczą się do dnia startu) |
 | 3b.12 | Interfejs po angielsku | „Start workout”, „Workout on …”, „New workout”, „Add exercise”, „Add exercise to workout” |
 | 3b.13 | „Przerwij trening” w trakcie | Przycisk w kolorze błędu, potwierdzenie, trening nie wchodzi do historii |
+| 3b.14 | Kalendarz po „Nowym treningu” z dnia bez planu: wróć na ten dzień | Dzień ma ramkę i kropkę „odbyty”, a w sekcji dnia karta treningu „odbyty • bez wpisu w planie”; karta otwiera trening |
+| 3b.15 | Kalendarz dla dnia z wpisem i treningiem z niego zrobionym | Jedna karta (wpis „odbyty”), bez drugiej karty treningu — trening powiązany z wpisem się nie dubluje |
+| 3b.16 | Zakończony trening → „Zmień dzień” → wybierz dzień 2 dni wcześniej | Nagłówek pokazuje nowy dzień, historia i statystyki przenoszą wpis, a wpis w kalendarzu też idzie na nowy dzień (kropka „odbyty”) |
+| 3b.17 | Poprawka dnia na dzień, na którym ten sam dzień planu jest już zaplanowany | Trening zmienia dzień, wpis zostaje odczepiony i wraca do „zaplanowany”, a wpis na nowym dniu zostaje bez zmian |
+| 3b.18 | Trwający trening: nagłówek | Nie ma akcji „Zmień dzień” (dzień wybiera się przy starcie); nagłówek pokazuje „Dzień treningu: …” i „Start o …” |
+| 3b.19 | Data spoza okna (przed dobą przed startem, poza horyzontem) | `DatePicker` nie pozwala wybrać dnia poza oknem |
 
 ## 4. Media: zdjęcia, filmy, link, kroki (M7)
 
@@ -329,4 +335,5 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 13.5 | Wykresy: ciężar vs 1RM | Granat = rekord/ciężar, czerwień = 1RM/linia celu — odróżnialne na obu tłach i w skali szarości (różna jasność) |
 | 13.6 | Ustawienia → Motyw: system / jasny / ciemny | Wybór działa jak dotąd, ale rysuje paletę aplikacji, nie systemową |
 | 13.7 | Komunikat błędu w formularzu (np. pusty ciężar) | Czerwień czytelna drobnym tekstem (przyciemniona) |
-| 13.8 | TalkBack na kalendarzu | Ramka nie jest jedynym nośnikiem informacji — status czyta się z opisu dnia |
+| 13.8 | TalkBack na kalendarzu | Ramka nie jest jedynym nośnikiem informacji — status czyta się z opisu dnia (także dla treningu bez wpisu w planie) |
+| 13.9 | Karta treningu bez wpisu w dniu | „odbyty • bez wpisu w planie” w kolorze tekstu pomocniczego; karta otwiera trening, całą powierzchnią |
