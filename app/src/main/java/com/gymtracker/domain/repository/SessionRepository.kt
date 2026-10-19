@@ -1,5 +1,6 @@
 package com.gymtracker.domain.repository
 
+import com.gymtracker.domain.model.DayWorkout
 import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
@@ -29,6 +30,12 @@ interface SessionRepository {
     suspend fun getActiveSession(): WorkoutSession?
 
     fun observeSession(sessionId: Long): Flow<SessionDetails?>
+
+    /**
+     * Treningi z zakresu dni włącznie (bez przerwanych) - kalendarz pokazuje je
+     * obok wpisów w planie, bo trening może istnieć bez wpisu.
+     */
+    fun observeWorkoutsBetween(from: LocalDate, to: LocalDate): Flow<List<DayWorkout>>
 
     /**
      * Rozpoczyna trening z dnia planu: tworzy sesję i kopiuje do niej ćwiczenia
@@ -63,6 +70,20 @@ interface SessionRepository {
 
     /** Dopisuje ćwiczenie do trwającego treningu („dodaj ćwiczenie” w sesji). */
     suspend fun addExerciseToSession(sessionId: Long, exerciseId: Long): Boolean
+
+    /**
+     * Poprawia dzień zakończonego treningu: historia i statystyki liczą go
+     * odtąd pod [date].
+     *
+     * Wpis w kalendarzu, który ten trening odhaczył, przenosi się razem z nim -
+     * inaczej kalendarz pokazywałby „odbyty” dzień, w którym nic się nie stało.
+     * Gdy nowy dzień jest już zajęty przez wpis tego samego dnia planu
+     * (`UNIQUE(date, plan_day_id)` nie zmieści dwóch), wpis zostaje odczepiony
+     * i wraca do „zaplanowany”.
+     *
+     * Trwającego treningu nie przenosimy - jego dzień wybiera się przy starcie.
+     */
+    suspend fun setSessionDate(sessionId: Long, date: LocalDate)
 
     suspend fun finishSession(sessionId: Long)
 

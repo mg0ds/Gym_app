@@ -28,8 +28,10 @@ import kotlinx.coroutines.flow.map
 /**
  * Kalendarz treningów.
  *
- * Reguła jest rozwijana do wpisów **raz**, przy planowaniu. Kalendarz czyta
- * potem tylko `scheduled_sessions` w zakresie dat - jedno zapytanie na miesiąc.
+ * Reguła jest rozwijana do wpisów **raz**, przy planowaniu. To repozytorium
+ * czyta potem tylko `scheduled_sessions` w zakresie dat - jedno zapytanie na
+ * miesiąc. Treningi widoczne w kalendarzu (także te bez wpisu w planie) czyta
+ * `SessionRepository.observeWorkoutsBetween`.
  *
  * Horyzont planowania to 20 tygodni w przód ([RecurrenceExpander]): tyle, ile
  * obejmuje sensowny mezocykl, i tyle, by lista nie rosła bez końca. Gdy dni

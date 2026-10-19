@@ -12,12 +12,16 @@ import com.gymtracker.domain.model.WorkoutSession
 import com.gymtracker.domain.repository.RestRepository
 import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.domain.stats.RestStats
+import com.gymtracker.domain.time.TimeProvider
+import com.gymtracker.domain.time.today
 import com.gymtracker.domain.timer.ActiveRest
 import com.gymtracker.domain.timer.TrackedWorkout
 import com.gymtracker.timer.RestTimer
 import com.gymtracker.timer.WorkoutTimer
 import com.gymtracker.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +49,11 @@ data class SessionUiState(
     val restStats: Map<Long, RestStats> = emptyMap(),
     /** Domyślna przerwa z ustawień - ostatni fallback celu przerwy. */
     val defaultRestSeconds: Int = SettingsDataStore.DEFAULT_REST_SECONDS,
+    /**
+     * Okno poprawki dnia treningu („zmień dzień”); `null`, gdy nie ma czego
+     * poprawiać - treningu jeszcze nie ma albo wciąż trwa.
+     */
+    val dayEditRange: ClosedRange<LocalDate>? = null,
 ) {
     val isActive: Boolean get() = session?.status == SessionStatus.ACTIVE
 
@@ -71,6 +80,7 @@ class SessionViewModel @Inject constructor(
     private val timer: WorkoutTimer,
     private val restTimer: RestTimer,
     private val settings: SettingsDataStore,
+    private val timeProvider: TimeProvider,
 ) : ViewModel() {
 
     private val sessionId: Long = checkNotNull(savedStateHandle[Routes.ARG_SESSION_ID]) {
@@ -98,6 +108,9 @@ class SessionViewModel @Inject constructor(
             rest = activeRest?.takeIf { it.sessionId == sessionId },
             rests = sessionRests,
             defaultRestSeconds = defaultRest,
+            dayEditRange = details?.session
+                ?.takeIf { session -> session.status == SessionStatus.FINISHED }
+                ?.dayEditRange(zone = ZoneId.systemDefault(), today = timeProvider.today()),
         )
     }.combine(restStats) { state, stats ->
         state.copy(restStats = stats)
@@ -117,6 +130,14 @@ class SessionViewModel @Inject constructor(
 
     fun saveNote(note: String) {
         viewModelScope.launch { sessions.setNote(sessionId, note) }
+    }
+
+    /**
+     * Poprawia dzień treningu. Historia liczy trening odtąd pod nową datą,
+     * a wpis w kalendarzu idzie razem z nim - patrz [SessionRepository.setSessionDate].
+     */
+    fun setDate(date: LocalDate) {
+        viewModelScope.launch { sessions.setSessionDate(sessionId, date) }
     }
 
     /**

@@ -5,8 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.gymtracker.R
+import com.gymtracker.domain.model.DayWorkout
 import com.gymtracker.domain.model.Recurrence
 import com.gymtracker.domain.model.ScheduleStatus
+import com.gymtracker.domain.model.ScheduledWorkout
 import com.gymtracker.domain.schedule.WEEK_START
 import java.time.DayOfWeek
 import java.time.Instant
@@ -120,4 +122,28 @@ fun statusLabelRes(status: ScheduleStatus): Int = when (status) {
     ScheduleStatus.PLANNED -> R.string.schedule_status_planned
     ScheduleStatus.DONE -> R.string.schedule_status_done
     ScheduleStatus.SKIPPED -> R.string.schedule_status_skipped
+}
+
+/**
+ * Status ramki dnia: najważniejsze zdarzenie wygrywa. Odbyty trening bije
+ * zaplanowany, a „pominięty” zostaje tylko na dniu bez niczego innego.
+ */
+fun dayFrameStatus(marks: List<ScheduleStatus>): ScheduleStatus? = when {
+    marks.isEmpty() -> null
+    marks.contains(ScheduleStatus.DONE) -> ScheduleStatus.DONE
+    marks.contains(ScheduleStatus.PLANNED) -> ScheduleStatus.PLANNED
+    else -> ScheduleStatus.SKIPPED
+}
+
+/**
+ * Treningi dnia, które nie mają wpisu w planie („Nowy trening” z dnia bez
+ * planu). Powiązany trening pokazuje już jego wpis („odbyty” na karcie dnia),
+ * a trening od zera nie ma innej reprezentacji niż własna karta.
+ */
+fun workoutsWithoutEntry(
+    entries: List<ScheduledWorkout>,
+    workouts: List<DayWorkout>,
+): List<DayWorkout> {
+    val linked = entries.mapNotNull { entry -> entry.sessionId }.toSet()
+    return workouts.filter { workout -> workout.sessionId !in linked }
 }

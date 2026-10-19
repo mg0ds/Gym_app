@@ -27,8 +27,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,11 +38,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,10 +62,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
+import com.gymtracker.domain.model.DayWorkout
 import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.ScheduleStatus
 import com.gymtracker.domain.model.ScheduledWorkout
 import com.gymtracker.domain.model.SessionDetails
+import com.gymtracker.ui.components.DatePickerRangeDialog
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
@@ -78,9 +76,12 @@ import java.util.Locale
  * Kalendarz: miesiąc z zaznaczonymi treningami i lista wpisów wybranego dnia.
  *
  * Dzień, w którym coś się dzieje, dostaje **ramkę** (kolor mówi, co: odbyty,
- * zaplanowany, pominięty), a kropki w środku pokazują, ile wpisów jest w dniu.
+ * zaplanowany, pominięty), a kropki w środku pokazują, ile rzeczy jest w dniu.
+ * Znacznik dostaje też trening bez wpisu w planie („Nowy trening” z dnia bez
+ * planu) - inaczej dzień wyglądałby na pusty, choć historia ma pod nim trening.
  * Z komórki wybieramy dzień, a z sekcji pod siatką - rozpoczynamy trening
- * (z listy dni planu albo od zera), odhaczamy dzień, przenosimy go albo usuwamy.
+ * (z listy dni planu albo od zera), odhaczamy dzień, przenosimy go, usuwamy
+ * albo otwieramy trening, który nie był w planie.
  */
 @Composable
 fun CalendarScreen(
@@ -190,8 +191,9 @@ internal fun CalendarContent(
     }
 
     entryToMove?.let { entry ->
-        MoveEntryDialog(
-            entry = entry,
+        // Przenosimy wpis tylko w oknie planowania (od dziś do horyzontu).
+        DatePickerRangeDialog(
+            initialDate = entry.date,
             minDate = uiState.today,
             maxDate = uiState.horizonEnd,
             onDismiss = { entryToMove = null },
@@ -297,11 +299,16 @@ private fun MonthGrid(
         uiState.cells.chunked(DAYS_IN_WEEK).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { cell ->
+                    val entries = uiState.entriesByDate[cell.date].orEmpty()
                     DayCell(
                         cell = cell,
                         isToday = cell.date == uiState.today,
                         isSelected = cell.date == uiState.selectedDate,
-                        entries = uiState.entriesByDate[cell.date].orEmpty(),
+                        entries = entries,
+                        workouts = workoutsWithoutEntry(
+                            entries = entries,
+                            workouts = uiState.workoutsByDate[cell.date].orEmpty(),
+                        ),
                         onClick = { onSelectDate(cell.date) },
                     )
                 }
@@ -316,18 +323,16 @@ private fun RowScope.DayCell(
     isToday: Boolean,
     isSelected: Boolean,
     entries: List<ScheduledWorkout>,
+    workouts: List<DayWorkout>,
     onClick: () -> Unit,
 ) {
     val dayEntries = entries.takeIf { cell.inMonth }.orEmpty()
-    // Ramka wokół całego dnia mówi, że tego dnia coś jest - kropka została jako
-    // „ile tego jest”. Kolejność jest zgodna z wagą zdarzenia: odbyty wygrywa
-    // z zaplanowanym, a status ramki dobieramy tym samym kluczem co w legendzie.
-    val frameStatus = when {
-        dayEntries.any { entry -> entry.status == ScheduleStatus.DONE } -> ScheduleStatus.DONE
-        dayEntries.any { entry -> entry.status == ScheduleStatus.PLANNED } -> ScheduleStatus.PLANNED
-        dayEntries.isNotEmpty() -> ScheduleStatus.SKIPPED
-        else -> null
-    }
+    val dayWorkouts = workouts.takeIf { cell.inMonth }.orEmpty()
+    // Ramka wokół całego dnia mówi, że tego dnia coś jest - kropki zostały jako
+    // „ile tego jest”. Wpisy i treningi wrzucamy do jednego worka, bo znaczą to
+    // samo: trening bez wpisu też jest treningiem.
+    val marks = dayEntries.map { entry -> entry.status } + dayWorkouts.map { workout -> workout.mark }
+    val frameStatus = dayFrameStatus(marks)
     val frameColor = frameStatus?.let { status -> statusFrameColor(status) }
     val background = when {
         isSelected -> MaterialTheme.colorScheme.primaryContainer
@@ -339,7 +344,7 @@ private fun RowScope.DayCell(
         isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
         else -> MaterialTheme.colorScheme.onSurface
     }
-    val statuses = dayEntries.map { entry -> stringResource(statusLabelRes(entry.status)) }
+    val statuses = marks.map { mark -> stringResource(statusLabelRes(mark)) }
         .joinToString(separator = ", ")
     val description = if (statuses.isEmpty()) {
         cell.date.dayOfMonth.toString()
@@ -379,22 +384,22 @@ private fun RowScope.DayCell(
                 fontWeight = if (isToday || isSelected) FontWeight.Bold else null,
                 color = digitColor,
             )
-            StatusDots(entries = dayEntries)
+            StatusDots(statuses = marks)
         }
     }
 }
 
 /** Do trzech kropek na komórkę - resztę zwijamy w „+n”. */
 @Composable
-private fun StatusDots(entries: List<ScheduledWorkout>) {
-    if (entries.isEmpty()) return
+private fun StatusDots(statuses: List<ScheduleStatus>) {
+    if (statuses.isEmpty()) return
     Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        entries.take(MAX_DOTS).forEach { entry ->
-            StatusDot(status = entry.status)
+        statuses.take(MAX_DOTS).forEach { status ->
+            StatusDot(status = status)
         }
-        if (entries.size > MAX_DOTS) {
+        if (statuses.size > MAX_DOTS) {
             Text(
-                text = "+${entries.size - MAX_DOTS}",
+                text = "+${statuses.size - MAX_DOTS}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -516,7 +521,7 @@ private fun SelectedDaySection(
             Text(text = stringResource(R.string.calendar_start_workout))
         }
 
-        if (uiState.selectedEntries.isEmpty()) {
+        if (uiState.selectedEntries.isEmpty() && uiState.selectedWorkouts.isEmpty()) {
             Text(
                 text = stringResource(R.string.calendar_day_empty),
                 style = MaterialTheme.typography.bodyMedium,
@@ -534,6 +539,64 @@ private fun SelectedDaySection(
                     onMoveClick = { onMoveClick(entry) },
                     onRemove = { onRemove(entry.id) },
                     onOpenSession = onOpenSession,
+                )
+            }
+            // Trening bez wpisu w planie („Nowy trening” z dnia bez planu) -
+            // inaczej dzień twierdziłby, że nic się nie stało, a historia ma
+            // pod nim trening.
+            uiState.selectedWorkouts.forEach { workout ->
+                WorkoutCard(workout = workout, onOpen = onOpenSession)
+            }
+        }
+    }
+}
+
+/**
+ * Trening dnia bez wpisu w planie. Karta pokazuje to, co kalendarz wie o tym
+ * dniu: nazwę, status i to, że treningu nie było w planie.
+ */
+@Composable
+private fun WorkoutCard(workout: DayWorkout, onOpen: (Long) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpen(workout.sessionId) },
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = workout.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    StatusDot(status = workout.mark)
+                    Text(
+                        text = stringResource(
+                            if (workout.isFinished) {
+                                R.string.schedule_status_done
+                            } else {
+                                R.string.calendar_workout_in_progress
+                            },
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.calendar_workout_no_entry),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -757,58 +820,6 @@ private fun EntryCard(
             }
         }
     }
-}
-
-/** Wybór nowej daty dla wpisu - tylko w oknie planowania (od dziś do horyzontu). */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun MoveEntryDialog(
-    entry: ScheduledWorkout,
-    minDate: LocalDate,
-    maxDate: LocalDate,
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate) -> Unit,
-) {
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = entry.date.toUtcMillis(),
-        selectableDates = DateRangeSelectableDates(minDate = minDate, maxDate = maxDate),
-    )
-
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            val selected = state.selectedDateMillis
-            TextButton(
-                enabled = selected != null,
-                onClick = { selected?.let { millis -> onConfirm(utcMillisToDate(millis)) } },
-            ) {
-                Text(text = stringResource(R.string.action_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.action_cancel))
-            }
-        },
-    ) {
-        DatePicker(state = state)
-    }
-}
-
-/** Zakres dat dla `DatePicker` - material3 pyta o każdy dzień i każdy rok. */
-@OptIn(ExperimentalMaterial3Api::class)
-internal class DateRangeSelectableDates(
-    private val minDate: LocalDate,
-    private val maxDate: LocalDate,
-) : SelectableDates {
-
-    private val minMillis = minDate.toUtcMillis()
-    private val maxMillis = maxDate.toUtcMillis()
-
-    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-        utcTimeMillis in minMillis..maxMillis
-
-    override fun isSelectableYear(year: Int): Boolean = year in minDate.year..maxDate.year
 }
 
 /** Dni tygodnia od poniedziałku - kolejność siatki. */

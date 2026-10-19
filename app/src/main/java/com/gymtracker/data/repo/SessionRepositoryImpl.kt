@@ -11,6 +11,7 @@ import com.gymtracker.data.db.entities.SessionExerciseEntity
 import com.gymtracker.data.db.entities.SetLogEntity
 import com.gymtracker.data.db.rows.PlanExerciseRow
 import com.gymtracker.data.db.rows.SessionExerciseRow
+import com.gymtracker.domain.model.DayWorkout
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.domain.model.SessionExercise
@@ -19,9 +20,11 @@ import com.gymtracker.domain.model.WorkoutSession
 import com.gymtracker.domain.model.isCompleteFor
 import com.gymtracker.domain.repository.SessionRepository
 import com.gymtracker.domain.time.TimeProvider
+import com.gymtracker.domain.time.startOfDayEpochMs
 import com.gymtracker.domain.time.today
 import com.gymtracker.domain.timer.WorkoutTimerState
 import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,6 +53,10 @@ import kotlinx.coroutines.flow.map
  *
  * Wszystko, co dzieje się w trakcie treningu (serie, notatka, pauza), zapisujemy
  * od razu: aplikacja może zginąć w każdej chwili, a trening ma zostać.
+ *
+ * Po fakcie zmienia się tylko dzień treningu ([setSessionDate]): wpis w
+ * kalendarzu idzie wtedy razem z treningiem, żeby „odbyty” nie został na dniu,
+ * w którym nic się nie stało.
  */
 @Singleton
 class SessionRepositoryImpl @Inject constructor(
@@ -88,6 +95,17 @@ class SessionRepositoryImpl @Inject constructor(
         setLogDao.observeSetsOfSession(sessionId),
     ) { session, rows, sets ->
         session?.let { SessionDetails(it.toDomain(), mapExercises(rows, sets)) }
+    }
+
+    override fun observeWorkoutsBetween(from: LocalDate, to: LocalDate): Flow<List<DayWorkout>> {
+        val zone = zone()
+        return sessionDao.observeWorkoutsBetween(
+            from = from.toString(),
+            to = to.toString(),
+            fromMs = from.startOfDayEpochMs(zone),
+            // Dzień końcowy włącznie, więc górna granica to początek następnego.
+            toMs = to.plusDays(1).startOfDayEpochMs(zone),
+        ).map { rows -> rows.map { row -> row.toDayWorkout(zone) } }
     }
 
     override suspend fun startFromPlanDay(planDayId: Long): Long? = database.withTransaction {
@@ -175,6 +193,25 @@ class SessionRepositoryImpl @Inject constructor(
             )
             true
         }
+
+    override suspend fun setSessionDate(sessionId: Long, date: LocalDate) = database.withTransaction {
+        val session = sessionDao.getSession(sessionId) ?: return@withTransaction
+        // Trwający trening ma dzień wybrany przy starcie; poprawiamy po fakcie.
+        if (session.status != SessionEntity.STATUS_FINISHED) return@withTransaction
+        sessionDao.setSessionDate(sessionId, date.toString())
+
+        // Wpis, który ten trening odhaczył, idzie za nim - inaczej „odbyty”
+        // zostałby na dniu, w którym nic się nie stało.
+        val entry = calendarDao.findBySession(sessionId) ?: return@withTransaction
+        val planDayId = entry.planDayId
+        val taken = planDayId != null && calendarDao.getScheduledOn(date.toString())
+            .any { other -> other.id != entry.id && other.planDayId == planDayId }
+        if (taken) {
+            calendarDao.unlinkSession(sessionId)
+        } else {
+            calendarDao.setDate(entry.id, date.toString())
+        }
+    }
 
     override suspend fun finishSession(sessionId: Long) {
         closeSession(sessionId, SessionEntity.STATUS_FINISHED)
@@ -343,6 +380,9 @@ class SessionRepositoryImpl @Inject constructor(
     /** Serie dopisujemy tylko do trwającego treningu - historia jest zamknięta. */
     private suspend fun isEditable(sessionId: Long): Boolean =
         sessionDao.getSession(sessionId)?.status == SessionEntity.STATUS_ACTIVE
+
+    /** Strefa urządzenia - dzień treningu liczymy tak samo, jak go pokazujemy. */
+    private fun zone(): ZoneId = ZoneId.systemDefault()
 }
 
 /** Ćwiczenia treningu z doczepionymi seriami (`session_exercise_id` → seria). */

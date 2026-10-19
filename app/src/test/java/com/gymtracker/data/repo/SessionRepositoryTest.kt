@@ -340,6 +340,107 @@ class SessionRepositoryTest {
         )
     }
 
+    @Test
+    fun `treningi z zakresu dni licza dzien przypisany i dzien startu`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val today = timeProvider.today()
+        val assigned = today.plusDays(5)
+        val scheduledId = seedScheduled(date = assigned, planId = planId, dayId = dayId)
+        val assignedSession = requireNotNull(sessions.startFromSchedule(scheduledId))
+        sessions.finishSession(assignedSession)
+
+        // Trening „od zera” nie ma przypisanej daty - liczy się dzień startu.
+        val free = requireNotNull(sessions.startForDay(today, planDayId = null, name = "Trening"))
+        sessions.finishSession(free)
+
+        val onAssigned = sessions.observeWorkoutsBetween(assigned, assigned).first()
+        assertEquals(listOf(assignedSession), onAssigned.map { workout -> workout.sessionId })
+        assertEquals(assigned, onAssigned.single().date)
+        assertEquals("Dzień A", onAssigned.single().name)
+        assertTrue("trening jest już odbyty", onAssigned.single().isFinished)
+
+        val onStartDay = sessions.observeWorkoutsBetween(today, today).first()
+        assertEquals(listOf(free), onStartDay.map { workout -> workout.sessionId })
+        assertEquals(today, onStartDay.single().date)
+    }
+
+    @Test
+    fun `przerwany trening nie liczy sie jako dzien treningu`() = runTest {
+        val today = timeProvider.today()
+        val sessionId = requireNotNull(sessions.startForDay(today, planDayId = null, name = "Trening"))
+        sessions.cancelSession(sessionId)
+
+        assertTrue(sessions.observeWorkoutsBetween(today, today).first().isEmpty())
+    }
+
+    @Test
+    fun `poprawka dnia przenosi wpis kalendarza na nowy dzien`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val today = timeProvider.today()
+        val scheduledId = seedScheduled(date = today, planId = planId, dayId = dayId)
+        val sessionId = requireNotNull(sessions.startForDay(today, planDayId = dayId, name = "Trening"))
+        sessions.finishSession(sessionId)
+
+        val fixed = today.minusDays(2)
+        sessions.setSessionDate(sessionId, fixed)
+
+        assertEquals(
+            fixed,
+            requireNotNull(sessions.observeSession(sessionId).first()).session.sessionDate,
+        )
+        val entry = requireNotNull(database.calendarDao().getScheduled(scheduledId))
+        assertEquals("wpis idzie za treningiem", fixed.toString(), entry.date)
+        assertEquals(
+            "wpis zostaje odhaczony",
+            ScheduledSessionEntity.STATUS_DONE,
+            entry.status,
+        )
+    }
+
+    @Test
+    fun `poprawka dnia na zajety dzien odczepia wpis od treningu`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val today = timeProvider.today()
+        val doneId = seedScheduled(date = today, planId = planId, dayId = dayId)
+        val sessionId = requireNotNull(sessions.startForDay(today, planDayId = dayId, name = "Trening"))
+        sessions.finishSession(sessionId)
+
+        // Na nowy dzień ten sam dzień planu jest już zaplanowany.
+        val target = today.minusDays(1)
+        val plannedId = seedScheduled(date = target, planId = planId, dayId = dayId)
+
+        sessions.setSessionDate(sessionId, target)
+
+        val done = requireNotNull(database.calendarDao().getScheduled(doneId))
+        assertNull("wpis nie jest już przypisany do treningu", done.sessionId)
+        assertEquals(
+            "wpis nie udaje odbytego dnia",
+            ScheduledSessionEntity.STATUS_PLANNED,
+            done.status,
+        )
+        val planned = requireNotNull(database.calendarDao().getScheduled(plannedId))
+        assertEquals("wpis na nowym dniu zostaje bez zmian", target.toString(), planned.date)
+        assertEquals(ScheduledSessionEntity.STATUS_PLANNED, planned.status)
+        assertEquals(
+            target,
+            requireNotNull(sessions.observeSession(sessionId).first()).session.sessionDate,
+        )
+    }
+
+    @Test
+    fun `poprawka dnia trwajacego treningu nic nie zmienia`() = runTest {
+        val today = timeProvider.today()
+        val sessionId = requireNotNull(sessions.startForDay(today, planDayId = null, name = "Trening"))
+
+        sessions.setSessionDate(sessionId, today.minusDays(3))
+
+        assertEquals(
+            "dzień trwającego treningu wybiera się przy starcie",
+            today,
+            requireNotNull(sessions.observeSession(sessionId).first()).session.sessionDate,
+        )
+    }
+
     /** Plan z jednym dniem: przysiad 5×5, wyciskanie 3×10 albo wojskowe. */
     private suspend fun seedDay(): Long = seedPlanAndDay().second
 

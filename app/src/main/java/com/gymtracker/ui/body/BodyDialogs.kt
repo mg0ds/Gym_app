@@ -34,10 +34,10 @@ import com.gymtracker.R
 import com.gymtracker.domain.model.BodyEntry
 import com.gymtracker.domain.model.MetricDirection
 import com.gymtracker.domain.model.MetricType
-import com.gymtracker.ui.calendar.DateRangeSelectableDates
 import com.gymtracker.ui.calendar.isoText
 import com.gymtracker.ui.calendar.toUtcMillis
 import com.gymtracker.ui.calendar.utcMillisToDate
+import com.gymtracker.ui.components.DateRangeSelectableDates
 import com.gymtracker.ui.components.toDecimalOrNull
 import java.time.LocalDate
 

@@ -339,6 +339,8 @@
     <string name="calendar_start_blank">New workout</string>
     <string name="calendar_start_blank_hint">No plan - add exercises as you go</string>
     <string name="calendar_start_no_plans">You have no plan days yet. Add a plan to pick a workout from a list.</string>
+    <string name="calendar_workout_in_progress">in progress</string>
+    <string name="calendar_workout_no_entry">no plan entry</string>
     <plurals name="calendar_start_exercises">
         <item quantity="one">%1$d exercise</item>
         <item quantity="other">%1$d exercises</item>
@@ -401,6 +403,8 @@
     <string name="session_in_progress">Workout in progress</string>
     <string name="session_finished">Workout finished</string>
     <string name="session_started_at">Started at %1$s</string>
+    <string name="session_day">Workout day: %1$s</string>
+    <string name="session_change_date">Change workout day</string>
 
     <!-- Workout: pause, note and logged sets (M4) -->
     <string name="session_pause">Pause</string>

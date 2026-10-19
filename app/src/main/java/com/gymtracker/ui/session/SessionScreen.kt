@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,9 +62,12 @@ import com.gymtracker.domain.timer.ActiveRest
 import com.gymtracker.domain.timer.TrackedWorkout
 import com.gymtracker.domain.timer.WorkoutTimerState
 import com.gymtracker.domain.timer.formatElapsed
+import com.gymtracker.ui.calendar.isoText
+import com.gymtracker.ui.components.DatePickerRangeDialog
 import com.gymtracker.ui.plans.targetText
 import kotlinx.coroutines.delay
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -101,6 +105,7 @@ fun SessionScreen(
         onFinish = { viewModel.finishSession(onFinished) },
         onCancel = { viewModel.cancelSession(onFinished) },
         onAddExercise = onAddExercise,
+        onChangeDate = viewModel::setDate,
     )
 }
 
@@ -123,9 +128,11 @@ private fun SessionContent(
     onFinish: () -> Unit,
     onCancel: () -> Unit,
     onAddExercise: () -> Unit,
+    onChangeDate: (LocalDate) -> Unit,
 ) {
     var showCancelConfirm by remember { mutableStateOf(false) }
     var showNoteDialog by remember { mutableStateOf(false) }
+    var showDateDialog by remember { mutableStateOf(false) }
     var setDialog by remember { mutableStateOf<SetDialogTarget?>(null) }
     var restDialog by remember { mutableStateOf<SessionExercise?>(null) }
     val session = uiState.session
@@ -146,6 +153,18 @@ private fun SessionContent(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.cd_back),
                         )
+                    }
+                },
+                actions = {
+                    // Dzień poprawiamy po fakcie - w trwającym treningu wybiera
+                    // się go przy starcie („Trening na 27 października”).
+                    if (uiState.dayEditRange != null) {
+                        IconButton(onClick = { showDateDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.DateRange,
+                                contentDescription = stringResource(R.string.session_change_date),
+                            )
+                        }
                     }
                 },
             )
@@ -315,6 +334,20 @@ private fun SessionContent(
         )
     }
 
+    val dayEditRange = uiState.dayEditRange
+    if (showDateDialog && dayEditRange != null && session != null) {
+        DatePickerRangeDialog(
+            initialDate = session.dateIn(ZoneId.systemDefault()),
+            minDate = dayEditRange.start,
+            maxDate = dayEditRange.endInclusive,
+            onDismiss = { showDateDialog = false },
+            onConfirm = { date ->
+                showDateDialog = false
+                onChangeDate(date)
+            },
+        )
+    }
+
     if (showCancelConfirm) {
         AlertDialog(
             onDismissRequest = { showCancelConfirm = false },
@@ -420,6 +453,14 @@ private fun SessionTimerHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Text(
+                text = stringResource(
+                    R.string.session_day,
+                    session.dateIn(ZoneId.systemDefault()).isoText(),
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text(
                 text = stringResource(
                     R.string.session_started_at,

@@ -68,6 +68,17 @@ interface CalendarDao {
     @Query("UPDATE scheduled_sessions SET session_id = :sessionId WHERE id = :id")
     suspend fun linkSession(id: Long, sessionId: Long)
 
+    /** Wpis, który powstał z danego treningu (pokazuje „Otwórz trening”). */
+    @Query("SELECT * FROM scheduled_sessions WHERE session_id = :sessionId LIMIT 1")
+    suspend fun findBySession(sessionId: Long): ScheduledSessionEntity?
+
+    /**
+     * Odczepia wpis od treningu i cofa go do „zaplanowany”: trening należy już
+     * do innego dnia, więc wpis nie może dalej udawać, że został odbyty.
+     */
+    @Query("UPDATE scheduled_sessions SET session_id = NULL, status = 'planned' WHERE session_id = :sessionId")
+    suspend fun unlinkSession(sessionId: Long)
+
     /** Zakończony trening odhacza wpis, z którego powstał. */
     @Query("UPDATE scheduled_sessions SET status = 'done' WHERE session_id = :sessionId")
     suspend fun markDoneForSession(sessionId: Long)

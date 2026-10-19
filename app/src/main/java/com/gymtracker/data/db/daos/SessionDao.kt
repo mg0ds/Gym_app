@@ -32,6 +32,37 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE status = 'active'")
     suspend fun getActiveSessions(): List<SessionEntity>
 
+    /**
+     * Treningi z zakresu dni włącznie (bez przerwanych) - kalendarz pokazuje je
+     * obok wpisów w planie, bo trening może istnieć bez wpisu („Nowy trening”
+     * z dnia bez planu).
+     *
+     * Dwie gałęzie, bo dzień treningu to `session_date`, a gdy go brak - dzień
+     * startu. Starsze treningi nie mają przypisanej daty, a ich dzień liczy się
+     * w strefie urządzenia, więc granice dnia podaje wołający (w ms).
+     */
+    @Query(
+        """
+        SELECT * FROM sessions
+        WHERE status != 'cancelled'
+          AND (
+            (session_date IS NOT NULL AND session_date BETWEEN :from AND :to)
+            OR (session_date IS NULL AND started_at BETWEEN :fromMs AND :toMs)
+          )
+        ORDER BY started_at
+        """,
+    )
+    fun observeWorkoutsBetween(
+        from: String,
+        to: String,
+        fromMs: Long,
+        toMs: Long,
+    ): Flow<List<SessionEntity>>
+
+    /** Poprawka dnia treningu („zmień dzień” na ekranie treningu). */
+    @Query("UPDATE sessions SET session_date = :date WHERE id = :sessionId")
+    suspend fun setSessionDate(sessionId: Long, date: String)
+
     @Insert
     suspend fun insertSession(session: SessionEntity): Long
 

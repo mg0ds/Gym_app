@@ -22,7 +22,7 @@ fun interface TimeProvider {
 fun TimeProvider.today(zone: ZoneId = ZoneId.systemDefault()): LocalDate =
     Instant.ofEpochMilli(nowEpochMs()).atZone(zone).toLocalDate()
 
-/** Początek dnia jako epoch ms - odwrotność [today], używane w testach. */
+/** Początek dnia jako epoch ms - odwrotność [today]. */
 fun LocalDate.startOfDayEpochMs(zone: ZoneId = ZoneId.systemDefault()): Long =
     atStartOfDay(zone).toInstant().toEpochMilli()
 

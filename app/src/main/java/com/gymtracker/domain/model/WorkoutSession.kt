@@ -1,5 +1,6 @@
 package com.gymtracker.domain.model
 
+import com.gymtracker.domain.schedule.ScheduleLimits
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -45,6 +46,21 @@ data class WorkoutSession(
         sessionDate ?: Instant.ofEpochMilli(startedAtEpochMs).atZone(zone).toLocalDate()
 
     /**
+     * Okno, w którym wolno poprawić dzień treningu („zmień dzień” w historii):
+     * od doby przed dniem startu do końca horyzontu planowania.
+     *
+     * Dobę przed start zostawiamy, bo trening zaczęty po północy należy do
+     * dnia, który się właśnie skończył. Do przodu nie wypuszczamy dalej niż
+     * horyzont: wpis w kalendarzu idzie za treningiem, a kalendarz dalej niż
+     * 20 tygodni nie planuje.
+     */
+    fun dayEditRange(zone: ZoneId, today: LocalDate): ClosedRange<LocalDate> {
+        val day = dateIn(zone)
+        val startedDay = Instant.ofEpochMilli(startedAtEpochMs).atZone(zone).toLocalDate()
+        return minOf(day, startedDay).minusDays(1)..maxOf(day, ScheduleLimits.horizonEnd(today))
+    }
+
+    /**
      * Czas treningu bez pauz; `null`, gdy trening jeszcze trwa.
      *
      * Dla trwającego treningu zegar prowadzi `WorkoutTimer` (ten sam wzór, ale
@@ -55,6 +71,27 @@ data class WorkoutSession(
         get() = finishedAtEpochMs?.let { finished ->
             (finished - startedAtEpochMs - pausedTotalMs).coerceAtLeast(0L)
         }
+}
+
+/**
+ * Trening widziany z kalendarza: dzień, nazwa i status.
+ *
+ * Kalendarz czyta wpisy **i** treningi, bo trening może istnieć bez wpisu
+ * („Nowy trening” z dnia bez planu). Bez tego dzień wyglądałby na pusty, choć
+ * historia ma pod nim trening.
+ */
+data class DayWorkout(
+    val sessionId: Long,
+    val date: LocalDate,
+    val name: String,
+    val status: SessionStatus,
+) {
+    /** Trening się odbył - trwający jest dopiero „w toku”. */
+    val isFinished: Boolean get() = status == SessionStatus.FINISHED
+
+    /** Znacznik dnia w siatce: odbyty to „odbyty”, trwający - jak zaplanowany. */
+    val mark: ScheduleStatus
+        get() = if (isFinished) ScheduleStatus.DONE else ScheduleStatus.PLANNED
 }
 
 /**

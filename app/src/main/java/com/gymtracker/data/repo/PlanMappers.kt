@@ -8,6 +8,7 @@ import com.gymtracker.data.db.entities.SetLogEntity
 import com.gymtracker.data.db.rows.PlanDayOptionRow
 import com.gymtracker.data.db.rows.PlanExerciseRow
 import com.gymtracker.data.db.rows.SessionExerciseRow
+import com.gymtracker.domain.model.DayWorkout
 import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.PlanDayOption
@@ -21,6 +22,7 @@ import com.gymtracker.domain.model.SetLog
 import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
 import java.time.LocalDate
+import java.time.ZoneId
 
 /** Wiersz bazy → model domenowy (plany, sesje, zalogowane serie). */
 
@@ -83,6 +85,14 @@ internal fun SessionEntity.toDomain(): WorkoutSession = WorkoutSession(
     pausedTotalMs = pausedTotalMs,
     pausedAtEpochMs = pausedAtEpochMs,
     sessionDate = sessionDate?.let { value -> LocalDate.parse(value) },
+)
+
+/** Trening widziany z kalendarza: dzień liczony w strefie urządzenia. */
+internal fun SessionEntity.toDayWorkout(zone: ZoneId): DayWorkout = DayWorkout(
+    sessionId = id,
+    date = toDomain().dateIn(zone),
+    name = name,
+    status = SessionStatus.fromWire(status),
 )
 
 internal fun SessionExerciseRow.toDomain(logs: List<SetLog> = emptyList()): SessionExercise =

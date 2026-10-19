@@ -2,6 +2,7 @@ package com.gymtracker.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gymtracker.domain.model.DayWorkout
 import com.gymtracker.domain.model.PlanDayOption
 import com.gymtracker.domain.model.ScheduleStatus
 import com.gymtracker.domain.model.ScheduledWorkout
@@ -34,22 +35,37 @@ data class CalendarUiState(
     val selectedDate: LocalDate = LocalDate.now(),
     val cells: List<CalendarCell> = emptyList(),
     val entriesByDate: Map<LocalDate, List<ScheduledWorkout>> = emptyMap(),
+    /** Treningi dni - także te bez wpisu w planie (historia widziana z kalendarza). */
+    val workoutsByDate: Map<LocalDate, List<DayWorkout>> = emptyMap(),
     /** Dni planów do wyboru przy „rozpocznij trening” na wybrany dzień. */
     val dayOptions: List<PlanDayOption> = emptyList(),
     val activeSession: SessionDetails? = null,
 ) {
     val selectedEntries: List<ScheduledWorkout> get() = entriesByDate[selectedDate].orEmpty()
 
+    /**
+     * Treningi wybranego dnia bez wpisu w planie - inaczej dzień wyglądałby na
+     * pusty, choć historia ma pod nim trening.
+     */
+    val selectedWorkouts: List<DayWorkout>
+        get() = workoutsWithoutEntry(selectedEntries, workoutsByDate[selectedDate].orEmpty())
+
     /** Dalej niż horyzont (20 tygodni) nie ma czego planować, więc nie przewijamy. */
     val canGoForward: Boolean get() = month.isBefore(YearMonth.from(horizonEnd))
 }
 
+/** Jedno wejście w miesiąc: wpisy planu i treningi (razem z tymi bez wpisu). */
+private data class MonthData(
+    val entries: List<ScheduledWorkout>,
+    val workouts: List<DayWorkout>,
+)
+
 /**
  * Kalendarz treningów.
  *
- * Widok czyta wpisy tylko z pokazywanego miesiąca (jedno zapytanie na miesiąc)
- * i pilnuje horyzontu planowania: w przód wolno przewinąć najwyżej do miesiąca
- * z ostatnim dozwolonym dniem.
+ * Widok czyta **wpisy** i **treningi** z pokazywanego miesiąca (jedno zapytanie
+ * na miesiąc do każdego źródła) i pilnuje horyzontu planowania: w przód wolno
+ * przewinąć najwyżej do miesiąca z ostatnim dozwolonym dniem.
  */
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
@@ -66,17 +82,22 @@ class CalendarViewModel @Inject constructor(
     private val selectedDate = MutableStateFlow(today)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val monthEntries = month.flatMapLatest { yearMonth ->
-        calendar.observeRange(yearMonth.atDay(1), yearMonth.atEndOfMonth())
+    private val monthData = month.flatMapLatest { yearMonth ->
+        val from = yearMonth.atDay(1)
+        val to = yearMonth.atEndOfMonth()
+        combine(
+            calendar.observeRange(from, to),
+            sessions.observeWorkoutsBetween(from, to),
+        ) { entries, workouts -> MonthData(entries, workouts) }
     }
 
     val uiState: StateFlow<CalendarUiState> = combine(
-        monthEntries,
+        monthData,
         month,
         selectedDate,
         sessions.observeActiveSession(),
         plans.observeDayOptions(),
-    ) { entries, yearMonth, selected, activeSession, dayOptions ->
+    ) { data, yearMonth, selected, activeSession, dayOptions ->
         CalendarUiState(
             isLoading = false,
             month = yearMonth,
@@ -84,7 +105,8 @@ class CalendarViewModel @Inject constructor(
             horizonEnd = horizonEnd,
             selectedDate = selected,
             cells = monthGrid(yearMonth),
-            entriesByDate = entries.groupBy { entry -> entry.date },
+            entriesByDate = data.entries.groupBy { entry -> entry.date },
+            workoutsByDate = data.workouts.groupBy { workout -> workout.date },
             dayOptions = dayOptions,
             activeSession = activeSession,
         )
