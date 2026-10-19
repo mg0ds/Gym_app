@@ -43,6 +43,7 @@ class StatsRepositoryImpl @Inject constructor(
         statsDao.observeClosedRests(StatsLimits.REST_ROWS),
         statsDao.observeSessionExerciseLinks(),
     ) { sessions, aggregates, rests, links ->
+        val zone = zone()
         SessionSummaryCalculator.calculate(
             sessions = sessions.map { entity -> entity.toDomain() },
             aggregates = aggregates.map { row -> row.toDomain() },
@@ -50,7 +51,8 @@ class StatsRepositoryImpl @Inject constructor(
             exerciseIdsBySession = links
                 .groupBy({ link -> link.sessionId }, { link -> link.exerciseId })
                 .mapValues { (_, exerciseIds) -> exerciseIds.toSet() },
-            zone = zone(),
+            zone = zone,
+            today = timeProvider.today(zone),
         )
     }
 

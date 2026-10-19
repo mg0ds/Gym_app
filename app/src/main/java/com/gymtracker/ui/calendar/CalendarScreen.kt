@@ -68,6 +68,7 @@ import com.gymtracker.domain.model.ScheduleStatus
 import com.gymtracker.domain.model.ScheduledWorkout
 import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.ui.components.DatePickerRangeDialog
+import com.gymtracker.ui.components.StartAnotherWorkoutDialog
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
@@ -128,6 +129,13 @@ internal fun CalendarContent(
 ) {
     var entryToMove by remember { mutableStateOf<ScheduledWorkout?>(null) }
     var startForDate by remember { mutableStateOf<LocalDate?>(null) }
+    // Start drugiego treningu przerwie trwający (tak działa repozytorium:
+    // „jeden trening naraz”), więc pytamy, zanim to zrobimy po cichu.
+    var pendingStart by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val activeName = uiState.activeSession?.session?.name
+    fun requestStart(action: () -> Unit) {
+        if (activeName == null) action() else pendingStart = action
+    }
     val locale = LocalConfiguration.current.locales[0]
 
     Scaffold(
@@ -176,7 +184,7 @@ internal fun CalendarContent(
                 SelectedDaySection(
                     uiState = uiState,
                     locale = locale,
-                    onStart = onStart,
+                    onStart = { entryId -> requestStart { onStart(entryId) } },
                     onStartForDay = { startForDate = uiState.selectedDate },
                     onStatus = onStatus,
                     onMoveClick = { entry -> entryToMove = entry },
@@ -211,13 +219,24 @@ internal fun CalendarContent(
             options = uiState.dayOptions,
             onPick = { option ->
                 startForDate = null
-                onStartForDay(date, option.id)
+                requestStart { onStartForDay(date, option.id) }
             },
             onBlank = {
                 startForDate = null
-                onStartForDay(date, null)
+                requestStart { onStartForDay(date, null) }
             },
             onDismiss = { startForDate = null },
+        )
+    }
+
+    pendingStart?.let { action ->
+        StartAnotherWorkoutDialog(
+            activeName = activeName.orEmpty(),
+            onConfirm = {
+                pendingStart = null
+                action()
+            },
+            onDismiss = { pendingStart = null },
         )
     }
 }

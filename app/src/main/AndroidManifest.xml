@@ -22,18 +22,29 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!--
+      Backup Androida jest wyłączony świadomie. Auto Backup (allowBackup="true")
+      wysyła bazę i preferencje do konta Google, co kłóci się z obietnicą
+      "wszystkie dane zostają na urządzeniu" (ekran "O aplikacji"), a własna
+      kopia ZIP z M9 i tak przenosi dane na nowe urządzenie. Włączone
+      `dataExtractionRules`/`fullBackupContent` tylko udawałyby kontrolę nad
+      tym, co i tak jedzie do chmury (dataExtractionRules działa od API 31,
+      a pełnego backupu pilnuje osobny fullBackupContent dla starszych wersji -
+      dwa pliki, żeby powiedzieć "nic"). Lint słusznie dopomina się przy tym
+      o `dataExtractionRules`, ale przy wyłączonym backupie ten plik nie ma
+      czego ograniczać, stąd jawny `tools:ignore` zamiast pustych reguł.
+    -->
     <application
         android:name=".GymTrackerApplication"
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.GymTracker">
+        android:theme="@style/Theme.GymTracker"
+        tools:ignore="DataExtractionRules">
 
         <activity
             android:name=".MainActivity"

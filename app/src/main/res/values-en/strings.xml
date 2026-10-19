@@ -11,6 +11,9 @@
     <!-- Workout in progress (card on the calendar) -->
     <string name="calendar_active_title">You have a workout in progress</string>
     <string name="calendar_active_resume">Continue workout</string>
+    <string name="calendar_confirm_new_title">Another workout is in progress</string>
+    <string name="calendar_confirm_new_message">Starting a new workout will mark \"%1$s\" as cancelled. Continue?</string>
+    <string name="calendar_confirm_new_start">Start new</string>
 
     <!-- Common -->
     <string name="action_save">Save</string>
@@ -534,6 +537,7 @@
     <string name="history_row_head">%1$s • %2$s</string>
     <string name="history_row_volume">%1$s kg</string>
     <string name="history_row_rest">avg. rest %1$s</string>
+    <string name="history_row_future">a date in the future</string>
     <string name="history_empty">No finished workouts yet.</string>
     <string name="history_empty_filtered">No workout matches these filters.</string>
     <plurals name="history_sets">
@@ -561,6 +565,7 @@
     <string name="exercise_stats_range_sessions">Workouts in range</string>
     <string name="exercise_stats_range_sets">Sets in range</string>
     <string name="exercise_stats_range_volume">Volume in range</string>
+    <string name="exercise_stats_range_future">From the future</string>
     <string name="exercise_stats_volume">%1$s kg</string>
     <string name="exercise_stats_weight">%1$s kg</string>
     <string name="exercise_stats_chart_weight">Weight progress</string>

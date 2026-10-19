@@ -123,6 +123,9 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 3b.17 | Poprawka dnia na dzień, na którym ten sam dzień planu jest już zaplanowany | Trening zmienia dzień, wpis zostaje odczepiony i wraca do „zaplanowany”, a wpis na nowym dniu zostaje bez zmian |
 | 3b.18 | Trwający trening: nagłówek | Nie ma akcji „Zmień dzień” (dzień wybiera się przy starcie); nagłówek pokazuje „Dzień treningu: …” i „Start o …” |
 | 3b.19 | Data spoza okna (przed dobą przed startem, poza horyzontem) | `DatePicker` nie pozwala wybrać dnia poza oknem |
+| 3b.20 | Trwa trening → zacznij drugi (z przycisku „Rozpocznij trening”, z karty wpisu albo z dnia planu) | Dialog „Trwa inny trening” z nazwą trwającego; „Anuluj” nic nie zmienia (pierwszy leci dalej), „Zacznij nowy” przerywa pierwszy i startuje drugi |
+| 3b.21 | Przerwij trening, który powstał z wpisu w kalendarzu | Wpis wraca do „zaplanowany”, nie wisi już na przerwanym treningu (brak „Otwórz trening”); przerwany nie trafia do historii |
+| 3b.22 | Historia i statystyki treningu z datą w przyszłości (start z wpisu „na zapas”) | Wiersz historii pod datą ma dopisek „data z przyszłości”; statystyki ćwiczenia pokazują go w zakresie i w wierszu „Z przyszłości: N” |
 
 ## 4. Media: zdjęcia, filmy, link, kroki (M7)
 
@@ -182,6 +185,7 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 5.17 | Wyszukaj „obwod” (bez ogonka) | Znajduje „obwód” |
 | 5.18 | Tryb samolotowy + pełne przejście apki | Wszystko działa, żadne żądanie sieciowe nie jest wymagane |
 | 5.19 | Aktualizacja z M9a (baza v8) na v9 | Migracja 8 → 9 bez błędu; `user_version = 9`, dane i miniatura bez zmian, tabela `seed_imports` pusta |
+| 5.20 | `adb shell bmgr backupnow com.gymtracker` (albo `dumpsys package` → `allowBackup`) | Backup Androida wyłączony („Backup is not allowed”); dane nie jadą na konto Google, a własna kopia ZIP (5.3–5.12) działa jak dotąd |
 
 ## 6. Dostępność
 

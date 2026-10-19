@@ -25,6 +25,8 @@ data class PlanDetailUiState(
     val plan: Plan? = null,
     val days: List<PlanDay> = emptyList(),
     val recurrences: List<Recurrence> = emptyList(),
+    /** Nazwa trwającego treningu - start nowego przerwie go, więc pytamy. */
+    val activeSessionName: String? = null,
 )
 
 @HiltViewModel
@@ -42,12 +44,14 @@ class PlanDetailViewModel @Inject constructor(
     val uiState: StateFlow<PlanDetailUiState> = combine(
         plans.observePlanDetails(planId),
         calendar.observeRecurrencesOfPlan(planId),
-    ) { details, recurrences ->
+        sessions.observeActiveSession(),
+    ) { details, recurrences, activeSession ->
         PlanDetailUiState(
             isLoading = false,
             plan = details?.plan,
             days = details?.days.orEmpty(),
             recurrences = recurrences,
+            activeSessionName = activeSession?.session?.name,
         )
     }
         .stateIn(

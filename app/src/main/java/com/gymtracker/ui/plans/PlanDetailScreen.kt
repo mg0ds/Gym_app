@@ -50,6 +50,7 @@ import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.Recurrence
 import com.gymtracker.ui.calendar.recurrenceSummary
 import com.gymtracker.ui.components.ReorderableColumn
+import com.gymtracker.ui.components.StartAnotherWorkoutDialog
 
 /**
  * Plan: nazwa, opis i lista dni w kolejności. Dni przestawia się przeciągnięciem,
@@ -109,6 +110,15 @@ private fun PlanDetailContent(
     var dayToRename by remember { mutableStateOf<PlanDay?>(null) }
     var dayToDelete by remember { mutableStateOf<PlanDay?>(null) }
     var recurrenceToDelete by remember { mutableStateOf<Recurrence?>(null) }
+    // Start dnia przerwie trwający trening („jeden trening naraz”), więc pytamy.
+    var pendingStart by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun requestStart(dayId: Long) {
+        if (uiState.activeSessionName == null) {
+            onStartSession(dayId)
+        } else {
+            pendingStart = { onStartSession(dayId) }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -191,7 +201,7 @@ private fun PlanDetailContent(
                     index = index,
                     dayCount = uiState.days.size,
                     onOpen = onOpenDay,
-                    onStart = onStartSession,
+                    onStart = { dayId -> requestStart(dayId) },
                     onRename = { dayToRename = day },
                     onDelete = { dayToDelete = day },
                     onMoveUp = { onMoveDay(index, index - 1) },
@@ -270,6 +280,17 @@ private fun PlanDetailContent(
                 showDeletePlanDialog = false
                 onDeletePlan(onBack)
             },
+        )
+    }
+
+    pendingStart?.let { action ->
+        StartAnotherWorkoutDialog(
+            activeName = uiState.activeSessionName.orEmpty(),
+            onConfirm = {
+                pendingStart = null
+                action()
+            },
+            onDismiss = { pendingStart = null },
         )
     }
 }

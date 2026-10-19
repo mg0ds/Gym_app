@@ -79,6 +79,15 @@ interface CalendarDao {
     @Query("UPDATE scheduled_sessions SET session_id = NULL, status = 'planned' WHERE session_id = :sessionId")
     suspend fun unlinkSession(sessionId: Long)
 
+    /**
+     * Odczepia wpis od treningu, który się **nie odbył** (przerwany), ale nie
+     * tyka statusu: wpis zostaje „zaplanowany”, a jeśli użytkownik ręcznie
+     * odhaczył dzień, to jego decyzja nie przepada. Bez tego `session_id`
+     * wskazywałoby na przerwany trening i wpis wyglądałby na powiązany.
+     */
+    @Query("UPDATE scheduled_sessions SET session_id = NULL WHERE session_id = :sessionId")
+    suspend fun detachSession(sessionId: Long)
+
     /** Zakończony trening odhacza wpis, z którego powstał. */
     @Query("UPDATE scheduled_sessions SET status = 'done' WHERE session_id = :sessionId")
     suspend fun markDoneForSession(sessionId: Long)

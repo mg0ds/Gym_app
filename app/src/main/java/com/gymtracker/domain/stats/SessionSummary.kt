@@ -10,6 +10,12 @@ import java.time.ZoneId
 data class SessionSummary(
     val sessionId: Long,
     val date: LocalDate,
+    /**
+     * Trening przypisany do dnia, który jeszcze nie nadszedł (start z wpisu „na
+     * zapas”). Wchodzi do zakresu - inaczej zniknąłby z historii - ale lista
+     * oznacza go wprost, żeby „1M” nie pokazywał daty z przyszłości bez słowa.
+     */
+    val isFuture: Boolean = false,
     val startedAtEpochMs: Long,
     val name: String,
     /** Czas bez pauz (`null` tylko dla treningu, który jeszcze trwa - tu się nie zdarza). */
@@ -45,6 +51,9 @@ data class SessionAggregate(
  * Czysta funkcja, bo właśnie tutaj siedzą reguły, które łatwo zepsuć:
  * zakończone sesje (nie „przerwane”), średnia przerwa z tych samych próbek,
  * co na karcie ćwiczenia, i kolejność od najnowszych.
+ *
+ * „Dziś” wchodzi jako argument (a nie z zegara), żeby oznaczyć treningi z datą
+ * w przyszłości bez łamania testowalności.
  */
 object SessionSummaryCalculator {
 
@@ -54,13 +63,16 @@ object SessionSummaryCalculator {
         rests: List<RestInterval>,
         exerciseIdsBySession: Map<Long, Set<Long>>,
         zone: ZoneId,
+        today: LocalDate,
     ): List<SessionSummary> {
         val aggregateBySession = aggregates.associateBy { aggregate -> aggregate.sessionId }
         val restsBySession = rests.groupBy { interval -> interval.sessionId }
 
         return sessions
             .filter { session -> session.status == SessionStatus.FINISHED }
-            .map { session -> summary(session, aggregateBySession, restsBySession, exerciseIdsBySession, zone) }
+            .map { session ->
+                summary(session, aggregateBySession, restsBySession, exerciseIdsBySession, zone, today)
+            }
             .sortedByDescending { summary -> summary.startedAtEpochMs }
     }
 
@@ -91,14 +103,17 @@ object SessionSummaryCalculator {
         restsBySession: Map<Long?, List<RestInterval>>,
         exerciseIdsBySession: Map<Long, Set<Long>>,
         zone: ZoneId,
+        today: LocalDate,
     ): SessionSummary {
         val aggregate = aggregates[session.id]
+        // Dzień z kalendarza ma pierwszeństwo nad chwilą startu: trening
+        // zaplanowany na 27 października nie udaje treningu z dnia, w którym
+        // użytkownik kliknął „start”.
+        val date = session.dateIn(zone)
         return SessionSummary(
             sessionId = session.id,
-            // Dzień z kalendarza ma pierwszeństwo nad chwilą startu: trening
-            // zaplanowany na 27 października nie udaje treningu z dnia, w którym
-            // użytkownik kliknął „start”.
-            date = session.dateIn(zone),
+            date = date,
+            isFuture = date.isAfter(today),
             startedAtEpochMs = session.startedAtEpochMs,
             name = session.name,
             durationMs = session.durationMs,

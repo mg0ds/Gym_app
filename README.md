@@ -4,7 +4,8 @@
 
 Aplikacja Android do śledzenia treningu siłowego: kalendarz treningów, katalog
 ćwiczeń, plany, timery (trening + przerwy), historia i karta pomiarów ciała.
-Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki.
+Wszystkie dane trzymamy **lokalnie na urządzeniu** — bez kont, chmury i analityki
+(auto-backup Androida wyłączony; przenoszenie danych to nasza własna kopia ZIP).
 
 Stan: **M0–M10 ukończone** (fundament, katalog ćwiczeń z wyszukiwaniem
 i archiwum, plany treningowe z edytorem dni i startem treningu z planu,
@@ -19,7 +20,9 @@ katalogu ćwiczeń z pliku i dziennik „Ostatnie importy”, wydanie:
 R8 ze shrinkingiem zasobów i podpisany pakiet AAB, a w M10 — poprawki po
 wydaniu: dzień treningu zamiast dnia kliknięcia, start z wybranego dnia, ramka
 wokół dnia z treningiem (także bez wpisu w planie), poprawka dnia zakończonego
-treningu i własna szata graficzna).
+treningu, własna szata graficzna, wyłączony auto-backup, oznaczanie treningów
+z datą w przyszłości i potwierdzenie przed przerwaniem trwającego treningu
+przez start nowego).
 Kolejny krok: v1.1 — jednostki kg/lb, eksport CSV, scalanie dwóch kopii bez
 powielania wpisów kalendarza i treningów, baseline profile; szczegóły
 w [`docs/PLAN.md`](docs/PLAN.md) §11.
@@ -254,7 +257,7 @@ Gym_app/
 | **M7** | media i kroki wykonania: kroki techniki na karcie ćwiczenia i w formularzu, zdjęcia i filmy z galerii jako **wskazania** (URI + metadane, bez kopiowania plików), własne miniatury, podgląd z zoomem i odtwarzaczem Media3, opisy, odpinanie z komunikatem, link YouTube bez sieci; migracja 6 → 7 (`instructions` + `exercise_media`) | ✔ |
 | **M8** | karta postaci: dziesięć wbudowanych wskaźników (waga, obwody, tłuszcz) plus własne (nazwa, jednostka, kierunek, cel), jeden pomiar na dzień (poprawka zamiast duplikatu, data bez przyszłości), wykres zmiany w czasie z linią celu, podsumowanie (ostatni pomiar, zmiany 30/90 dni, seria, liczba pomiarów), archiwizacja wskaźników bez utraty historii; migracja 7 → 8 (`metric_types` + `body_entries`) | ✔ |
 | **M9** | ustawienia (alarm przerwy, język aplikacji, „O aplikacji”), kopia zapasowa ZIP z importem katalogu i dziennikiem importów, archiwum ćwiczeń z przywracaniem i trwałym kasowaniem, wydanie: R8 ze shrinkingiem zasobów i podpisany AAB (klucz poza repo); schemat tylko raz — migracja 8 → 9 (`seed_imports`) | ✔ |
-| **M10** | poprawki po wydaniu: dzień treningu zamiast dnia kliknięcia (`sessions.session_date`, migracja 9 → 10), start treningu z wybranego dnia w kalendarzu (lista dni planów albo „Nowy trening”), dopisywanie ćwiczeń do trwającego treningu, ramka wokół dnia z treningiem (także bez wpisu w planie), poprawka dnia zakończonego treningu razem z wpisem w kalendarzu, własna szata graficzna w palecie użytkownika (dynamiczne kolory wyłączone) | ✔ |
+| **M10** | poprawki po wydaniu: dzień treningu zamiast dnia kliknięcia (`sessions.session_date`, migracja 9 → 10), start treningu z wybranego dnia w kalendarzu (lista dni planów albo „Nowy trening”), dopisywanie ćwiczeń do trwającego treningu, ramka wokół dnia z treningiem (także bez wpisu w planie), poprawka dnia zakończonego treningu razem z wpisem w kalendarzu, własna szata graficzna w palecie użytkownika (dynamiczne kolory wyłączone); po przeglądzie: wyłączony auto-backup Androida, odczepianie wpisu przy przerwaniu treningu, oznaczanie treningów z datą w przyszłości i potwierdzenie startu drugiego treningu | ✔ |
 
 Szczegóły i kolejne kamienie milowe: [`docs/PLAN.md`](docs/PLAN.md) §8.
 

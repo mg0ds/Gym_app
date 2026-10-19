@@ -137,6 +137,15 @@ private fun SessionRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Trening „na zapas” wchodzi do zakresu (inaczej zniknąłby
+                // z historii), więc mówimy wprost, że jego data to przyszłość.
+                if (summary.isFuture) {
+                    Text(
+                        text = stringResource(R.string.history_row_future),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
             }
         },
     )

@@ -11,6 +11,9 @@
     <!-- Trwający trening (karta na kalendarzu) -->
     <string name="calendar_active_title">Masz rozpoczęty trening</string>
     <string name="calendar_active_resume">Kontynuuj trening</string>
+    <string name="calendar_confirm_new_title">Trwa inny trening</string>
+    <string name="calendar_confirm_new_message">Rozpoczęcie nowego treningu zakończy „%1$s” jako przerwany. Kontynuować?</string>
+    <string name="calendar_confirm_new_start">Zacznij nowy</string>
 
     <!-- Wspólne -->
     <string name="action_save">Zapisz</string>
@@ -562,6 +565,7 @@
     <string name="history_row_head">%1$s • %2$s</string>
     <string name="history_row_volume">%1$s kg</string>
     <string name="history_row_rest">śr. przerwa %1$s</string>
+    <string name="history_row_future">data z przyszłości</string>
     <string name="history_empty">Nie masz jeszcze zakończonych treningów.</string>
     <string name="history_empty_filtered">Żaden trening nie pasuje do tych filtrów.</string>
     <plurals name="history_sets">
@@ -591,6 +595,7 @@
     <string name="exercise_stats_range_sessions">Treningi w zakresie</string>
     <string name="exercise_stats_range_sets">Serie w zakresie</string>
     <string name="exercise_stats_range_volume">Objętość w zakresie</string>
+    <string name="exercise_stats_range_future">Z przyszłości</string>
     <string name="exercise_stats_volume">%1$s kg</string>
     <string name="exercise_stats_weight">%1$s kg</string>
     <string name="exercise_stats_chart_weight">Postęp ciężaru</string>

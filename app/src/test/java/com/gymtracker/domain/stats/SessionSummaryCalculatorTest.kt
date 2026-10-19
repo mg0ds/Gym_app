@@ -70,8 +70,9 @@ class SessionSummaryCalculatorTest {
         aggregates: List<SessionAggregate> = emptyList(),
         rests: List<RestInterval> = emptyList(),
         exercises: Map<Long, Set<Long>> = emptyMap(),
+        today: LocalDate = day,
     ): List<SessionSummary> =
-        SessionSummaryCalculator.calculate(sessions, aggregates, rests, exercises, zone)
+        SessionSummaryCalculator.calculate(sessions, aggregates, rests, exercises, zone, today)
 
     @Test
     fun `trening w toku i przerwany nie sa historia`() {
@@ -177,6 +178,21 @@ class SessionSummaryCalculatorTest {
             SessionSummaryCalculator.filter(summaries, StatsRange.ALL, day, exerciseId = 30L, name = "Dzień B")
                 .map { it.sessionId },
         )
+    }
+
+    @Test
+    fun `trening z data w przyszlosci jest oznaczony`() {
+        val summaries = calculate(
+            listOf(
+                session(1, day.minusDays(1)),
+                session(2, day.plusDays(30)),
+                session(3, day),
+            ),
+        )
+
+        assertTrue(!summaries.first { summary -> summary.sessionId == 1L }.isFuture)
+        assertTrue(!summaries.first { summary -> summary.sessionId == 3L }.isFuture)
+        assertTrue("dzień 30 dni w przód to przyszłość", summaries.first { summary -> summary.sessionId == 2L }.isFuture)
     }
 
     @Test

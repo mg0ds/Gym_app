@@ -441,6 +441,42 @@ class SessionRepositoryTest {
         )
     }
 
+    @Test
+    fun `przerwany trening odczepia wpis i zostawia go zaplanowanym`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val today = timeProvider.today()
+        val scheduledId = seedScheduled(date = today, planId = planId, dayId = dayId)
+        val sessionId = requireNotNull(sessions.startFromSchedule(scheduledId))
+
+        sessions.cancelSession(sessionId)
+
+        val entry = requireNotNull(database.calendarDao().getScheduled(scheduledId))
+        assertNull("wpis nie wskazuje na przerwany trening", entry.sessionId)
+        assertEquals(
+            "dzień wraca do zaplanowanych",
+            ScheduledSessionEntity.STATUS_PLANNED,
+            entry.status,
+        )
+    }
+
+    @Test
+    fun `start nowego treningu odczepia wpis przerwanego`() = runTest {
+        val (planId, dayId) = seedPlanAndDay()
+        val today = timeProvider.today()
+        val scheduledId = seedScheduled(date = today, planId = planId, dayId = dayId)
+        val first = requireNotNull(sessions.startFromSchedule(scheduledId))
+
+        // Zasada „jeden trening naraz” zamyka poprzedni jako przerwany.
+        requireNotNull(sessions.startForDay(today, planDayId = null, name = "Trening"))
+
+        val entry = requireNotNull(database.calendarDao().getScheduled(scheduledId))
+        assertNull("wpis nie wisi na przerwanym treningu", entry.sessionId)
+        assertEquals(
+            SessionStatus.CANCELLED,
+            requireNotNull(sessions.observeSession(first).first()).session.status,
+        )
+    }
+
     /** Plan z jednym dniem: przysiad 5×5, wyciskanie 3×10 albo wojskowe. */
     private suspend fun seedDay(): Long = seedPlanAndDay().second
 

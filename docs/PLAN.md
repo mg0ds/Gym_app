@@ -78,7 +78,7 @@ treningowy z `data/seed/` (patrz §7).
 | YouTube | `Intent(ACTION_VIEW)` → aplikacja YouTube albo przeglądarka | **Bez miniatury z `img.youtube.com`** (brak `INTERNET`, §6.6); YouTube Android Player API jest przestarzałe — nie używamy. |
 | Timer | `ForegroundService` + `startedAt` i pauzy w bazie (epoch) | Licznik wstaje sam po ubiciu aplikacji; notyfikacja z chronometrem systemowym (M4). **Odstąpiliśmy od `elapsedRealtime`** — uzasadnienie w §6.2 i §8.1. |
 | Sprzątanie plików | jeden skan `filesDir/thumbs` przy starcie, bez `WorkManager` | Osierocenia powstają tylko z kaskady; świeże pliki (młodsze niż doba) zostają (§4.2 pkt 45). |
-| Testy | JUnit4 + Truth, Turbine, Room in-memory, Compose UI Test, Robolectric | — |
+| Testy | JUnit4 + Robolectric (na JVM), Room in-memory, `kotlinx-coroutines-test` | Bez Truth/Turbine i bez testów Compose — stan faktyczny w §9 |
 | CI | GitHub Actions: lint, testy jednostkowe, `assembleDebug` i `bundleRelease` (R8 + shrinking zasobów, **bez podpisu**; detekt/ktlint jeszcze nie — patrz §11) | — |
 | Dane startowe | JSON w `data/seed/` → `assets/seed/` | Import jednorazowy, offline. |
 
@@ -2390,7 +2390,9 @@ za sobą ten sam łańcuch: dzień treningu → kalendarz → historia → wygl�
   preferuje datę, tak samo jak `ExerciseSetRow.sessionDate`. **Zakres
   statystyk (`StatsRange.contains`) przestał odrzucać dni przyszłe** — patrzy
   tylko w tył, bo trening przypisany do zaplanowanego dnia (także przyszłego)
-  nie może zniknąć z historii.
+  nie może zniknąć z historii. Takie punkty są **oznaczone** (patrz trzecia
+  rundka): lista historii pisze „data z przyszłości”, a statystyki ćwiczenia
+  liczą je osobno w wierszu „Z przyszłości”.
 * **Start treningu z wybranego dnia.** Dzień w kalendarzu ma przycisk
   „Rozpocznij trening”, który otwiera arkusz z listą dni planów („plan → dzień”,
   spłaszczoną przez nowe `PlanDao.observeDayOptions()` / `PlanDayOption`) plus
@@ -2463,6 +2465,33 @@ horyzont, a nagłówek trwającego treningu nie pokazywał akcji „Zmień dzie�
 (tylko „Dzień treningu” i „Start o”). Oba motywy przeszły wzrokowy przegląd
 siatki, karty dnia i ekranu treningu.
 
+Trzecia rundka M10 (przegląd po wdrożeniu — punkty 1–4 krytyki i domknięcie
+punktu 5, czyli ciche przerwanie trwającego treningu):
+
+* **Auto Backup wyłączony.** `allowBackup` był `true`, a `data_extraction_rules`
+  wrzucały bazę i preferencje do kopii na koncie Google — wprost sprzecznie
+  z obietnicą „Bez konta, chmury i analityki” w „O aplikacji”. Backup Androida
+  jest teraz wyłączony (`allowBackup="false"`), a `backup_rules.xml`
+  i `data_extraction_rules.xml` zniknęły: własna kopia ZIP z M9 i tak przenosi
+  dane na nowe urządzenie, a dwa pliki reguł tylko udawały kontrolę nad tym, co
+  i tak jedzie do chmury.
+* **Dokumentacja mówi prawdę o testach.** Tabela w §9 obiecywała Truth,
+  Turbine, Compose UI Test, ktlint i detekt — których w projekcie nie ma (Truth
+  i Turbine nigdy nie były użyte, `androidTest` nie istnieje, a ktlint/detekt są
+  odłożone do v1.1). Wiersze `Testy`, `UI` i `Statyczne` opisują teraz stan
+  faktyczny: JUnit4 + Robolectric na JVM, Room in-memory i Android Lint.
+* **Przerwany trening odczepia wpis.** `scheduled_sessions.session_id` miał
+  wskazywać tylko na zakończony trening, ale `cancelSession` i cicha anulacja
+  w `createSession` (zasada „jeden trening naraz”) zostawiały stary link —
+  wpis wyglądał na powiązany z treningiem, który się nie odbył. Doszło
+  `CalendarDao.detachSession` (czyści `session_id`, **nie** tyka statusu, więc
+  ręczne odhaczenie dnia nie przepada) wołane na obu ścieżkach przerwania.
+* **Start drugiego treningu pyta.** Skoro start przerwania poprzedniego treningu
+  jest nieodwracalny, kalendarz i ekran planu pokazują potwierdzenie z nazwą
+  trwającego treningu („Trwa inny trening…”), zanim nowy go anuluje — zamiast
+  robić to po cichu. Wspólny `StartAnotherWorkoutDialog` (`ui/components`) trzyma
+  ten tekst w jednym miejscu dla obu wejść do startu.
+
 Świadome odroczenia z M10:
 * **przestawianie kolejności ćwiczeń w trwającym treningu** — dopisywanie jest
   na koniec; kolejność w trakcie treningu to v1.1 (§11),
@@ -2479,9 +2508,9 @@ siatki, karty dnia i ekranu treningu.
 | Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9), znaczniki dnia w kalendarzu i okno poprawki dnia treningu (M10) | JUnit4 + `TimeProvider` wstrzykiwany |
 | Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
 | Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9), zakres dni treningów i poprawka dnia z wpisem w kalendarzu (M10) | Room in-memory + `runTest` |
-| UI | krytyczne ścieżki: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku | Compose UI Test + Robolectric (M4+), teraz scenariusze w `docs/QA.md` |
+| UI | ścieżki krytyczne: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku — **dziś ręcznie**, wg scenariuszy `docs/QA.md`; automatycznie tylko czysta logika UI (formaty dat, grupowanie, znaczniki dnia) | JUnit4 + Robolectric na JVM; **bez testów Compose** (brak `androidTest`) |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
-| Statyczne | ktlint, detekt, Compose lint | CI na każdym PR (lint Android jest już w CI) |
+| Statyczne | Android Lint (`lintDebug`) | CI na każdym pushu i PR; ktlint/detekt **odłożone do v1.1** (§11) |
 | Wydajność | brak zapytań na głównym wątku (pilnuje tego lint i przegląd); baseline profile i makrobenchmark startu **odłożone do v1.1** — na emulatorze liczby są niemiarodajne (§11) | Macrobenchmark (v1.1) |
 | Wydanie | R8 + shrinking zasobów: `bundleRelease` w CI (bez klucza = bundle niesignowany), podpis sprawdzany `jarsigner`-em (AAB) i `apksigner`-em (APK), a na urządzeniu smoke test ścieżek wrażliwych na obfuskację: eksport i wczytanie kopii (kotlinx.serialization), wykresy, statystyki, pierwsze uruchomienie z seedem (§6.13) | build release + smoke test na emulatorze |
 
@@ -2496,19 +2525,22 @@ zbudowanie release i przejście po ścieżkach wrażliwych na urządzeniu — do
 tyle, ile widać w akapicie o weryfikacji wyżej. Do tego CI buduje `bundleRelease`
 na każdym pushu, więc defekt konfiguracji R8 wychodzi od razu, a nie przy wydaniu.
 
-Stan na M10: **310 testów JVM**, wszystkie zielone. Doszły testy nowego
+Stan na M10: **314 testów JVM**, wszystkie zielone. Doszły testy nowego
 zachowania, nie „na wszelki wypadek”: migracja 9 → 10 w teście całej drogi
 (1 → 10) sprawdza, że sesja z M9 zostaje z `session_date` = NULL, a nowa
 przechodzi przez bazę z datą; `SessionRepositoryTest` — dzień z wpisu
 w kalendarzu, `startForDay` z dniem planu i bez planu, dopisanie ćwiczenia
 (w trakcie działa, po zakończeniu nie rusza historii), zakres dni treningów
-(dzień przypisany i dzień startu, przerwany odsiany) i poprawka dnia
-(wpis idzie za treningiem, zajęty dzień odczepia wpis, trwającego nie ruszamy);
+(dzień przypisany i dzień startu, przerwany odsiany), poprawka dnia
+(wpis idzie za treningiem, zajęty dzień odczepia wpis, trwającego nie ruszamy)
+oraz odczepienie wpisu przy przerwaniu (jawnym i przez „jeden trening naraz”);
 `PlanRepositoryTest` — lista dni do wyboru; `StatsRepositoryTest` — trening na
 dzień przyszły widać w historii i w statystykach ćwiczenia pod tą datą;
 `CalendarDayMarksTest` i `WorkoutSessionTest` — czyste funkcje znaczników dnia
 i okna poprawki daty. `ExerciseStatsCalculatorTest` zmienił asercję: zakres
-**nie** odrzuca już dni przyszłych.
+**nie** odrzuca już dni przyszłych, a punkt z przyszłości dostaje `isFuture`
+i liczy się do `futurePoints`; `SessionSummaryCalculatorTest` dostaje „dziś”
+jawnie i sprawdza `isFuture` wiersza.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc

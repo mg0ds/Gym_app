@@ -306,7 +306,9 @@ class SessionRepositoryImpl @Inject constructor(
     ): Long {
         val now = timeProvider.nowEpochMs()
 
-        // Zabezpieczenie: jeden trwający trening naraz.
+        // Zabezpieczenie: jeden trwający trening naraz. Poprzedni zamykamy jako
+        // przerwany i odczepiamy od wpisu, żeby wpis nie wskazywał na trening,
+        // który się nie odbył.
         sessionDao.getActiveSessions().forEach { active ->
             sessionDao.updateSession(
                 active.copy(
@@ -316,6 +318,7 @@ class SessionRepositoryImpl @Inject constructor(
                     pausedAtEpochMs = null,
                 ),
             )
+            calendarDao.detachSession(active.id)
         }
 
         val sessionId = sessionDao.insertSession(
@@ -366,9 +369,14 @@ class SessionRepositoryImpl @Inject constructor(
             ),
         )
         // Zakończony trening odhacza wpis w kalendarzu, z którego powstał.
-        // Przerwany nie odhacza - dzień zostaje zaplanowany.
+        // Przerwany wpisu nie odhacza, ale też się od niego odczepia: wpis ma
+        // wrócić do stanu sprzed startu, a nie wskazywać na trening, który się
+        // nie odbył (niezmiennik: `scheduled_sessions.session_id` celuje tylko
+        // w zakończony trening, a NULL - w zaplanowany lub pominięty).
         if (status == SessionEntity.STATUS_FINISHED) {
             calendarDao.markDoneForSession(sessionId)
+        } else {
+            calendarDao.detachSession(sessionId)
         }
     }
 

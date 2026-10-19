@@ -255,4 +255,19 @@ class ExerciseStatsCalculatorTest {
         assertTrue(StatsRange.MONTH_1.contains(today.plusDays(1), today))
         assertTrue(StatsRange.ALL.contains(today.plusDays(365), today))
     }
+
+    @Test
+    fun `punkt z data w przyszlosci jest oznaczony i policzony osobno`() {
+        val stats = calculate(
+            listOf(
+                set(1, 5, weightKg = 100.0, reps = 5),
+                set(2, -3, weightKg = 100.0, reps = 5),
+            ),
+        )
+
+        assertEquals(2, stats.points.size)
+        assertEquals(1, stats.futurePoints)
+        assertFalse(stats.points.first().isFuture)
+        assertTrue("punkt 3 dni w przód to przyszłość", stats.points.last().isFuture)
+    }
 }

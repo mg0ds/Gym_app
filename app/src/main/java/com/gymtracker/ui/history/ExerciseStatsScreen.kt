@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -176,6 +177,15 @@ private fun RecordsCard(stats: ExerciseStats) {
             label = stringResource(R.string.exercise_stats_range_volume),
             value = stringResource(R.string.exercise_stats_volume, formatKilograms(stats.volumeKg)),
         )
+        // Punkt z datą w przyszłości liczy się do zakresu (start z wpisu „na
+        // zapas”), ale mówimy o tym osobno - żeby „1M” nie pokazywało daty za
+        // pół roku bez wyjaśnienia.
+        if (stats.futurePoints > 0) {
+            InfoRow(
+                label = stringResource(R.string.exercise_stats_range_future),
+                value = stats.futurePoints.toString(),
+            )
+        }
     }
 }
 
@@ -230,7 +240,11 @@ private fun PerformancesCard(points: List<ExerciseStatsPoint>) {
 @Composable
 private fun PerformanceRow(point: ExerciseStatsPoint) {
     Row(modifier = Modifier.fillMaxWidth()) {
-        ValueCell(point.date.isoText(), DATE_WEIGHT)
+        ValueCell(
+            text = point.date.isoText(),
+            weight = DATE_WEIGHT,
+            color = if (point.isFuture) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
+        )
         ValueCell(point.sets.toString(), NUMBER_WEIGHT, TextAlign.End)
         ValueCell(
             text = point.topSetKg?.let { kg ->
@@ -262,11 +276,17 @@ private fun RowScope.HeaderCell(text: String, weight: Float, align: TextAlign = 
 }
 
 @Composable
-private fun RowScope.ValueCell(text: String, weight: Float, align: TextAlign = TextAlign.Start) {
+private fun RowScope.ValueCell(
+    text: String,
+    weight: Float,
+    align: TextAlign = TextAlign.Start,
+    color: Color = Color.Unspecified,
+) {
     Text(
         text = text,
         style = MaterialTheme.typography.bodySmall,
         textAlign = align,
+        color = color,
         modifier = Modifier.weight(weight),
     )
 }

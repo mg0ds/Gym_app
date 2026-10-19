@@ -75,6 +75,12 @@ data class ExerciseSetEntry(
 /** Jedna sesja na wykresie postępu (dzień, w którym ćwiczenie było robione). */
 data class ExerciseStatsPoint(
     val date: LocalDate,
+    /**
+     * Trening przypisany do dnia, który jeszcze nie nadszedł (start z wpisu
+     * „na zapas”). Wchodzi do zakresu - inaczej zniknąłby z historii - ale UI
+     * oznacza go wprost, żeby „1M” nie pokazywał daty za pół roku bez słowa.
+     */
+    val isFuture: Boolean = false,
     /** Najcięższa seria robocza dnia (`null` = ćwiczenie bez ciężaru). */
     val topSetKg: Double? = null,
     val topSetReps: Int? = null,
@@ -130,6 +136,9 @@ data class ExerciseStats(
 ) {
     val hasData: Boolean get() = points.isNotEmpty()
 
+    /** Ile punktów zakresu ma datę w przyszłości - tyle UI oznacza osobno. */
+    val futurePoints: Int get() = points.count { point -> point.isFuture }
+
     /**
      * Czy w zakresie jest cokolwiek do narysowania na wykresie ciężaru.
      * Ćwiczenie na czas ma punkty (bo trening się odbył), ale nie ma ciężaru -
@@ -160,6 +169,7 @@ object ExerciseStatsCalculator {
         val allPoints = points(working, rests)
         val points = allPoints
             .filter { point -> range.contains(point.date, today) }
+            .map { point -> point.copy(isFuture = point.date.isAfter(today)) }
             .sortedBy { point -> point.date }
 
         return ExerciseStats(
