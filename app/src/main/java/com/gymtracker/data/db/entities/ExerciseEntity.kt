@@ -67,6 +67,13 @@ data class ExerciseEntity(
     val defaultRepsMax: Int? = null,
     @ColumnInfo(name = "default_rest_s")
     val defaultRestS: Int? = null,
+    /**
+     * Co zapisujemy w serii (ciężar, powtórzenia, czas albo dystans).
+     * Wartości są w `ExerciseTracking`; wiersz jedzie też do kopii zapasowej,
+     * więc nowe pole ma bezpieczną wartość domyślną.
+     */
+    @ColumnInfo(name = "tracking", defaultValue = "weight_reps")
+    val tracking: String = TRACKING_WEIGHT_REPS,
     /** Komentarz użytkownika do ćwiczenia. */
     val notes: String? = null,
     @ColumnInfo(name = "is_favourite")
@@ -77,4 +84,9 @@ data class ExerciseEntity(
     val createdAtEpochMs: Long,
     @ColumnInfo(name = "updated_at")
     val updatedAtEpochMs: Long,
-)
+) {
+    companion object {
+        /** Zgodne z `ExerciseTracking.WEIGHT_REPS`. */
+        const val TRACKING_WEIGHT_REPS = "weight_reps"
+    }
+}

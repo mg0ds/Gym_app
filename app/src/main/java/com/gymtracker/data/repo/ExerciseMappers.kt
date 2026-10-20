@@ -5,6 +5,7 @@ import com.gymtracker.data.db.rows.ArchiveImpactRow
 import com.gymtracker.domain.model.ArchiveImpact
 import com.gymtracker.domain.model.Exercise
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.model.InstructionSteps
 import com.gymtracker.domain.model.YouTubeLinks
 import kotlinx.serialization.json.Json
@@ -62,6 +63,7 @@ internal fun ExerciseEntity.toDomain(): Exercise = Exercise(
     defaultRepsMin = defaultRepsMin,
     defaultRepsMax = defaultRepsMax,
     defaultRestS = defaultRestS,
+    tracking = ExerciseTracking.fromWire(tracking),
     notes = notes,
     isFavourite = isFavourite,
     isArchived = isArchived,
@@ -112,6 +114,7 @@ internal fun ExerciseDraft.toEntity(
     defaultRepsMin = defaultRepsMin,
     defaultRepsMax = defaultRepsMax,
     defaultRestS = defaultRestS,
+    tracking = tracking.wire,
     notes = notes?.trim()?.takeIf { it.isNotEmpty() },
     isFavourite = isFavourite,
     isArchived = isArchived,

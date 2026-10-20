@@ -31,9 +31,9 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | # | Scenariusz | Oczekiwany wynik |
 |---|---|---|
 | 2.1 | Zaloguj serię w ćwiczeniu z celem 90 s | Przerwa rusza sama, pasek pokazuje „cel 1:30”; w bazie wiersz `rest_intervals` z `planned_s = 90`, `is_auto = 1`, `ended_at = NULL` |
-| 2.2 | Poczekaj do zera, patrząc na ekran | Dźwięk + wibracja + heads-up „Koniec przerwy” w momencie 0 (±0,5 s); pasek znika; `ended_reason = 'completed'` |
-| 2.3 | Zablokuj ekran na czas przerwy (proces żyje) | To samo co 2.2 (±0,5 s) — przerwę domyka tyknięcie ekranu, a nie budzik, ale **i tak dzwoni** |
-| 2.4 | Ubij aplikację w trakcie przerwy i nie budź ekranu | Przerwa domknięta jako `completed`; **budzik może się spóźnić do ~22 s** (okno `setAndAllowWhileIdle`, gdy system nie dał zgody na dokładne alarmy). Po włączeniu „Alarmy i przypomnienia” dla aplikacji — co do sekundy |
+| 2.2 | Poczekaj do zera, patrząc na ekran | Dźwięk + wibracja + heads-up „Koniec przerwy” w momencie 0 (±0,5 s); pasek znika, ale wiersz **zostaje otwarty** (`ended_at = NULL`) — prawdziwy koniec poznamy po następnej serii |
+| 2.3 | Zablokuj ekran na czas przerwy (proces żyje) | To samo co 2.2 (±0,5 s) — budzik tylko powiadamia i chowa kartę, nie domyka wiersza |
+| 2.4 | Ubij aplikację w trakcie przerwy i nie budź ekranu | Po restarcie przerwa domyka się **w zaplanowanym czasie** jako `completed` (bez dzwonienia po fakcie); budzik może się spóźnić do ~22 s, gdy system nie dał zgody na dokładne alarmy. Po włączeniu „Alarmy i przypomnienia” — co do sekundy |
 | 2.5 | „+15 s” w połowie przerwy | Odliczanie dłuższe o 15 s, `planned_s` rośnie, `ended_reason = 'extended'`, przerwa **wchodzi** do średniej |
 | 2.6 | „-15 s” kilka razy | Cel nie schodzi poniżej 5 s (`ActiveRest.MIN_PLANNED_SECONDS`) |
 | 2.7 | „Pomiń” | `ended_reason = 'skipped'`, `rest_after_s` puste, wiersz serii bez „przerwa …”, **poza** statystykami |
@@ -47,6 +47,8 @@ każdym wydaniem. Każdy scenariusz: **kroki → oczekiwany wynik**.
 | 2.15 | Po zakończeniu treningu: kalendarz → wpis → „Otwórz trening” | Sesja tylko do czytania, z tymi samymi średnimi przerw na kartach ćwiczeń |
 | 2.16 | Notyfikacja usługi w trakcie przerwy | Tytuł = nazwa ćwiczenia, tekst „Przerwa”, odliczanie w dół, akcje „+15 s” i „Pomiń”; po przerwie tytuł wraca do nazwy dnia |
 | 2.17 | Odmów zgody na powiadomienia (Android 13+) | Przerwa liczy się i zapisuje dalej; brak dzwonienia (system nie pozwala pokazać notyfikacji) — bez crasha |
+| 2.18 | Po dźwięku wykonaj jeszcze kilkanaście sekund ćwiczenia i dopiero zaloguj serię | Wiersz przerwy domyka się **w momencie zapisu serii**, a nie w chwili dźwięku: `actual_s` ≈ 1:30 + czas wykonania, a wiersz serii pokazuje ten faktyczny czas |
+| 2.19 | Po dźwięku wyjdź z aplikacji na minutę, wróć i zaloguj serię | Przerwa nadal czeka otwarta (bez drugiego dźwięku) i domyka się dopiero przy serii — czas liczony od startu, nie od powrotu do aplikacji |
 
 ## 3. Kalendarz, reguły i harmonogram (M3)
 
@@ -264,7 +266,7 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 9.16 | Seria dłuższa niż 12 powtórzeń | 1RM pokazany z „~” i przypisem „Powyżej 12 powtórzeń ten wzór to już tylko szacunek” |
 | 9.17 | Serie rozgrzewkowe w treningu | Nigdzie ich nie ma: ani w liczbach serii, ani w objętości, ani w rekordzie |
 | 9.18 | Ćwiczenie na czas (plank, bez ciężaru) | Liczy się jako trening i ma wiersz w tabeli, ale zamiast wykresu ciężaru jest wyjaśnienie (bez płaskiej linii na zerze) |
-| 9.19 | Tabela wykonań | Kolumny: data, serie, ciężar (najcięższa seria dnia), powtórzenia, przerwa; od najnowszych; brak przerw = „—” |
+| 9.19 | Tabela wykonań | Kolumny zależą od typu ćwiczenia: data, serie, ciężar (przy rampie zakres „55–75 kg”), powtórzenia albo czas/dystans, przerwa; od najnowszych; brak przerw = „—” |
 | 9.20 | Zmiana zakresu na wykresach | Wykresy i tabela przeliczają się na nowy zakres, chips zaznacza wybór |
 | 9.21 | Przeciągnięcie/pinch na wykresie | Wykres da się przesunąć i przybliżyć (domyślny zoom Vico) |
 | 9.22 | Ćwiczenie raz na czas (bez ciężaru), raz z ciężarem - oba w zakresie | Rekordy bez „0 kg”; wykres ciężaru ma punkt tylko z dnia z ciężarem, a tabela wykonań oba wiersze |
@@ -322,11 +324,11 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 12.2 | `keystore.properties` z kluczem + `bundleRelease` i `assembleRelease` | AAB: `jarsigner -verify` → „jar verified”; APK: `apksigner verify --print-certs` pokazuje DN klucza |
 | 12.3 | Instalacja APK release przez `adb install -r` na danych z debug | Odmowa: niezgodny podpis - trzeba najpierw odinstalować (albo zachować dane kopią katalogu, §6.13 w `docs/PLAN.md`) |
 | 12.4 | Pierwsze uruchomienie release po `pm clear` | Baza powstaje od zera (droga 1 → 10), seed daje 23 ćwiczenia i plan startowy, wyszukiwanie FTS działa |
-| 12.5 | Release: eksport kopii (ZIP) | ZIP z `gymtracker.json` (`schema_version` 10, wszystkie tabele) oraz `media/`; status „Kopia zapisana. Wiersze: N, miniatury: M.” |
-| 12.6 | Release: wczytanie tej samej kopii („Zastąp dane”) | Liczniki w bazie identyczne jak przed eksportem, „Dane wczytane. Wiersze: N, pominięte: 0.” - obfuskacja nie zgubiła serializerów (także `session_date`) |
+| 12.5 | Release: eksport kopii (ZIP) | ZIP z `gymtracker.json` (`schema_version` 11, wszystkie tabele) oraz `media/`; status „Kopia zapisana. Wiersze: N, miniatury: M.” |
+| 12.6 | Release: wczytanie tej samej kopii („Zastąp dane”) | Liczniki w bazie identyczne jak przed eksportem, „Dane wczytane. Wiersze: N, pominięte: 0.” - obfuskacja nie zgubiła serializerów (także `session_date` i `tracking`) |
 | 12.7 | Release: karta postaci, statystyki ćwiczenia, historia | Wykresy i agregaty rysują się normalnie (R8 nie usunął zapytań ani modeli wykresów) |
 | 12.8 | Release: `logcat` po przejściu powyższych ścieżek | Brak `FATAL EXCEPTION` (szczególnie `SerializationException`, `ClassNotFoundException`, `NoSuchMethodError`) |
-| 12.9 | Rozmiar artefaktów | `app-debug.apk` ~19,9 MB; `app-release.apk` ~3,6 MB (R8 + shrinking zasobów) |
+| 12.9 | Rozmiar artefaktów | `app-debug.apk` ~20,0 MB; `app-release.apk` ~3,7 MB (R8 + shrinking zasobów) |
 
 ## 13. Szata graficzna (M10)
 
@@ -341,3 +343,25 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 13.7 | Komunikat błędu w formularzu (np. pusty ciężar) | Czerwień czytelna drobnym tekstem (przyciemniona) |
 | 13.8 | TalkBack na kalendarzu | Ramka nie jest jedynym nośnikiem informacji — status czyta się z opisu dnia (także dla treningu bez wpisu w planie) |
 | 13.9 | Karta treningu bez wpisu w dniu | „odbyty • bez wpisu w planie” w kolorze tekstu pomocniczego; karta otwiera trening, całą powierzchnią |
+
+## 14. Poprawki po teście na siłowni (M10h)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 14.1 | Ćwiczenie z planem 5×5: zaloguj 5 serii roboczych | Kafelek zmienia kolor na wyróżniony (plan wykonany), ale „Dodaj serię” dalej działa — 6. seria jest przyjmowana i licznik pokazuje 6 |
+| 14.2 | Kafelek z 4 z 5 serii | Kolor zwykły; rozgrzewkowe nie liczą się do wykonania planu |
+| 14.3 | Stuknij nazwę ćwiczenia (albo strzałkę) na ekranie treningu | Otwiera się ekran szczegółów ćwiczenia; powrót wraca do tego samego treningu z zachowanym zegarem i przerwą |
+| 14.4 | Pierwszy trening z ćwiczeniem, które ma historię | Pod celem widnieje „Ostatnio (data): …” — przy rampie zakres „55–75 kg × 5”, przy stałym ciężarze jedna liczba, przy podciąganiu „12 powt.”, przy desce „60 s” |
+| 14.5 | Ćwiczenie ma zapisane serie, ale nie ma historii | Wiersza „Ostatnio” nie ma; formularz pierwszej serii startuje z pierwszej serii poprzedniego treningu, a gdy jej nie ma — z celu planu |
+| 14.6 | Sztanga (Ciężar + powtórzenia) | Formularz pyta o ciężar i powtórzenia; ciężar można zostawić pusty |
+| 14.7 | Podciąganie (Tylko powtórzenia) | Formularz nie pokazuje ciężaru; seria bez powtórzeń nie zapisze się |
+| 14.8 | Bieżnia (Tylko czas) | Formularz pyta tylko o czas; w podsumowaniu „45 s”, w tabeli kolumna „Czas” |
+| 14.9 | Deska z unoszeniem nóg (Czas + powtórzenia) | Formularz pyta o czas i powtórzenia; zapis wymaga obu |
+| 14.10 | Ćwiczenie na dystans | Formularz pyta o metry; podsumowanie „30 m” |
+| 14.11 | Edycja ćwiczenia → „Sposób zapisu serii” | Wybór zapisuje się w katalogu; zmiana sprzętu na „Bodyweight” proponuje „Tylko powtórzenia”, dopóki typ nie został wybrany ręcznie |
+| 14.12 | Plan ma jednostkę „sekundy”, a katalog ćwiczenia „Ciężar + powtórzenia” | Trening z planu dostaje typ „Tylko czas” (jednostka planu wygrywa dla wartości serii) |
+| 14.13 | Ćwiczenie z jednym treningiem w historii → statystyki | Wykres ciężaru ma widoczny punkt (nie pustą ramkę), a tabela jeden wiersz |
+| 14.14 | Rampa 55/65/75/75/75 → statystyki | Wykres: linia najcięższej serii i druga linia najlżejszej (legenda „Najlżejsza seria”); tabela pokazuje „55–75 kg” |
+| 14.15 | Stałe obciążenie → statystyki | Druga linia się nie pojawia, tabela pokazuje jedną wartość |
+| 14.16 | Migracja bazy z M10 (v10 → v11) | Historia i plany bez zmian; sztangi dostają „Ciężar + powtórzenia”, ćwiczenia Bodyweight „Tylko powtórzenia”, a pozycje planów na sekundy — „Tylko czas” |
+| 14.17 | Stary trening z ćwiczeniem na czas otwórz po migracji | Serie nadal mają czas; poprawienie serii pokazuje pole czasu, nie ciężaru |

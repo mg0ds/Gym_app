@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.stats.ExerciseStats
 import com.gymtracker.domain.stats.ExerciseStatsPoint
 import com.gymtracker.domain.stats.StatsRange
@@ -108,7 +109,7 @@ private fun ExerciseStatsContent(
                 if (uiState.stats.hasWeightData) {
                     VolumeCard(points = uiState.stats.points)
                 }
-                PerformancesCard(points = uiState.stats.points)
+                PerformancesCard(points = uiState.stats.points, tracking = uiState.tracking)
             }
         }
     }
@@ -203,7 +204,7 @@ private fun WeightCard(points: List<ExerciseStatsPoint>, hasWeightData: Boolean)
             )
             return@SectionCard
         }
-        ChartLegend(entries = weightLegend())
+        ChartLegend(entries = weightLegend(showLightest = hasWeightRange(points)))
         WeightProgressChart(points = points)
     }
 }
@@ -219,26 +220,45 @@ private fun VolumeCard(points: List<ExerciseStatsPoint>) {
 }
 
 @Composable
-private fun PerformancesCard(points: List<ExerciseStatsPoint>) {
+private fun PerformancesCard(points: List<ExerciseStatsPoint>, tracking: ExerciseTracking) {
     SectionCard(
         title = stringResource(R.string.exercise_stats_performances),
         modifier = Modifier.padding(horizontal = 12.dp),
     ) {
+        // Kolumny zależą od tego, co ćwiczenie w ogóle mierzy: przy desce nie
+        // ma sensu pokazywać ciężaru ani powtórzeń, a przy pompkach - ciężaru.
         Row(modifier = Modifier.fillMaxWidth()) {
             HeaderCell(stringResource(R.string.exercise_stats_table_date), DATE_WEIGHT)
             HeaderCell(stringResource(R.string.exercise_stats_table_sets), NUMBER_WEIGHT, TextAlign.End)
-            HeaderCell(stringResource(R.string.exercise_stats_table_weight), WEIGHT_WEIGHT, TextAlign.End)
-            HeaderCell(stringResource(R.string.exercise_stats_table_reps), NUMBER_WEIGHT, TextAlign.End)
+            if (tracking.usesWeight) {
+                HeaderCell(stringResource(R.string.exercise_stats_table_weight), WEIGHT_WEIGHT, TextAlign.End)
+            }
+            if (tracking.usesDuration) {
+                HeaderCell(stringResource(R.string.exercise_stats_table_time), WEIGHT_WEIGHT, TextAlign.End)
+            }
+            if (tracking.usesCount) {
+                HeaderCell(
+                    text = stringResource(
+                        if (tracking == ExerciseTracking.DISTANCE) {
+                            R.string.exercise_stats_table_distance
+                        } else {
+                            R.string.exercise_stats_table_reps
+                        },
+                    ),
+                    weight = NUMBER_WEIGHT,
+                    align = TextAlign.End,
+                )
+            }
             HeaderCell(stringResource(R.string.exercise_stats_table_rest), REST_WEIGHT, TextAlign.End)
         }
         HorizontalDivider()
         // Od najnowszych: „co robiłem ostatnio” to najczęstsze pytanie do tabeli.
-        points.asReversed().forEach { point -> PerformanceRow(point) }
+        points.asReversed().forEach { point -> PerformanceRow(point, tracking) }
     }
 }
 
 @Composable
-private fun PerformanceRow(point: ExerciseStatsPoint) {
+private fun PerformanceRow(point: ExerciseStatsPoint, tracking: ExerciseTracking) {
     Row(modifier = Modifier.fillMaxWidth()) {
         ValueCell(
             text = point.date.isoText(),
@@ -246,14 +266,44 @@ private fun PerformanceRow(point: ExerciseStatsPoint) {
             color = if (point.isFuture) MaterialTheme.colorScheme.tertiary else Color.Unspecified,
         )
         ValueCell(point.sets.toString(), NUMBER_WEIGHT, TextAlign.End)
-        ValueCell(
-            text = point.topSetKg?.let { kg ->
-                stringResource(R.string.exercise_stats_weight, kg.toPlainStringOrNull().orEmpty())
-            } ?: NO_VALUE,
-            weight = WEIGHT_WEIGHT,
-            align = TextAlign.End,
-        )
-        ValueCell(point.totalReps.toString(), NUMBER_WEIGHT, TextAlign.End)
+        if (tracking.usesWeight) {
+            val lightest = point.minSetKg
+            val heaviest = point.topSetKg
+            val weightText = when {
+                heaviest == null -> NO_VALUE
+                lightest != null && lightest < heaviest -> stringResource(
+                    R.string.exercise_stats_weight_range,
+                    lightest.toPlainStringOrNull().orEmpty(),
+                    heaviest.toPlainStringOrNull().orEmpty(),
+                )
+
+                else -> stringResource(
+                    R.string.exercise_stats_weight,
+                    heaviest.toPlainStringOrNull().orEmpty(),
+                )
+            }
+            ValueCell(text = weightText, weight = WEIGHT_WEIGHT, align = TextAlign.End)
+        }
+        if (tracking.usesDuration) {
+            ValueCell(
+                text = point.topSetDurationS
+                    ?.let { seconds -> stringResource(R.string.exercise_stats_time, seconds) }
+                    ?: NO_VALUE,
+                weight = WEIGHT_WEIGHT,
+                align = TextAlign.End,
+            )
+        }
+        if (tracking.usesCount) {
+            ValueCell(
+                text = if (tracking == ExerciseTracking.DISTANCE) {
+                    stringResource(R.string.exercise_stats_distance, point.totalReps)
+                } else {
+                    point.totalReps.toString()
+                },
+                weight = NUMBER_WEIGHT,
+                align = TextAlign.End,
+            )
+        }
         ValueCell(
             text = point.restAverageSeconds?.let { seconds ->
                 formatElapsed(seconds * 1_000L)

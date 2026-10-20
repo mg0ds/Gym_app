@@ -134,7 +134,9 @@ class ExercisePickerViewModel @Inject constructor(
         sets = exercise.defaultSets ?: DEFAULT_SETS,
         repsMin = exercise.defaultRepsMin,
         repsMax = exercise.defaultRepsMax,
-        repsUnit = RepsUnit.REPS,
+        // Cel nowej pozycji mówi tym samym językiem co seria: deska dostaje
+        // sekundy, bieżnia sekundy, a sztanga powtórzenia.
+        repsUnit = exercise.tracking.unit,
         restSeconds = exercise.defaultRestS,
     )
 

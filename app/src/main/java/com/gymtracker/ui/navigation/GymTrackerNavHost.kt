@@ -239,6 +239,9 @@ fun GymTrackerNavHost(
                     onAddExercise = {
                         navController.navigate(Routes.sessionExercisePicker(sessionId))
                     },
+                    onOpenExercise = { exerciseId ->
+                        navController.navigate(Routes.exerciseDetail(exerciseId))
+                    },
                 )
             }
 

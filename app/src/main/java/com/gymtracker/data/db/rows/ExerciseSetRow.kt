@@ -24,6 +24,9 @@ data class ExerciseSetRow(
     val weightKg: Double?,
     @ColumnInfo(name = "reps")
     val reps: Int?,
+    /** Czas serii (dla ćwiczeń na czas); `null`, gdy seria nie mierzy czasu. */
+    @ColumnInfo(name = "duration_s")
+    val durationS: Int?,
     @ColumnInfo(name = "is_warmup")
     val isWarmup: Boolean,
 )

@@ -18,6 +18,7 @@ import com.gymtracker.data.db.entities.SessionEntity
 import com.gymtracker.data.db.entities.SessionExerciseEntity
 import com.gymtracker.data.db.entities.SetLogEntity
 import com.gymtracker.data.search.ExerciseSearchQuery
+import com.gymtracker.domain.model.ExerciseTracking
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -69,7 +70,7 @@ class SchemaMigrationTest {
     }
 
     @Test
-    fun `migracja 1 do 10 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media, wskazniki, dziennik importow i dzien treningu`() = runTest {
+    fun `migracja 1 do 11 zachowuje dane i dodaje katalog, plany, kalendarz, serie, przerwy, media, wskazniki, dziennik importow, dzien treningu i typ zapisu`() = runTest {
         createVersion1Database()
 
         val database = Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
@@ -384,6 +385,34 @@ class SchemaMigrationTest {
             assertEquals(
                 "2026-10-27",
                 requireNotNull(database.sessionDao().getSession(datedSessionId)).sessionDate,
+            )
+
+            // Migracja 10→11: typ zapisu serii. Stare wiersze dostają bezpieczną
+            // wartość domyślną, więc historia nie zmienia znaczenia; nowe pole
+            // da się zapisać i odczytać zarówno w katalogu, jak i w treningu.
+            assertEquals(
+                "weight_reps",
+                requireNotNull(database.exerciseDao().getById(exerciseId)).tracking,
+            )
+            database.exerciseDao().update(
+                requireNotNull(database.exerciseDao().getById(exerciseId))
+                    .copy(tracking = ExerciseTracking.TIME.wire),
+            )
+            assertEquals(
+                "time",
+                requireNotNull(database.exerciseDao().getById(exerciseId)).tracking,
+            )
+
+            assertEquals(
+                "weight_reps",
+                requireNotNull(database.sessionDao().getSessionExercises(sessionId).single()).tracking,
+            )
+            database.openHelper.writableDatabase.execSQL(
+                "UPDATE session_exercises SET tracking = 'time' WHERE id = $sessionExerciseId",
+            )
+            assertEquals(
+                "time",
+                requireNotNull(database.sessionDao().getSessionExercises(sessionId).single()).tracking,
             )
         } finally {
             database.close()

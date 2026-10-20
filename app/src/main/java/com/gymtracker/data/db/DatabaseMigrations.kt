@@ -539,6 +539,62 @@ object DatabaseMigrations {
         }
     }
 
+    /**
+     * 10 → 11 (M10h): sposób zapisu serii w katalogu i w treningu.
+     *
+     * Domyślnie „ciężar + powtórzenia”. Istniejące dane uzupełniamy tak, żeby
+     * nie zmienić znaczenia historii: ćwiczenia z planu na czas dostają `time`,
+     * na dystans `distance`, a sprzęt bez obciążenia (`Bodyweight`) -
+     * `reps`. Trening jest kopią celu z chwili startu, więc jego wiersze
+     * biorą typ z katalogu, ale jednostka zapisana w sesji ma pierwszeństwo.
+     */
+    private val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `exercises` ADD COLUMN `tracking` TEXT NOT NULL DEFAULT 'weight_reps'",
+            )
+            db.execSQL(
+                "ALTER TABLE `session_exercises` ADD COLUMN `tracking` TEXT NOT NULL DEFAULT 'weight_reps'",
+            )
+
+            db.execSQL("UPDATE `exercises` SET `tracking` = 'reps' WHERE `equipment` = 'Bodyweight'")
+            db.execSQL(
+                """
+                UPDATE `exercises` SET `tracking` = 'time'
+                WHERE `id` IN (
+                    SELECT `exercise_id` FROM `plan_day_exercises`
+                    WHERE `target_reps_unit` = 'seconds'
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                UPDATE `exercises` SET `tracking` = 'distance'
+                WHERE `id` IN (
+                    SELECT `exercise_id` FROM `plan_day_exercises`
+                    WHERE `target_reps_unit` = 'meters'
+                )
+                """.trimIndent(),
+            )
+
+            db.execSQL(
+                """
+                UPDATE `session_exercises`
+                SET `tracking` = COALESCE(
+                    (SELECT `tracking` FROM `exercises` WHERE `id` = `session_exercises`.`exercise_id`),
+                    'weight_reps'
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "UPDATE `session_exercises` SET `tracking` = 'time' WHERE `target_reps_unit` = 'seconds'",
+            )
+            db.execSQL(
+                "UPDATE `session_exercises` SET `tracking` = 'distance' WHERE `target_reps_unit` = 'meters'",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -549,5 +605,6 @@ object DatabaseMigrations {
         MIGRATION_7_8,
         MIGRATION_8_9,
         MIGRATION_9_10,
+        MIGRATION_10_11,
     )
 }

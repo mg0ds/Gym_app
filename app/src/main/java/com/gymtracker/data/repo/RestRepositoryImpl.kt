@@ -63,11 +63,12 @@ class RestRepositoryImpl @Inject constructor(
         intervalId: Long,
         reason: RestEndReason,
         plannedSeconds: Int,
+        endedAtEpochMs: Long?,
     ): Boolean = database.withTransaction {
         val interval = restDao.get(intervalId) ?: return@withTransaction false
         if (interval.endedAtEpochMs != null) return@withTransaction false
 
-        val now = timeProvider.nowEpochMs()
+        val now = endedAtEpochMs ?: timeProvider.nowEpochMs()
         val actualSeconds = ((now - interval.startedAtEpochMs).coerceAtLeast(0L) / 1000L).toInt()
         val closed = restDao.close(
             intervalId = intervalId,

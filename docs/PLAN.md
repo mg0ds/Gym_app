@@ -187,7 +187,10 @@ app_meta, seed_imports                 (poza relacjami: stan i dziennik importó
    niespójne (tabela: „Seated Overhead Press”, karta ćwiczenia: „Seated Barbell
    Shoulder Press”) — dlatego trzymamy też `name_in_program`.
 2. **Serie na czas** (plank 60 s) → `target_reps_unit = 'seconds'`, a w
-   `set_logs` mamy `duration_s` obok `reps`.
+   `set_logs` mamy `duration_s` obok `reps`. Od M10h katalog ćwiczenia niesie
+   też `tracking` (`weight_reps`/`reps`/`time`/`time_reps`/`distance`), które
+   mówi, **co** jest wartością serii; plan i trening dziedziczą je przy
+   tworzeniu, a jednostka celu z planu może je nadpisać (`forTarget`).
 3. **Alternatywy w planie** („Pull Ups **lub** Inverted Rows”) → osobne wiersze
    `plan_day_exercises` z tym samym `alternative_group`; użytkownik przy starcie
    sesji wybiera jedną, reszta jest oznaczana jako pominięta.
@@ -2501,12 +2504,72 @@ punktu 5, czyli ciche przerwanie trwającego treningu):
 
 ---
 
+**M10h ✔ (sześć poprawek po pierwszym teście na siłowni)** — baza **v11**.
+Wszystkie punkty pochodzą z jednego treningu na siłowni i schodzą się w jednym
+miejscu: karta ćwiczenia musi wiedzieć, **co** mierzy, a przerwa musi wiedzieć,
+**kiedy** naprawdę się skończyła.
+
+* **Typ zapisu serii (v11).** `ExerciseTracking` (`WEIGHT_REPS`, `REPS`,
+  `TIME`, `TIME_REPS`, `DISTANCE`) należy do katalogu ćwiczenia i jest
+  kopiowany do planu i treningu — dzięki temu pompki nie pytają o ciężar,
+  bieżnia o powtórzenia, a deska może mieć jedno i drugie. Domyślnie
+  „Bodyweight” dostaje `REPS`, reszta `WEIGHT_REPS`; jednostka celu z planu
+  wygrywa dla wartości serii (`ExerciseTracking.forTarget`), więc ten sam
+  plank raz jest na czas, raz na powtórzenia. Formularz serii
+  (`SetLogDialog`), walidacja (`isCompleteFor`), podsumowanie wiersza,
+  etykieta pola i tabela statystyk czytają ten sam typ. Migracja `10 → 11`
+  dodaje `tracking` do `exercises` i `session_exercises` z domyślnym
+  `weight_reps`, uzupełnia Bodyweight → `reps`, a pozycje planów na sekundy
+  i metry → `time`/`distance`; historia zostaje czytelna, bo stare serie mają
+  już `reps`/`duration_s`. Nowe pole ma picker w edycji ćwiczenia (chipy),
+  a seed ustawia typ z `tracking.reps == "time"`.
+* **Kafelek planu zmienia kolor po wykonaniu.** Licznik „zrobione” to serie
+  **robocze** (bez rozgrzewkowych); po osiągnięciu `targetSets` karta dostaje
+  wyróżnione tło, ale nie blokuje dopisywania — 6. seria w planie 5×5 nadal
+  działa i nadal jest liczona.
+* **Wejście w szczegóły ćwiczenia z treningu.** Nazwa i strzałka na karcie są
+  klikalne i prowadzą do `Routes.exerciseDetail`; powrót wraca do sesji, więc
+  zegar i przerwa nie giną.
+* **„Ostatnio” na karcie ćwiczenia.** `SetLogDao.observeLastPerformances`
+  bierze **cały ostatni zakończony trening** danego ćwiczenia (bez bieżącej
+  sesji) i zwraca jego serie; karta pokazuje zakres ciężarów (przy rampie
+  „55–75 kg”), powtórzenia, czas albo dystans. Formularz pierwszej serii
+  startuje z **pierwszej serii roboczej** tamtego treningu — przy rampie
+  z 55 kg, a nie z 75 kg z końca.
+* **Przerwa kończy się przy następnej serii, nie przy dźwięku.** Alarm
+  i ekran przy zerze tylko powiadamiają i chowają kartę; wiersz
+  `rest_intervals` zostaje otwarty, a domyka go dopiero następna zalogowana
+  seria — z rzeczywistym `now - started_at`, więc czas obejmuje też wykonanie
+  ćwiczenia po dźwięku. `alertedIntervalId` chroni przed drugim dźwiękiem,
+  `closeStaleOpen` domyka wiersz po powiadomieniu, a po restarcie procesu
+  (gdy nie ma już czego pilnować) przerwa zamyka się **w zaplanowanym
+  czasie** — `RestRepository.close` dostał opcjonalny `endedAtEpochMs`, żeby
+  przerwa z nocy nie wyszła jako kilkugodzinna. „Pomiń”, pauza i koniec
+  treningu nadal zamykają jako `skipped`/`cancelled`, poza statystykami.
+* **Wykres i tabela bez pustych punktów.** `WeightProgressChart` rysuje
+  **znaczniki** przy każdym punkcie (jeden trening to nie odcinek, więc
+  wcześniej był niewidoczny) i przy rampie dokłada drugą linię
+  najlżejszej serii dnia (legenda „Najlżejsza seria”); przy stałym ciężarze
+  linia się nie pojawia. Przy jednej wartości oś Y dostaje margines
+  (`CartesianLayerRangeProvider.fixed`), a tabela wykonań dobiera kolumny do
+  typu ćwiczenia i pokazuje zakres „55–75 kg” zamiast tylko 75.
+
+Weryfikacja: `lintDebug` (0 błędów, 46 ostrzeżeń — 6 nowych to kandydaci na
+liczbę mnogą w tekstach „%d powt.”, zgodnie z istniejącym wzorcem),
+`testDebugUnitTest` (**322 testy**, wszystkie zielone), `assembleDebug`
+i `bundleRelease`. W tej rundzie nie było podłączonego emulatora, więc
+scenariusze z `docs/QA.md` rozdział 14 czekają na przebieg na urządzeniu;
+sprawdzona jest migracja `1 → 11` w teście Robolectric i cała ścieżka
+repozytorium (ostatnie wykonanie, typy serii, statystyki z rampą i czasem).
+
+---
+
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9), znaczniki dnia w kalendarzu i okno poprawki dnia treningu (M10) | JUnit4 + `TimeProvider` wstrzykiwany |
-| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9), znaczniki dnia w kalendarzu i okno poprawki dnia treningu (M10), typy zapisu serii i walidacja serii, zakres rampy i najdłuższa seria dnia w statystykach (M10h) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
 | Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9), zakres dni treningów i poprawka dnia z wpisem w kalendarzu (M10) | Room in-memory + `runTest` |
 | UI | ścieżki krytyczne: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku — **dziś ręcznie**, wg scenariuszy `docs/QA.md`; automatycznie tylko czysta logika UI (formaty dat, grupowanie, znaczniki dnia) | JUnit4 + Robolectric na JVM; **bez testów Compose** (brak `androidTest`) |
 | Ręczne | timer przy zgaszonym ekranie 30 min, ubiciu apki, zmianie strefy czasowej, restarcie; przerwa z alarmem przy zgaszonym ekranie; migracja na bazie z poprzedniego wydania | lista scenariuszy w `docs/QA.md` |
@@ -2541,6 +2604,18 @@ i okna poprawki daty. `ExerciseStatsCalculatorTest` zmienił asercję: zakres
 **nie** odrzuca już dni przyszłych, a punkt z przyszłości dostaje `isFuture`
 i liczy się do `futurePoints`; `SessionSummaryCalculatorTest` dostaje „dziś”
 jawnie i sprawdza `isFuture` wiersza.
+
+Stan na M10h: **322 testy JVM**, wszystkie zielone. Nowe testy pilnują
+zachowania, które wcześniej nie miało pokrycia: `ExerciseTrackingTest` —
+domyślny typ ze sprzętu, odczyt nieznanej wartości, pierwszeństwo jednostki
+planu i kompletność serii dla każdego typu; `SchemaMigrationTest` — cała droga
+`1 → 11` z typem zapisu w katalogu i treningu (domyślne `weight_reps`, zapis
+i odczyt `time`); `SessionRepositoryTest` — „ostatnio” bierze poprzedni
+zakończony trening (bez bieżącej sesji, z pierwszą serią roboczą rampy);
+`ExerciseStatsCalculatorTest` — zakres rampy (`minSetKg`), najdłuższa seria
+dnia (`topSetDurationS`), powtórzenia z najdłuższej serii przy `TIME_REPS`
+i powtórzenia przy ćwiczeniu bez ciężaru. Migracja `10 → 11` przechodzi przez
+ten sam test całej drogi, więc nie ma osobnego testu tylko ostatniego skoku.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc

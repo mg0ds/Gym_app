@@ -1,6 +1,7 @@
 package com.gymtracker.domain.repository
 
 import com.gymtracker.domain.model.DayWorkout
+import com.gymtracker.domain.model.LastPerformance
 import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.model.WorkoutSession
@@ -30,6 +31,15 @@ interface SessionRepository {
     suspend fun getActiveSession(): WorkoutSession?
 
     fun observeSession(sessionId: Long): Flow<SessionDetails?>
+
+    /**
+     * Ostatnie zakończone wykonanie każdego z [exerciseIds] (bez treningu
+     * [sessionId]). Ćwiczenie bez historii po prostu nie ma wpisu w mapie.
+     */
+    fun observeLastPerformances(
+        sessionId: Long,
+        exerciseIds: List<Long>,
+    ): Flow<Map<Long, LastPerformance>>
 
     /**
      * Treningi z zakresu dni włącznie (bez przerwanych) - kalendarz pokazuje je

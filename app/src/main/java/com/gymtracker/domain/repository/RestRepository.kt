@@ -40,9 +40,18 @@ interface RestRepository {
      * Domyka przerwę: liczy faktyczny czas z zegara, zapisuje powód
      * i przepisuje przerwę do wiersza serii (o ile przerwa coś mówi o formie).
      *
+     * [endedAtEpochMs] podajemy tylko wtedy, gdy znamy prawdziwy koniec, ale
+     * zegar zdążył odejść od niego (alarm po restarcie procesu) - inaczej
+     * przerwa z nocy wyszłaby jako kilkugodzinna.
+     *
      * Zwraca `false`, gdy przerwa była już domknięta - wtedy nic nie zmieniamy.
      */
-    suspend fun close(intervalId: Long, reason: RestEndReason, plannedSeconds: Int): Boolean
+    suspend fun close(
+        intervalId: Long,
+        reason: RestEndReason,
+        plannedSeconds: Int,
+        endedAtEpochMs: Long? = null,
+    ): Boolean
 
     suspend fun get(intervalId: Long): RestInterval?
 

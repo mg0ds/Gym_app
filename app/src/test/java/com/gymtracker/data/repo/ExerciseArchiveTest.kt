@@ -63,6 +63,7 @@ class ExerciseArchiveTest {
             setLogDao = database.setLogDao(),
             planDao = database.planDao(),
             calendarDao = database.calendarDao(),
+            exerciseDao = database.exerciseDao(),
             database = database,
             timeProvider = timeProvider,
         )

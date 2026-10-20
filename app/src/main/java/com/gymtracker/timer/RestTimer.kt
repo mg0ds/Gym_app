@@ -21,9 +21,15 @@ import kotlinx.coroutines.flow.asStateFlow
  * ([restoreIfNeeded]).
  *
  * Kto kończy przerwę? Każdy, kto pierwszy:
- * * alarm systemowy (ekran zgaszony, proces ubity) - [onAlarm],
- * * ekran, gdy widzi zero na liczniku - [completeIfDue],
- * * kolejna seria, „Pomiń” albo koniec treningu.
+ * * **następna seria** - dopiero ona zna prawdziwy koniec przerwy (z czasem
+ *   wykonania kolejnej serii) i to ona domyka wiersz,
+ * * „Pomiń” albo koniec treningu,
+ * * alarm systemowy lub ekran przy zerze - ale one tylko **powiadamiają**
+ *   i chowają kartę; wiersz zostaje otwarty dla następnej serii.
+ *
+ * Wyjątkiem jest alarm po restarcie procesu, gdy nie ma już czego pilnować:
+ * wtedy przerwa domyka się w zaplanowanym czasie, bo inaczej zostałaby
+ * otwarta na zawsze.
  *
  * Domknięcie jest idempotentne (pilnuje tego `RestDao.close`), więc wyścig
  * między nimi nie zrobi krzywdy: druga próba po prostu nic nie zmieni.
@@ -42,6 +48,16 @@ class RestTimer @Inject constructor(
     val active: StateFlow<ActiveRest?> = _active.asStateFlow()
 
     /**
+     * Przerwa, o której końcu już powiadomiliśmy (alarm albo ekran).
+     *
+     * Po powiadomieniu [active] znika, ale wiersz w bazie **zostaje otwarty**:
+     * dopiero następna seria wie, ile przerwa naprawdę trwała. Ten
+     * identyfikator chroni przed podwójnym dźwiękiem, gdy alarm systemowy
+     * przyjdzie chwilę po tym, jak ekran sam zauważył zero.
+     */
+    private var alertedIntervalId: Long? = null
+
+    /**
      * Startuje przerwę po zalogowanej serii.
      *
      * Poprzednia przerwa (gdyby jakaś trwała) kończy się jako odbyta: skoro
@@ -54,6 +70,8 @@ class RestTimer @Inject constructor(
         targetSeconds: Int,
     ) {
         closeActive(resumedWorkReason())
+        closeStaleOpen()
+        alertedIntervalId = null
         val seconds = targetSeconds.coerceAtLeast(ActiveRest.MIN_PLANNED_SECONDS)
         val interval = rests.start(
             exerciseId = exercise.exerciseId,
@@ -99,44 +117,47 @@ class RestTimer @Inject constructor(
     /**
      * Koniec przerwy, gdy widzi go ekran (licznik pokazał zero).
      *
-     * Bez tego czekalibyśmy na alarm nawet z otwartą aplikacją - a alarm bywa
-     * niedokładny, gdy system odmówił „Alarmów i przypomnień”. Kończy przerwę
-     * **z alarmem**, tak samo jak budzik: sensem przerwy jest usłyszeć jej koniec,
-     * a nie zobaczyć znikający pasek. Podwójnego sygnału nie będzie, bo obie
-     * drogi domykają ten sam wiersz i anulują ten sam budzik - wygra ta pierwsza.
+     * Powiadamiamy i chowamy kartę przerwy, ale **nie domykamy wiersza**:
+     * użytkownik właśnie zaczyna serię, a jej koniec jest prawdziwym końcem
+     * przerwy. Wiersz domknie następna seria (albo koniec treningu).
      */
     suspend fun completeIfDue(nowEpochMs: Long = timeProvider.nowEpochMs()) {
         val current = _active.value ?: return
         if (!current.isOver(nowEpochMs)) return
-        closeActive(resumedWorkReason(current), alert = true)
+        alert(current)
     }
 
     /**
-     * Alarm systemowy: domyka przerwę i pokazuje powiadomienie.
+     * Alarm systemowy: pokazuje powiadomienie i chowa kartę przerwy.
      *
-     * Wołane także wtedy, gdy proces wstał od zera (nie ma [active]) - dlatego
-     * ćwiczenie bierzemy z bazy, a nie z pamięci.
+     * Wołane także wtedy, gdy proces wstał od zera (nie ma [active]). Wtedy nie
+     * znamy przyszłej serii, więc domykamy wiersz w zaplanowanym czasie - lepszy
+     * taki pomiar niż zostawienie przerwy otwartej na zawsze.
      */
     suspend fun onAlarm(intervalId: Long) {
+        if (alertedIntervalId == intervalId) return
+
         val current = _active.value?.takeIf { rest -> rest.intervalId == intervalId }
         if (current != null) {
-            _active.value = null
-            alarms.cancel()
+            alert(current)
+            return
         }
 
         val interval = rests.get(intervalId) ?: return
         if (!interval.isRunning) return
 
         val planned = interval.plannedSeconds ?: 0
-        val reason = if (current?.extended == true) {
-            RestEndReason.EXTENDED
-        } else {
-            RestEndReason.COMPLETED
-        }
-        val closed = rests.close(intervalId, reason, planned)
+        alertedIntervalId = intervalId
+        val reason = RestEndReason.COMPLETED
+        val closed = rests.close(
+            intervalId = intervalId,
+            reason = reason,
+            plannedSeconds = planned,
+            endedAtEpochMs = interval.startedAtEpochMs + planned * 1_000L,
+        )
         if (!closed) return
 
-        val name = current?.exerciseName ?: rests.exerciseName(interval.exerciseId).orEmpty()
+        val name = rests.exerciseName(interval.exerciseId).orEmpty()
         notifier.showRestFinished(name)
     }
 
@@ -146,7 +167,10 @@ class RestTimer @Inject constructor(
      * Powód to `cancelled`, więc taka przerwa nie wejdzie do średniej - nie
      * była przerwą, tylko jej pozostałością.
      */
-    suspend fun cancel() = closeActive(RestEndReason.CANCELLED)
+    suspend fun cancel() {
+        closeActive(RestEndReason.CANCELLED)
+        closeStaleOpen(RestEndReason.CANCELLED)
+    }
 
     /** Ukrywa alarm końca przerwy (np. gdy użytkownik zalogował serię). */
     fun clearAlert() {
@@ -175,7 +199,12 @@ class RestTimer @Inject constructor(
             startedAtEpochMs = open.startedAtEpochMs,
         )
         if (planned < ActiveRest.MIN_PLANNED_SECONDS || rest.isOver(now)) {
-            rests.close(open.id, RestEndReason.COMPLETED, planned)
+            rests.close(
+                intervalId = open.id,
+                reason = RestEndReason.COMPLETED,
+                plannedSeconds = planned,
+                endedAtEpochMs = open.startedAtEpochMs + planned * 1_000L,
+            )
             notifier.clear()
             return
         }
@@ -185,22 +214,38 @@ class RestTimer @Inject constructor(
     }
 
     /**
-     * Domyka pilnowaną przerwę jako skończoną (użytkownik wrócił do pracy).
-     *
-     * [alert] mówi, czy koniec przerwy ma się odezwać. Wołamy z nim tylko wtedy,
-     * gdy przerwa dobiegła końca („Pomiń” i przerwanie treningu mają milczeć).
+     * Koniec zaplanowanej przerwy: chowamy kartę i powiadamiamy, ale zostawiamy
+     * wiersz otwarty. Następna seria go domknie i dopiero wtedy znamy prawdziwy
+     * czas przerwy - z wykonaniem kolejnej serii włącznie.
      */
-    private suspend fun closeActive(reason: RestEndReason, alert: Boolean = false) {
+    private suspend fun alert(rest: ActiveRest) {
+        if (alertedIntervalId == rest.intervalId) return
+        alertedIntervalId = rest.intervalId
+        _active.value = null
+        alarms.cancel()
+        notifier.showRestFinished(rest.exerciseName)
+    }
+
+    /**
+     * Domyka pilnowaną przerwę jako skończoną (użytkownik wrócił do pracy).
+     */
+    private suspend fun closeActive(reason: RestEndReason) {
         val current = _active.value ?: return
         _active.value = null
         alarms.cancel()
-        if (!alert) notifier.clear()
-        val closed = rests.close(current.intervalId, reason, current.plannedSeconds)
-        if (alert && closed) notifier.showRestFinished(current.exerciseName)
+        notifier.clear()
+        rests.close(current.intervalId, reason, current.plannedSeconds)
     }
 
-    private fun resumedWorkReason(): RestEndReason = resumedWorkReason(_active.value)
+    /**
+     * Domyka wiersz, którego nie pilnuje już [active] - przerwę po powiadomieniu
+     * (czekała na następną serię) albo osieroconą po restarcie.
+     */
+    private suspend fun closeStaleOpen(reason: RestEndReason = RestEndReason.COMPLETED) {
+        val open = rests.getOpen() ?: return
+        rests.close(open.id, reason, open.plannedSeconds ?: 0)
+    }
 
-    private fun resumedWorkReason(rest: ActiveRest?): RestEndReason =
-        if (rest?.extended == true) RestEndReason.EXTENDED else RestEndReason.COMPLETED
+    private fun resumedWorkReason(): RestEndReason =
+        if (_active.value?.extended == true) RestEndReason.EXTENDED else RestEndReason.COMPLETED
 }

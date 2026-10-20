@@ -72,7 +72,7 @@ import com.gymtracker.data.db.entities.SetLogEntity
         BodyEntryEntity::class,
         SeedImportEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

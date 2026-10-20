@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
@@ -51,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
+import com.gymtracker.domain.model.ExerciseTracking
+import com.gymtracker.domain.model.LastPerformance
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.RestInterval
 import com.gymtracker.domain.model.SessionExercise
@@ -84,6 +87,7 @@ fun SessionScreen(
     onBack: () -> Unit,
     onFinished: () -> Unit,
     onAddExercise: () -> Unit,
+    onOpenExercise: (Long) -> Unit,
     viewModel: SessionViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -91,6 +95,7 @@ fun SessionScreen(
     SessionContent(
         uiState = uiState,
         onBack = onBack,
+        onOpenExercise = onOpenExercise,
         onPause = viewModel::pause,
         onResume = viewModel::resume,
         onSaveNote = viewModel::saveNote,
@@ -114,6 +119,7 @@ fun SessionScreen(
 private fun SessionContent(
     uiState: SessionUiState,
     onBack: () -> Unit,
+    onOpenExercise: (Long) -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onSaveNote: (String) -> Unit,
@@ -248,9 +254,11 @@ private fun SessionContent(
                     SessionExerciseCard(
                         position = index + 1,
                         exercise = exercise,
+                        lastPerformance = uiState.lastPerformances[exercise.exerciseId],
                         restStats = uiState.restStats[exercise.exerciseId],
                         defaultRestSeconds = uiState.defaultRestSeconds,
                         editable = uiState.isActive,
+                        onOpenExercise = { onOpenExercise(exercise.exerciseId) },
                         onAddSet = {
                             setDialog = SetDialogTarget(exercise = exercise, log = null)
                         },
@@ -286,12 +294,14 @@ private fun SessionContent(
     setDialog?.let { target ->
         SetLogDialog(
             exerciseName = target.exercise.exerciseName,
-            unit = target.exercise.repsUnit,
+            tracking = target.exercise.tracking,
             existing = target.log,
             suggestion = SetLogSuggestion.of(
                 previous = target.exercise.logs.lastOrNull(),
-                unit = target.exercise.repsUnit,
-                targetReps = target.exercise.repsMin,
+                lastPerformance = uiState.lastPerformances[target.exercise.exerciseId]
+                    ?.firstWorkingSet,
+                tracking = target.exercise.tracking,
+                targetValue = target.exercise.repsMin,
             ),
             onDismiss = { setDialog = null },
             onConfirm = { draft ->
@@ -677,9 +687,11 @@ private fun SessionNoteDialog(
 private fun SessionExerciseCard(
     position: Int,
     exercise: SessionExercise,
+    lastPerformance: LastPerformance?,
     restStats: RestStats?,
     defaultRestSeconds: Int,
     editable: Boolean,
+    onOpenExercise: () -> Unit,
     onAddSet: () -> Unit,
     onEditSet: (SetLog) -> Unit,
     onEditRest: () -> Unit,
@@ -687,11 +699,21 @@ private fun SessionExerciseCard(
     val target = targetText(exercise.targetSets, exercise.repsMin, exercise.repsMax, exercise.repsUnit)
     val restTarget = exercise.restTargetSeconds(defaultRestSeconds)
     val sessionRests = exercise.logs.mapNotNull { log -> log.restAfterS }.filter { seconds -> seconds > 0 }
+    val workingSets = exercise.logs.count { log -> !log.isWarmup }
+    // Plan wykonany = wszystkie serie robocze zalogowane. Kafelka nie blokujemy:
+    // dodatkowe serie nadal można dopisywać, tylko kolor przestaje wołać o uwagę.
+    val targetDone = exercise.targetSets
+        ?.let { targetSets -> targetSets > 0 && workingSets >= targetSets } == true
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = if (targetDone) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        },
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -701,7 +723,11 @@ private fun SessionExerciseCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = 12.dp),
                 )
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onOpenExercise),
+                ) {
                     Text(
                         text = exercise.exerciseName,
                         style = MaterialTheme.typography.titleSmall,
@@ -725,6 +751,24 @@ private fun SessionExerciseCard(
                     }
                 }
                 SetProgressChip(exercise = exercise)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_open_exercise),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            lastPerformance?.let { performance ->
+                val text = lastPerformanceText(performance, exercise.tracking)
+                if (text.isNotEmpty()) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
 
             RestTargetChip(
@@ -746,7 +790,7 @@ private fun SessionExerciseCard(
                 exercise.logs.forEach { log ->
                     SessionSetRow(
                         log = log,
-                        unit = exercise.repsUnit,
+                        tracking = exercise.tracking,
                         editable = editable,
                         onClick = { onEditSet(log) },
                     )
@@ -850,7 +894,7 @@ private fun SetProgressChip(exercise: SessionExercise) {
 @Composable
 private fun SessionSetRow(
     log: SetLog,
-    unit: RepsUnit,
+    tracking: ExerciseTracking,
     editable: Boolean,
     onClick: () -> Unit,
 ) {
@@ -869,7 +913,7 @@ private fun SessionSetRow(
         )
         Text(
             text = listOfNotNull(
-                setSummary(log, unit),
+                setSummary(log, tracking),
                 log.restAfterS
                     ?.takeIf { seconds -> seconds > 0 }
                     ?.let { seconds ->

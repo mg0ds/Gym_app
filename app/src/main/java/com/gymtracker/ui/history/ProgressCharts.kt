@@ -25,6 +25,7 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.Axis
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.compose.cartesian.data.columnModel
 import com.patrykandpatrick.vico.compose.cartesian.data.lineModel
@@ -35,6 +36,7 @@ import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLa
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -60,7 +62,18 @@ private val CHART_HEIGHT = 180.dp
 /** „12.10” na osi X; pełne daty są w tabeli pod wykresami. */
 private val AXIS_DATE_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("d.MM")
 
-/** Najcięższa seria dnia i szacowany 1RM. */
+/**
+ * Najcięższa seria dnia, szacowany 1RM i - przy ćwiczeniach ramped - najlżejsza
+ * seria dnia.
+ *
+ * Każdy punkt ma **widoczny znacznik**. Bez niego trening z jednym dniem danych
+ * nie rysował żadnej linii (jeden punkt to nie odcinek), więc wykres wyglądał
+ * na pusty, mimo że dzień był na osi.
+ *
+ * Trzecia linia pojawia się tylko wtedy, gdy w zakresie jest rampa
+ * (najlżejsza < najcięższa). Przy stałym obciążeniu pokrywałaby się z pierwszą,
+ * więc tylko szumiałaby legendę.
+ */
 @Composable
 fun WeightProgressChart(
     points: List<ExerciseStatsPoint>,
@@ -68,28 +81,60 @@ fun WeightProgressChart(
 ) {
     val heaviestColor = MaterialTheme.colorScheme.primary
     val oneRepMaxColor = MaterialTheme.colorScheme.tertiary
+    val lightestColor = MaterialTheme.colorScheme.secondary
     val weightPoints = points.filter { point -> point.topSetKg != null }
+    val hasRamp = hasWeightRange(weightPoints)
     val producer = remember { CartesianChartModelProducer() }
 
-    LaunchedEffect(weightPoints) {
+    LaunchedEffect(weightPoints, hasRamp) {
         val x = weightPoints.indices.map { index -> index as Number }
         producer.runTransaction {
             lineModel {
                 series(x, weightPoints.map { point -> (point.topSetKg ?: 0.0) as Number })
                 series(x, weightPoints.map { point -> (point.estimatedOneRepMaxKg ?: 0.0) as Number })
+                if (hasRamp) {
+                    series(
+                        x,
+                        weightPoints.map { point ->
+                            (point.minSetKg ?: point.topSetKg ?: 0.0) as Number
+                        },
+                    )
+                }
             }
+        }
+    }
+
+    val heaviestMarker = marker(heaviestColor)
+    val oneRepMaxMarker = marker(oneRepMaxColor)
+    val lightestMarker = marker(lightestColor)
+    val lines = buildList {
+        add(
+            LineCartesianLayer.Line(
+                fill = LineCartesianLayer.LineFill.single(Fill(heaviestColor)),
+                pointProvider = LineCartesianLayer.PointProvider.single(heaviestMarker),
+            ),
+        )
+        add(
+            LineCartesianLayer.Line(
+                fill = LineCartesianLayer.LineFill.single(Fill(oneRepMaxColor)),
+                pointProvider = LineCartesianLayer.PointProvider.single(oneRepMaxMarker),
+            ),
+        )
+        if (hasRamp) {
+            add(
+                LineCartesianLayer.Line(
+                    fill = LineCartesianLayer.LineFill.single(Fill(lightestColor)),
+                    pointProvider = LineCartesianLayer.PointProvider.single(lightestMarker),
+                ),
+            )
         }
     }
 
     CartesianChartHost(
         chart = rememberCartesianChart(
             rememberLineCartesianLayer(
-                LineCartesianLayer.LineProvider.series(
-                    listOf(
-                        LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(heaviestColor))),
-                        LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(oneRepMaxColor))),
-                    ),
-                ),
+                lineProvider = LineCartesianLayer.LineProvider.series(lines),
+                rangeProvider = chartRange(weightPoints),
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = DateAxisFormatter(weightPoints)),
@@ -97,6 +142,38 @@ fun WeightProgressChart(
         modelProducer = producer,
         modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
     )
+}
+
+/** Znacznik punktu - bez niego pojedynczy trening jest niewidoczny. */
+@Composable
+private fun marker(color: Color): LineCartesianLayer.Point = LineCartesianLayer.Point(
+    component = rememberShapeComponent(fill = Fill(color), shape = CircleShape),
+    size = 6.dp,
+)
+
+/**
+ * Zakres osi Y. Przy jednej wartości (jeden trening albo same równe ciężary)
+ * auto-zakres miałby zerową wysokość - dodajemy margines, żeby punkt i linia
+ * miały gdzie się narysować.
+ */
+private fun chartRange(points: List<ExerciseStatsPoint>): CartesianLayerRangeProvider {
+    val values = points.flatMap { point ->
+        listOfNotNull(point.topSetKg, point.minSetKg, point.estimatedOneRepMaxKg)
+    }
+    if (values.distinct().size > 1) return CartesianLayerRangeProvider.auto()
+    val value = values.firstOrNull() ?: 0.0
+    val padding = maxOf(MIN_RANGE_PADDING_KG, value * RANGE_PADDING_FRACTION)
+    return CartesianLayerRangeProvider.fixed(
+        minY = (value - padding).coerceAtLeast(0.0),
+        maxY = value + padding,
+    )
+}
+
+/** Czy w zakresie jest rampa: najlżejsza seria lżejsza od najcięższej. */
+fun hasWeightRange(points: List<ExerciseStatsPoint>): Boolean = points.any { point ->
+    val lightest = point.minSetKg
+    val heaviest = point.topSetKg
+    lightest != null && heaviest != null && lightest < heaviest
 }
 
 /** Objętość dnia: Σ (ciężar × powtórzenia) serii roboczych. */
@@ -159,10 +236,13 @@ fun ChartLegend(
 
 /** Legenda wykresu ciężaru - kolory muszą zgadzać się z [WeightProgressChart]. */
 @Composable
-fun weightLegend(): List<Pair<Color, String>> = listOf(
-    MaterialTheme.colorScheme.primary to stringResource(R.string.exercise_stats_record_heaviest),
-    MaterialTheme.colorScheme.tertiary to stringResource(R.string.exercise_stats_legend_one_rep_max),
-)
+fun weightLegend(showLightest: Boolean = false): List<Pair<Color, String>> = buildList {
+    add(MaterialTheme.colorScheme.primary to stringResource(R.string.exercise_stats_record_heaviest))
+    add(MaterialTheme.colorScheme.tertiary to stringResource(R.string.exercise_stats_legend_one_rep_max))
+    if (showLightest) {
+        add(MaterialTheme.colorScheme.secondary to stringResource(R.string.exercise_stats_legend_lightest))
+    }
+}
 
 /** Data pod numerem treningu na osi X. */
 private class DateAxisFormatter(
@@ -180,6 +260,10 @@ private class DateAxisFormatter(
 }
 
 private val COLUMN_WIDTH = 14.dp
+
+/** Margines osi Y przy jednej wartości: co najmniej 2,5 kg albo 5% ciężaru. */
+private const val MIN_RANGE_PADDING_KG = 2.5
+private const val RANGE_PADDING_FRACTION = 0.05
 
 private val KILOGRAMS_FORMATTER = CartesianValueFormatter.decimal(
     decimalCount = 0,

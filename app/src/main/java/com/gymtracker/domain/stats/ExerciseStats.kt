@@ -69,6 +69,7 @@ data class ExerciseSetEntry(
     val setIndex: Int,
     val weightKg: Double?,
     val reps: Int?,
+    val durationS: Int? = null,
     val isWarmup: Boolean,
 )
 
@@ -83,7 +84,11 @@ data class ExerciseStatsPoint(
     val isFuture: Boolean = false,
     /** Najcięższa seria robocza dnia (`null` = ćwiczenie bez ciężaru). */
     val topSetKg: Double? = null,
+    /** Najlżejsza seria robocza dnia z ciężarem - druga strona rampy. */
+    val minSetKg: Double? = null,
     val topSetReps: Int? = null,
+    /** Najdłuższa seria dnia na czas (`null` = ćwiczenie nie mierzy czasu). */
+    val topSetDurationS: Int? = null,
     val estimatedOneRepMaxKg: Double? = null,
     /** `true`, gdy 1RM policzono z serii dłuższej niż [OneRepMax.RELIABLE_MAX_REPS]. */
     val approximateOneRepMax: Boolean = false,
@@ -197,6 +202,11 @@ object ExerciseStatsCalculator {
         rests: List<RestInterval>,
     ): ExerciseStatsPoint {
         val topSet = rows.withWeight().maxByOrNull { entry -> entry.weightKg ?: 0.0 }
+        val minSet = rows.withWeight().minByOrNull { entry -> entry.weightKg ?: 0.0 }
+        val longestSet = rows.filter { entry -> entry.durationS != null }
+            .maxByOrNull { entry -> entry.durationS ?: 0 }
+        val maxRepsSet = rows.filter { entry -> entry.reps != null }
+            .maxByOrNull { entry -> entry.reps ?: 0 }
         val best = rows.bestOneRepMax()
         val sessionIds = rows.map { entry -> entry.sessionId }.toSet()
         val dayRests = rests
@@ -206,7 +216,12 @@ object ExerciseStatsCalculator {
         return ExerciseStatsPoint(
             date = date,
             topSetKg = topSet?.weightKg,
-            topSetReps = topSet?.reps,
+            minSetKg = minSet?.weightKg,
+            // Przy ćwiczeniu bez ciężaru „najcięższa seria” nie istnieje, więc
+            // bierzemy powtórzenia z najdłuższej serii (deska) albo z serii
+            // z największą liczbą powtórzeń (podciąganie).
+            topSetReps = topSet?.reps ?: longestSet?.reps ?: maxRepsSet?.reps,
+            topSetDurationS = longestSet?.durationS,
             estimatedOneRepMaxKg = best?.value,
             approximateOneRepMax = best != null && !OneRepMax.isReliable(best.reps),
             volumeKg = rows.sumOf { entry -> volume(entry) },

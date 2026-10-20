@@ -113,6 +113,12 @@
     <string name="exercise_field_name_required">Enter the exercise name</string>
     <string name="exercise_field_muscle_group">Muscle group</string>
     <string name="exercise_field_equipment">Equipment</string>
+    <string name="exercise_field_tracking">Set logging</string>
+    <string name="exercise_tracking_weight_reps">Weight + reps</string>
+    <string name="exercise_tracking_reps">Reps only</string>
+    <string name="exercise_tracking_time">Time only</string>
+    <string name="exercise_tracking_time_reps">Time + reps</string>
+    <string name="exercise_tracking_distance">Distance</string>
     <string name="exercise_field_mechanics">Mechanics</string>
     <string name="exercise_field_level">Level</string>
     <string name="exercise_field_secondary">Secondary muscles</string>
@@ -437,6 +443,9 @@
     <string name="session_set_summary_time">%1$d s</string>
     <string name="session_set_summary_distance">%1$d m</string>
     <string name="session_set_summary_warmup">%1$s (warm-up)</string>
+    <string name="session_set_summary_time_reps">%1$d s × %2$d reps</string>
+    <string name="session_last_performance">Last time (%1$s): %2$s</string>
+    <string name="session_last_weight_range">%1$s–%2$s kg</string>
 
     <!-- Rest between sets (M5) -->
     <string name="session_rest_title">Rest • %1$s</string>
@@ -556,6 +565,10 @@
     <string name="exercise_stats_record_volume">Best volume</string>
     <string name="exercise_stats_record_rests">Rests</string>
     <string name="exercise_stats_last_set">Last time</string>
+    <string name="exercise_stats_last_time">%1$d s • %2$s</string>
+    <string name="exercise_stats_last_time_reps">%1$d s × %2$d reps • %3$s</string>
+    <string name="exercise_stats_last_reps">%1$d reps • %2$s</string>
+    <string name="exercise_stats_last_distance">%1$d m • %2$s</string>
     <string name="exercise_stats_record_weight_reps">%1$s kg × %2$d • %3$s</string>
     <string name="exercise_stats_record_weight">%1$s kg • %2$s</string>
     <string name="exercise_stats_volume_with_date">%1$s kg • %2$s</string>
@@ -568,14 +581,20 @@
     <string name="exercise_stats_range_future">From the future</string>
     <string name="exercise_stats_volume">%1$s kg</string>
     <string name="exercise_stats_weight">%1$s kg</string>
+    <string name="exercise_stats_weight_range">%1$s–%2$s kg</string>
+    <string name="exercise_stats_time">%1$d s</string>
+    <string name="exercise_stats_distance">%1$d m</string>
     <string name="exercise_stats_chart_weight">Weight progress</string>
     <string name="exercise_stats_chart_volume">Workout volume</string>
     <string name="exercise_stats_legend_one_rep_max">Estimated 1RM</string>
+    <string name="exercise_stats_legend_lightest">Lightest set</string>
     <string name="exercise_stats_performances">Performances</string>
     <string name="exercise_stats_table_date">Date</string>
     <string name="exercise_stats_table_sets">Sets</string>
     <string name="exercise_stats_table_weight">Weight</string>
     <string name="exercise_stats_table_reps">Reps</string>
+    <string name="exercise_stats_table_time">Time</string>
+    <string name="exercise_stats_table_distance">Distance</string>
     <string name="exercise_stats_table_rest">Rest</string>
 
     <!-- Karta postaci (M8) -->
@@ -654,4 +673,5 @@
 
     <!-- Accessibility -->
     <string name="cd_back">Back</string>
+    <string name="cd_open_exercise">Open exercise details</string>
 </resources>

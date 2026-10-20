@@ -24,6 +24,7 @@ class ExerciseStatsCalculatorTest {
         daysAgo: Long,
         weightKg: Double? = null,
         reps: Int? = null,
+        durationS: Int? = null,
         isWarmup: Boolean = false,
         setIndex: Int = 1,
     ): ExerciseSetEntry = ExerciseSetEntry(
@@ -32,6 +33,7 @@ class ExerciseStatsCalculatorTest {
         setIndex = setIndex,
         weightKg = weightKg,
         reps = reps,
+        durationS = durationS,
         isWarmup = isWarmup,
     )
 
@@ -85,6 +87,59 @@ class ExerciseStatsCalculatorTest {
         assertEquals(1, point.sets)
         assertEquals(100.0 * 5, point.volumeKg, 0.001)
         assertEquals(100.0, stats.records.heaviestSet!!.weightKg, 0.001)
+    }
+
+    @Test
+    fun `punkt dnia niesie zakres rampy i najdluzszy czas serii`() {
+        val stats = calculate(
+            listOf(
+                set(1, 0, weightKg = 55.0, reps = 5, setIndex = 1),
+                set(1, 0, weightKg = 75.0, reps = 5, setIndex = 2),
+                set(1, 0, weightKg = 75.0, reps = 5, setIndex = 3),
+                set(1, 0, weightKg = 40.0, reps = 5, setIndex = 4, isWarmup = true),
+                set(2, 1, durationS = 60, setIndex = 1),
+                set(2, 1, durationS = 45, setIndex = 2),
+                set(3, 2, durationS = 60, reps = 10, setIndex = 1),
+                set(3, 2, durationS = 45, reps = 8, setIndex = 2),
+            ),
+        )
+
+        val ramp = stats.points.single { it.date == today }
+        assertEquals("najlżejsza seria robocza", 55.0, ramp.minSetKg!!, 0.001)
+        assertEquals(75.0, ramp.topSetKg!!, 0.001)
+        assertEquals("najdłuższa seria dnia", 60, stats.points.single { it.date == today.minusDays(1) }.topSetDurationS)
+        val timedReps = stats.points.single { it.date == today.minusDays(2) }
+        assertEquals(60, timedReps.topSetDurationS)
+        assertEquals("powtórzenia z najdłuższej serii", 10, timedReps.topSetReps)
+    }
+
+    @Test
+    fun `cwiczenie bez ciezar uzywa powtorzen zamiast ciezar`() {
+        val stats = calculate(
+            listOf(
+                set(1, 0, reps = 8, setIndex = 1),
+                set(1, 0, reps = 12, setIndex = 2),
+            ),
+        )
+
+        val point = stats.points.single()
+        assertNull("podciąganie nie ma ciężaru", point.topSetKg)
+        assertEquals(12, point.topSetReps)
+        assertEquals(20, point.totalReps)
+        assertEquals(0.0, point.volumeKg, 0.001)
+    }
+
+    @Test
+    fun `stale obciazenie nie ma dolnej granicy rampy`() {
+        val stats = calculate(
+            listOf(
+                set(1, 0, weightKg = 80.0, reps = 5, setIndex = 1),
+                set(1, 0, weightKg = 80.0, reps = 5, setIndex = 2),
+            ),
+        )
+
+        assertEquals(80.0, stats.points.single().minSetKg!!, 0.001)
+        assertEquals(80.0, stats.points.single().topSetKg!!, 0.001)
     }
 
     @Test

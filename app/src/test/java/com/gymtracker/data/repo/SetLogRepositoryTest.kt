@@ -53,6 +53,7 @@ class SetLogRepositoryTest {
             database.setLogDao(),
             database.planDao(),
             database.calendarDao(),
+            database.exerciseDao(),
             database,
             timeProvider,
         )

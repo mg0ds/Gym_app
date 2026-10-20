@@ -33,6 +33,7 @@ interface StatsDao {
         SELECT l.set_index AS set_index,
                l.weight_kg AS weight_kg,
                l.reps AS reps,
+               l.duration_s AS duration_s,
                l.is_warmup AS is_warmup,
                s.id AS session_id,
                s.started_at AS session_started_at,

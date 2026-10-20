@@ -125,6 +125,12 @@
     <string name="exercise_field_name_required">Podaj nazwę ćwiczenia</string>
     <string name="exercise_field_muscle_group">Partia mięśniowa</string>
     <string name="exercise_field_equipment">Sprzęt</string>
+    <string name="exercise_field_tracking">Sposób zapisu serii</string>
+    <string name="exercise_tracking_weight_reps">Ciężar + powtórzenia</string>
+    <string name="exercise_tracking_reps">Tylko powtórzenia</string>
+    <string name="exercise_tracking_time">Tylko czas</string>
+    <string name="exercise_tracking_time_reps">Czas + powtórzenia</string>
+    <string name="exercise_tracking_distance">Dystans</string>
     <string name="exercise_field_mechanics">Charakter</string>
     <string name="exercise_field_level">Poziom</string>
     <string name="exercise_field_secondary">Mięśnie dodatkowe</string>
@@ -451,6 +457,9 @@
     <string name="session_set_summary_time">%1$d s</string>
     <string name="session_set_summary_distance">%1$d m</string>
     <string name="session_set_summary_warmup">%1$s (rozgrzewka)</string>
+    <string name="session_set_summary_time_reps">%1$d s × %2$d powt.</string>
+    <string name="session_last_performance">Ostatnio (%1$s): %2$s</string>
+    <string name="session_last_weight_range">%1$s–%2$s kg</string>
 
     <!-- Przerwy między seriami (M5) -->
     <string name="session_rest_title">Przerwa • %1$s</string>
@@ -586,6 +595,10 @@
     <string name="exercise_stats_record_volume">Największa objętość</string>
     <string name="exercise_stats_record_rests">Przerwy</string>
     <string name="exercise_stats_last_set">Ostatnio</string>
+    <string name="exercise_stats_last_time">%1$d s • %2$s</string>
+    <string name="exercise_stats_last_time_reps">%1$d s × %2$d powt. • %3$s</string>
+    <string name="exercise_stats_last_reps">%1$d powt. • %2$s</string>
+    <string name="exercise_stats_last_distance">%1$d m • %2$s</string>
     <string name="exercise_stats_record_weight_reps">%1$s kg × %2$d • %3$s</string>
     <string name="exercise_stats_record_weight">%1$s kg • %2$s</string>
     <string name="exercise_stats_volume_with_date">%1$s kg • %2$s</string>
@@ -598,14 +611,20 @@
     <string name="exercise_stats_range_future">Z przyszłości</string>
     <string name="exercise_stats_volume">%1$s kg</string>
     <string name="exercise_stats_weight">%1$s kg</string>
+    <string name="exercise_stats_weight_range">%1$s–%2$s kg</string>
+    <string name="exercise_stats_time">%1$d s</string>
+    <string name="exercise_stats_distance">%1$d m</string>
     <string name="exercise_stats_chart_weight">Postęp ciężaru</string>
     <string name="exercise_stats_chart_volume">Objętość treningu</string>
     <string name="exercise_stats_legend_one_rep_max">Szacowany 1RM</string>
+    <string name="exercise_stats_legend_lightest">Najlżejsza seria</string>
     <string name="exercise_stats_performances">Wykonania</string>
     <string name="exercise_stats_table_date">Data</string>
     <string name="exercise_stats_table_sets">Serie</string>
     <string name="exercise_stats_table_weight">Ciężar</string>
     <string name="exercise_stats_table_reps">Powt.</string>
+    <string name="exercise_stats_table_time">Czas</string>
+    <string name="exercise_stats_table_distance">Dystans</string>
     <string name="exercise_stats_table_rest">Przerwa</string>
 
 
@@ -691,4 +710,5 @@
 
     <!-- Dostępność -->
     <string name="cd_back">Wstecz</string>
+    <string name="cd_open_exercise">Otwórz szczegóły ćwiczenia</string>
 </resources>

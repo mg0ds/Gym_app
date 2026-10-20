@@ -72,6 +72,7 @@ import com.gymtracker.ui.components.openExternalLink
 import com.gymtracker.ui.components.restHistorySummary
 import com.gymtracker.ui.history.ChartLegend
 import com.gymtracker.ui.history.WeightProgressChart
+import com.gymtracker.ui.history.hasWeightRange
 import com.gymtracker.ui.history.lastSetText
 import com.gymtracker.ui.history.recordText
 import com.gymtracker.ui.history.weightLegend
@@ -297,7 +298,7 @@ private fun ExerciseDetails(
                 stats.points.lastOrNull()?.let { last ->
                     InfoRow(
                         label = stringResource(R.string.exercise_stats_last_set),
-                        value = lastSetText(last),
+                        value = lastSetText(last, exercise.tracking),
                     )
                 }
                 if (stats.rest.hasSamples) {
@@ -307,7 +308,7 @@ private fun ExerciseDetails(
                     )
                 }
                 if (stats.hasWeightData) {
-                    ChartLegend(entries = weightLegend())
+                    ChartLegend(entries = weightLegend(showLightest = hasWeightRange(stats.points)))
                     WeightProgressChart(points = stats.points)
                 }
                 TextButton(onClick = onOpenStats) {

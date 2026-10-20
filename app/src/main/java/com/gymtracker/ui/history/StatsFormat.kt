@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.gymtracker.R
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.stats.ExerciseSetRecord
 import com.gymtracker.domain.stats.ExerciseStatsPoint
 import com.gymtracker.domain.stats.StatsRange
@@ -41,8 +42,37 @@ fun recordText(record: ExerciseSetRecord): String =
 
 /** Ostatnie wykonanie z punktu wykresu: „90 kg × 5 • 12.10.2026”. */
 @Composable
-fun lastSetText(point: ExerciseStatsPoint): String =
-    setText(weightKg = point.topSetKg, reps = point.topSetReps, date = point.date)
+fun lastSetText(point: ExerciseStatsPoint, tracking: ExerciseTracking): String {
+    val date = point.date.isoText()
+    val duration = point.topSetDurationS
+    val reps = point.topSetReps
+    return when {
+        tracking == ExerciseTracking.TIME_REPS && duration != null && reps != null -> stringResource(
+            R.string.exercise_stats_last_time_reps,
+            duration,
+            reps,
+            date,
+        )
+
+        tracking.usesDuration -> duration
+            ?.let { seconds -> stringResource(R.string.exercise_stats_last_time, seconds, date) }
+            ?: date
+
+        tracking == ExerciseTracking.DISTANCE -> reps
+            ?.let { meters -> stringResource(R.string.exercise_stats_last_distance, meters, date) }
+            ?: date
+
+        point.topSetKg != null -> setText(
+            weightKg = point.topSetKg,
+            reps = reps,
+            date = point.date,
+        )
+
+        else -> reps
+            ?.let { count -> stringResource(R.string.exercise_stats_last_reps, count, date) }
+            ?: date
+    }
+}
 
 /**
  * „117 kg” albo „~117 kg”, gdy 1RM policzono z serii dłuższej niż 12 powtórzeń.

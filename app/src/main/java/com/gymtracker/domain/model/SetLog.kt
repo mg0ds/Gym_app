@@ -3,10 +3,10 @@ package com.gymtracker.domain.model
 /**
  * Zalogowana seria - jedno wykonanie ćwiczenia (fakt, nie plan).
  *
- * [weightKg] jest `null` dla serii na czas (plank `60 s`) albo gdy użytkownik
- * nie podał ciężaru (pompki). [reps] i [durationS] są rozłączne i zależą od
- * jednostki celu: `reps` dla powtórzeń i metrów (dystans to też „liczba”),
- * `durationS` dla ćwiczeń na czas.
+ * [weightKg] jest `null` dla serii bez ciężaru (pompki, plank, bieżnia).
+ * [reps] i [durationS] zależą od sposobu zapisu ćwiczenia (`ExerciseTracking`):
+ * powtórzenia dla `REPS`/`WEIGHT_REPS`, czas dla `TIME`, oba naraz dla
+ * `TIME_REPS`, a metry w [reps] dla `DISTANCE`.
  */
 data class SetLog(
     val id: Long,
@@ -42,12 +42,18 @@ data class SetLogDraft(
 )
 
 /**
- * Czy seria da się zapisać dla celu o jednostce [unit].
+ * Czy seria da się zapisać dla sposobu śledzenia [tracking].
  *
- * Ćwiczenie na powtórzenia (i na dystans) wymaga liczby powtórzeń, a na czas -
- * czasu. Ciężar jest zawsze opcjonalny: pompki i plank nie mają go wcale.
+ * Ćwiczenie na powtórzenia (i na dystans) wymaga liczby powtórzeń, na czas -
+ * czasu, a `TIME_REPS` obu wartości. Ciężar jest zawsze opcjonalny: pompki
+ * i deska nie mają go wcale.
  */
-fun SetLogDraft.isCompleteFor(unit: RepsUnit): Boolean = when (unit) {
-    RepsUnit.SECONDS -> durationS != null && durationS > 0
-    RepsUnit.REPS, RepsUnit.METERS -> reps != null && reps > 0
+fun SetLogDraft.isCompleteFor(tracking: ExerciseTracking): Boolean {
+    val hasCount = reps != null && reps > 0
+    val hasDuration = durationS != null && durationS > 0
+    return when {
+        tracking.usesDuration && tracking.usesCount -> hasCount && hasDuration
+        tracking.usesDuration -> hasDuration
+        else -> hasCount
+    }
 }

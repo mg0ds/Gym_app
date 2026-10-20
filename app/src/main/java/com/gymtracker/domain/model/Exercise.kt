@@ -27,6 +27,8 @@ data class Exercise(
     val defaultRepsMin: Int?,
     val defaultRepsMax: Int?,
     val defaultRestS: Int?,
+    /** Co zapisujemy w serii tego ćwiczenia (ciężar, powtórzenia, czas, dystans). */
+    val tracking: ExerciseTracking,
     val notes: String?,
     val isFavourite: Boolean,
     val isArchived: Boolean,
@@ -53,5 +55,6 @@ data class ExerciseDraft(
     val defaultRepsMin: Int? = null,
     val defaultRepsMax: Int? = null,
     val defaultRestS: Int? = null,
+    val tracking: ExerciseTracking = ExerciseTracking.WEIGHT_REPS,
     val notes: String? = null,
 )

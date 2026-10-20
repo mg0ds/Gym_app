@@ -108,7 +108,7 @@ interface PlanDao {
     @Query(
         """
         SELECT pde.*, e.name AS exercise_name, e.muscle_group AS exercise_muscle_group,
-               e.equipment AS exercise_equipment
+               e.equipment AS exercise_equipment, e.tracking AS exercise_tracking
         FROM plan_day_exercises pde
         JOIN exercises e ON e.id = pde.exercise_id
         WHERE pde.plan_day_id = :dayId
@@ -120,7 +120,7 @@ interface PlanDao {
     @Query(
         """
         SELECT pde.*, e.name AS exercise_name, e.muscle_group AS exercise_muscle_group,
-               e.equipment AS exercise_equipment
+               e.equipment AS exercise_equipment, e.tracking AS exercise_tracking
         FROM plan_day_exercises pde
         JOIN plan_days pd ON pd.id = pde.plan_day_id
         JOIN exercises e ON e.id = pde.exercise_id
@@ -133,7 +133,7 @@ interface PlanDao {
     @Query(
         """
         SELECT pde.*, e.name AS exercise_name, e.muscle_group AS exercise_muscle_group,
-               e.equipment AS exercise_equipment
+               e.equipment AS exercise_equipment, e.tracking AS exercise_tracking
         FROM plan_day_exercises pde
         JOIN exercises e ON e.id = pde.exercise_id
         WHERE pde.plan_day_id = :dayId

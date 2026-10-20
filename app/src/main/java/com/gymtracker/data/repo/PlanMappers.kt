@@ -9,6 +9,7 @@ import com.gymtracker.data.db.rows.PlanDayOptionRow
 import com.gymtracker.data.db.rows.PlanExerciseRow
 import com.gymtracker.data.db.rows.SessionExerciseRow
 import com.gymtracker.domain.model.DayWorkout
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.model.Plan
 import com.gymtracker.domain.model.PlanDay
 import com.gymtracker.domain.model.PlanDayOption
@@ -106,6 +107,7 @@ internal fun SessionExerciseRow.toDomain(logs: List<SetLog> = emptyList()): Sess
         repsMin = entry.targetRepsMin,
         repsMax = entry.targetRepsMax,
         repsUnit = RepsUnit.fromWire(entry.targetRepsUnit),
+        tracking = ExerciseTracking.fromWire(entry.tracking),
         restSeconds = entry.restSeconds,
         exerciseDefaultRestSeconds = exerciseDefaultRestSeconds,
         supersetGroup = entry.supersetGroup,

@@ -3,6 +3,7 @@ package com.gymtracker.ui.history
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.repository.ExerciseRepository
 import com.gymtracker.domain.repository.StatsRepository
 import com.gymtracker.domain.stats.ExerciseStats
@@ -21,6 +22,8 @@ import kotlinx.coroutines.flow.stateIn
 data class ExerciseStatsUiState(
     val isLoading: Boolean = true,
     val exerciseName: String? = null,
+    /** Co ćwiczenie zapisuje w serii - decyduje o kolumnach tabeli wykonań. */
+    val tracking: ExerciseTracking = ExerciseTracking.WEIGHT_REPS,
     val range: StatsRange = StatsRange.MONTH_3,
     val stats: ExerciseStats = ExerciseStats(),
 )
@@ -53,6 +56,7 @@ class ExerciseStatsViewModel @Inject constructor(
         ExerciseStatsUiState(
             isLoading = false,
             exerciseName = exercise?.name,
+            tracking = exercise?.tracking ?: ExerciseTracking.WEIGHT_REPS,
             range = value,
             stats = stats,
         )

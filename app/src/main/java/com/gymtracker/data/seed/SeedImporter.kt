@@ -9,6 +9,7 @@ import com.gymtracker.data.db.entities.PlanDayEntity
 import com.gymtracker.data.db.entities.PlanEntity
 import com.gymtracker.data.db.entities.PlanExerciseEntity
 import com.gymtracker.data.repo.encodeMuscles
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.YouTubeLinks
 import com.gymtracker.domain.time.TimeProvider
@@ -239,6 +240,15 @@ class SeedImporter @Inject constructor(
                         if (exerciseId == null) {
                             missing += planned.exerciseId
                         } else {
+                            // Katalog nie zna jednostki z planu (np. deska jest
+                            // tam na sekundy), więc typ zapisu uzupełniamy tutaj.
+                            if (planned.tracking?.reps == "time") {
+                                exerciseDao.setTracking(
+                                    id = exerciseId,
+                                    tracking = ExerciseTracking.TIME.wire,
+                                    updatedAtEpochMs = now,
+                                )
+                            }
                             entries += planned.toEntity(
                                 dayId = dayId,
                                 exerciseId = exerciseId,
@@ -374,6 +384,7 @@ internal fun SeedExercise.toEntity(nowEpochMs: Long): ExerciseEntity = ExerciseE
     mechanics = mechanics,
     level = level,
     youtubeUrl = YouTubeLinks.idOf(youtubeId)?.let(YouTubeLinks::watchUrl),
+    tracking = ExerciseTracking.defaultFor(equipment).wire,
     isFavourite = false,
     isArchived = false,
     createdAtEpochMs = nowEpochMs,

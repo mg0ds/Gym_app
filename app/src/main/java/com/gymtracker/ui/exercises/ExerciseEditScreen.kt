@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.model.ExerciseVocabulary
 
 /**
@@ -52,6 +53,7 @@ fun ExerciseEditScreen(
         onNameChange = viewModel::onNameChange,
         onMuscleGroupChange = viewModel::onMuscleGroupChange,
         onEquipmentChange = viewModel::onEquipmentChange,
+        onTrackingChange = viewModel::onTrackingChange,
         onMechanicsChange = viewModel::onMechanicsChange,
         onLevelChange = viewModel::onLevelChange,
         onSecondaryMuscleToggle = viewModel::onSecondaryMuscleToggle,
@@ -74,6 +76,7 @@ private fun ExerciseEditContent(
     onNameChange: (String) -> Unit,
     onMuscleGroupChange: (String?) -> Unit,
     onEquipmentChange: (String?) -> Unit,
+    onTrackingChange: (ExerciseTracking) -> Unit,
     onMechanicsChange: (String?) -> Unit,
     onLevelChange: (String?) -> Unit,
     onSecondaryMuscleToggle: (String) -> Unit,
@@ -147,6 +150,11 @@ private fun ExerciseEditContent(
                 selected = uiState.equipment,
                 labelFor = { equipment -> equipmentLabel(equipment).orEmpty() },
                 onSelect = onEquipmentChange,
+            )
+
+            TrackingSelector(
+                selected = uiState.tracking,
+                onSelect = onTrackingChange,
             )
 
             ChipSelector(
@@ -315,6 +323,31 @@ private fun FieldLabel(text: String) {
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+/** Wybór tego, co zapisujemy w serii - jedno miejsce decyduje o polach formularza. */
+@Composable
+private fun TrackingSelector(
+    selected: ExerciseTracking,
+    onSelect: (ExerciseTracking) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        FieldLabel(stringResource(R.string.exercise_field_tracking))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ExerciseTracking.entries.forEach { tracking ->
+                FilterChip(
+                    selected = selected == tracking,
+                    onClick = { onSelect(tracking) },
+                    label = { Text(trackingLabel(tracking)) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -10,6 +10,7 @@ import com.gymtracker.domain.model.PlanDraft
 import com.gymtracker.domain.model.PlanExerciseDraft
 import com.gymtracker.domain.model.RepsUnit
 import com.gymtracker.domain.model.SessionStatus
+import com.gymtracker.domain.model.SetLogDraft
 import com.gymtracker.domain.time.TimeProvider
 import com.gymtracker.domain.time.today
 import com.gymtracker.domain.timer.WorkoutTimerState
@@ -59,6 +60,7 @@ class SessionRepositoryTest {
             database.setLogDao(),
             database.planDao(),
             database.calendarDao(),
+            database.exerciseDao(),
             database,
             timeProvider,
         )
@@ -313,6 +315,59 @@ class SessionRepositoryTest {
         assertEquals("Trening", details.session.name)
         assertNull(details.session.planDayId)
         assertTrue("trening od zera startuje bez ćwiczeń", details.exercises.isEmpty())
+    }
+
+    @Test
+    fun `ostatnie wykonanie pochodzi z poprzedniego treningu, nie z biezacego`() = runTest {
+        val dayId = seedDay()
+        val first = requireNotNull(sessions.startFromPlanDay(dayId))
+        val firstDetails = requireNotNull(sessions.observeSession(first).first())
+        val firstSquat = firstDetails.exercises.first { it.exerciseName == "Barbell Back Squat" }.id
+
+        sessions.addSet(firstSquat, SetLogDraft(weightKg = 55.0, reps = 5))
+        sessions.addSet(firstSquat, SetLogDraft(weightKg = 65.0, reps = 5))
+        sessions.addSet(firstSquat, SetLogDraft(weightKg = 75.0, reps = 5))
+        currentTime += 3_600_000L
+        sessions.finishSession(first)
+
+        currentTime += 60_000L
+        val second = requireNotNull(sessions.startFromPlanDay(dayId))
+        val secondDetails = requireNotNull(sessions.observeSession(second).first())
+        val exerciseIds = secondDetails.exercises.map { it.exerciseId }
+
+        val performances = sessions.observeLastPerformances(second, exerciseIds).first()
+
+        val firstSquatId = firstDetails.exercises.first { it.exerciseName == "Barbell Back Squat" }.exerciseId
+        val last = requireNotNull(performances[firstSquatId]) {
+            "poprzedni trening ma być podpowiedzią"
+        }
+        assertEquals(listOf(55.0, 65.0, 75.0), last.sets.map { it.weightKg })
+        assertEquals(3, last.workingSets.size)
+        assertEquals("start rampy z pierwszej serii", 55.0, last.firstWorkingSet!!.weightKg!!, 0.001)
+        assertFalse(
+            "wyciskanie nie miało serii, więc nie ma podpowiedzi",
+            performances.containsKey(firstDetails.exercises[1].exerciseId),
+        )
+
+        // Nowszy trening jest podpowiedzią tylko dla jeszcze nowszego.
+        val secondSquat = secondDetails.exercises.first { it.exerciseName == "Barbell Back Squat" }.id
+        sessions.addSet(secondSquat, SetLogDraft(weightKg = 100.0, reps = 5))
+        currentTime += 3_600_000L
+        sessions.finishSession(second)
+
+        currentTime += 60_000L
+        val third = requireNotNull(sessions.startFromPlanDay(dayId))
+        val thirdIds = requireNotNull(sessions.observeSession(third).first()).exercises.map { it.exerciseId }
+
+        val latest = sessions.observeLastPerformances(third, thirdIds).first()
+        assertEquals(100.0, latest[firstSquatId]!!.sets.single().weightKg)
+
+        val older = sessions.observeLastPerformances(second, exerciseIds).first()
+        assertEquals(
+            "starsza sesja widzi trening przed sobą, nie późniejszy",
+            listOf(55.0, 65.0, 75.0),
+            older[firstSquatId]!!.sets.map { it.weightKg },
+        )
     }
 
     @Test

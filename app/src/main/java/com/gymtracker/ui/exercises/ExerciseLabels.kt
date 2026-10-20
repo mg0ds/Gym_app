@@ -3,6 +3,7 @@ package com.gymtracker.ui.exercises
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.gymtracker.R
+import com.gymtracker.domain.model.ExerciseTracking
 
 /**
  * Tłumaczenia słownika katalogu na język interfejsu.
@@ -68,4 +69,14 @@ fun levelLabel(value: String?): String? = value?.let {
         "Advanced" -> stringResource(R.string.level_advanced)
         else -> it
     }
+}
+
+/** Etykiety typu zapisu serii - „Ciężar + powtórzenia”, „Tylko czas” itd. */
+@Composable
+fun trackingLabel(value: ExerciseTracking): String = when (value) {
+    ExerciseTracking.WEIGHT_REPS -> stringResource(R.string.exercise_tracking_weight_reps)
+    ExerciseTracking.REPS -> stringResource(R.string.exercise_tracking_reps)
+    ExerciseTracking.TIME -> stringResource(R.string.exercise_tracking_time)
+    ExerciseTracking.TIME_REPS -> stringResource(R.string.exercise_tracking_time_reps)
+    ExerciseTracking.DISTANCE -> stringResource(R.string.exercise_tracking_distance)
 }

@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.gymtracker.data.db.entities.SetLogEntity
+import com.gymtracker.data.db.rows.LastPerformanceRow
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -68,4 +69,47 @@ interface SetLogDao {
         """,
     )
     suspend fun setRest(setLogId: Long, actualSeconds: Int, targetSeconds: Int)
+
+    /**
+     * Serie z **ostatniego zakończonego** treningu każdego z [exerciseIds],
+     * z pominięciem bieżącej sesji [sessionId].
+     *
+     * Dla każdego ćwiczenia bierzemy jeden najnowszy trening (po `started_at`),
+     * a nie najnowsze serie w całej historii: podpowiedź „ostatnio” ma pokazać
+     * cały przebieg tamtego dnia, także rampę 55/65/75/75/75.
+     *
+     * Treningi nowsze od bieżącego też odpadają - przy przeglądaniu starszej
+     * sesji „ostatnio” nie może znaczyć „później”.
+     *
+     * Zapytanie jest jednym strzałem dla całej listy ćwiczeń - ekran treningu
+     * pyta o kilka do kilkunastu pozycji naraz.
+     */
+    @Query(
+        """
+        SELECT l.*, se.exercise_id AS exercise_id,
+               s.started_at AS session_started_at, s.session_date AS session_date
+        FROM set_logs l
+        JOIN session_exercises se ON se.id = l.session_exercise_id
+        JOIN sessions s ON s.id = se.session_id
+        WHERE se.exercise_id IN (:exerciseIds)
+          AND s.status = :status
+          AND s.id != :sessionId
+          AND s.started_at = (
+              SELECT MAX(s2.started_at)
+              FROM session_exercises se2
+              JOIN sessions s2 ON s2.id = se2.session_id
+              WHERE se2.exercise_id = se.exercise_id
+                AND s2.status = :status
+                AND s2.started_at < (
+                    SELECT started_at FROM sessions WHERE id = :sessionId
+                )
+          )
+        ORDER BY se.exercise_id, l.set_index
+        """,
+    )
+    fun observeLastPerformances(
+        exerciseIds: List<Long>,
+        status: String,
+        sessionId: Long,
+    ): Flow<List<LastPerformanceRow>>
 }

@@ -21,4 +21,7 @@ data class PlanExerciseRow(
     val exerciseMuscleGroup: String?,
     @ColumnInfo(name = "exercise_equipment")
     val exerciseEquipment: String?,
+    /** Sposób zapisu serii z katalogu - kopiowany do treningu przy starcie. */
+    @ColumnInfo(name = "exercise_tracking")
+    val exerciseTracking: String,
 )

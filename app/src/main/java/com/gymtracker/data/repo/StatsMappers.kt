@@ -35,5 +35,6 @@ internal fun ExerciseSetRow.toEntry(zone: ZoneId): ExerciseSetEntry = ExerciseSe
     setIndex = setIndex,
     weightKg = weightKg,
     reps = reps,
+    durationS = durationS,
     isWarmup = isWarmup,
 )

@@ -108,6 +108,11 @@ data class SessionExercise(
     val repsMin: Int?,
     val repsMax: Int?,
     val repsUnit: RepsUnit,
+    /**
+     * Sposób zapisu serii skopiowany z katalogu w momencie startu. Zmiana typu
+     * ćwiczenia w katalogu nie przepisuje historii - tak samo jak cel z planu.
+     */
+    val tracking: ExerciseTracking = ExerciseTracking.WEIGHT_REPS,
     /** Cel przerwy z planu (to on ma pierwszeństwo). */
     val restSeconds: Int?,
     /**

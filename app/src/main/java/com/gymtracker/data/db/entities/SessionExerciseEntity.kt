@@ -53,6 +53,9 @@ data class SessionExerciseEntity(
     val targetRepsMax: Int? = null,
     @ColumnInfo(name = "target_reps_unit")
     val targetRepsUnit: String = PlanExerciseEntity.UNIT_REPS,
+    /** Sposób zapisu serii skopiowany z katalogu przy starcie treningu. */
+    @ColumnInfo(name = "tracking", defaultValue = "weight_reps")
+    val tracking: String = ExerciseEntity.TRACKING_WEIGHT_REPS,
     @ColumnInfo(name = "rest_seconds")
     val restSeconds: Int? = null,
     @ColumnInfo(name = "superset_group")

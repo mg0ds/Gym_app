@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gymtracker.data.prefs.SettingsDataStore
+import com.gymtracker.domain.model.LastPerformance
 import com.gymtracker.domain.model.RestInterval
 import com.gymtracker.domain.model.SessionExercise
 import com.gymtracker.domain.model.SessionStatus
@@ -47,6 +48,11 @@ data class SessionUiState(
     val rests: List<RestInterval> = emptyList(),
     /** Historia przerw per `exerciseId` - „średnia przerwa: 1:45 (12 treningów)”. */
     val restStats: Map<Long, RestStats> = emptyMap(),
+    /**
+     * Ostatnie zakończone wykonanie per `exerciseId` - „Ostatnio (12.10.2026):
+     * 55–75 kg × 5”. Ćwiczenie bez historii nie ma wpisu.
+     */
+    val lastPerformances: Map<Long, LastPerformance> = emptyMap(),
     /** Domyślna przerwa z ustawień - ostatni fallback celu przerwy. */
     val defaultRestSeconds: Int = SettingsDataStore.DEFAULT_REST_SECONDS,
     /**
@@ -93,6 +99,14 @@ class SessionViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { exerciseIds -> rests.observeStats(exerciseIds) }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val lastPerformances: Flow<Map<Long, LastPerformance>> = sessions.observeSession(sessionId)
+        .map { details -> details?.exercises?.map { exercise -> exercise.exerciseId }.orEmpty() }
+        .distinctUntilChanged()
+        .flatMapLatest { exerciseIds ->
+            sessions.observeLastPerformances(sessionId = sessionId, exerciseIds = exerciseIds)
+        }
+
     val uiState: StateFlow<SessionUiState> = combine(
         sessions.observeSession(sessionId),
         timer.tracked,
@@ -114,6 +128,8 @@ class SessionViewModel @Inject constructor(
         )
     }.combine(restStats) { state, stats ->
         state.copy(restStats = stats)
+    }.combine(lastPerformances) { state, performances ->
+        state.copy(lastPerformances = performances)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),

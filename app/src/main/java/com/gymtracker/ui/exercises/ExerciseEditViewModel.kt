@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gymtracker.domain.model.ExerciseDraft
+import com.gymtracker.domain.model.ExerciseTracking
 import com.gymtracker.domain.model.InstructionSteps
 import com.gymtracker.domain.model.YouTubeLinks
 import com.gymtracker.domain.repository.ExerciseRepository
@@ -28,6 +29,10 @@ data class ExerciseEditUiState(
     val isNameInvalid: Boolean = false,
     val muscleGroup: String? = null,
     val equipment: String? = null,
+    /** Co zapisujemy w serii; domyślnie wynika ze sprzętu, ale użytkownik może zmienić. */
+    val tracking: ExerciseTracking = ExerciseTracking.WEIGHT_REPS,
+    /** Czy typ został wybrany ręcznie (wtedy zmiana sprzętu go nie nadpisuje). */
+    val trackingTouched: Boolean = false,
     val mechanics: String? = null,
     val level: String? = null,
     val secondaryMuscles: List<String> = emptyList(),
@@ -75,6 +80,8 @@ class ExerciseEditViewModel @Inject constructor(
                             name = exercise.name,
                             muscleGroup = exercise.muscleGroup,
                             equipment = exercise.equipment,
+                            tracking = exercise.tracking,
+                            trackingTouched = true,
                             mechanics = exercise.mechanics,
                             level = exercise.level,
                             secondaryMuscles = exercise.secondaryMuscles,
@@ -101,7 +108,20 @@ class ExerciseEditViewModel @Inject constructor(
     }
 
     fun onEquipmentChange(value: String?) {
-        _uiState.update { it.copy(equipment = value) }
+        _uiState.update { state ->
+            state.copy(
+                equipment = value,
+                tracking = if (state.trackingTouched) {
+                    state.tracking
+                } else {
+                    ExerciseTracking.defaultFor(value)
+                },
+            )
+        }
+    }
+
+    fun onTrackingChange(value: ExerciseTracking) {
+        _uiState.update { it.copy(tracking = value, trackingTouched = true) }
     }
 
     fun onMechanicsChange(value: String?) {
@@ -174,6 +194,7 @@ class ExerciseEditViewModel @Inject constructor(
         name = name,
         muscleGroup = muscleGroup,
         equipment = equipment,
+        tracking = tracking,
         mechanics = mechanics,
         level = level,
         secondaryMuscles = secondaryMuscles,

@@ -155,4 +155,8 @@ interface ExerciseDao {
         """,
     )
     suspend fun setFavourite(id: Long, isFavourite: Boolean, updatedAtEpochMs: Long)
+
+    /** Uzupełnia typ zapisu, gdy plan źródłowy mówi więcej niż katalog (np. deska). */
+    @Query("UPDATE exercises SET tracking = :tracking, updated_at = :updatedAtEpochMs WHERE id = :id")
+    suspend fun setTracking(id: Long, tracking: String, updatedAtEpochMs: Long)
 }
