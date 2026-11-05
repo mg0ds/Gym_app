@@ -100,6 +100,27 @@ interface SessionRepository {
     /** Przerywa trening bez zapisywania go jako odbytego. */
     suspend fun cancelSession(sessionId: Long)
 
+    /**
+     * Wraca do zakończonego dzisiaj treningu („wznów trening”).
+     *
+     * Zegar startuje tam, gdzie stanął: czas między zakończeniem a wznowieniem
+     * doliczamy do pauz. Wpis w kalendarzu wraca do „zaplanowany”, żeby nie
+     * wyglądał na odbyty, dopóki trening znów trwa.
+     *
+     * Zwraca `false`, gdy trening nie jest zakończony, zakończył się innego dnia
+     * albo trwa już inny trening (w bazie jest miejsce na jeden).
+     */
+    suspend fun resumeSession(sessionId: Long): Boolean
+
+    /**
+     * Usuwa ćwiczenie z trwającego treningu razem z jego seriami i przerwami.
+     *
+     * Pozycje pozostałych ćwiczeń są przenumerowane, żeby lista nie miała dziur.
+     * Zwraca `false`, gdy sesja nie jest już edytowalna albo pozycja nie należy
+     * do tej sesji.
+     */
+    suspend fun removeExerciseFromSession(sessionId: Long, sessionExerciseId: Long): Boolean
+
     /** Notatka do treningu; pusta wartość czyści notatkę. */
     suspend fun setNote(sessionId: Long, note: String?)
 

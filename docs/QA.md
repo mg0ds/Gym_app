@@ -365,3 +365,27 @@ zajrzeć do `filesDir` — po dodaniu zdjęcia i filmu ma tam być **tylko**
 | 14.15 | Stałe obciążenie → statystyki | Druga linia się nie pojawia, tabela pokazuje jedną wartość |
 | 14.16 | Migracja bazy z M10 (v10 → v11) | Historia i plany bez zmian; sztangi dostają „Ciężar + powtórzenia”, ćwiczenia Bodyweight „Tylko powtórzenia”, a pozycje planów na sekundy — „Tylko czas” |
 | 14.17 | Stary trening z ćwiczeniem na czas otwórz po migracji | Serie nadal mają czas; poprawienie serii pokazuje pole czasu, nie ciężaru |
+
+## 15. Usuwanie, wznowienie i szata graficzna (M10i)
+
+| # | Scenariusz | Oczekiwany wynik |
+|---|---|---|
+| 15.1 | W trwającym treningu przytrzymaj kafelek ćwiczenia (także jego nazwę) | Otwiera się pytanie „Usunąć ćwiczenie?” z nazwą i ostrzeżeniem o seriach |
+| 15.2 | Potwierdź usunięcie | Ćwiczenie znika razem z seriami; pozostałe mają numery 1, 2, … bez dziury; „Dodaj serię” i szczegóły działają dalej |
+| 15.3 | Anuluj pytanie o usunięcie | Kafelek zostaje bez zmian |
+| 15.4 | Usuń ćwiczenie, które ma otwartą przerwę | Karta przerwy znika, a stary wiersz `rest_intervals` nie wraca w statystykach |
+| 15.5 | Otwórz zakończony trening i przytrzymaj kafelek | Brak pytania o usunięcie — historia jest tylko do czytania |
+| 15.6 | „Zakończ trening” | Najpierw pytanie „Zakończyć trening?”, po potwierdzeniu ekran zostaje, pokazuje „Trening zakończony” i „Wznów trening” |
+| 15.7 | Po zakończeniu kliknij „Wznów trening” tego samego dnia | Status wraca na „Trening w toku”, zegar stoi tam, gdzie stanął (czas przerwy doliczony do pauz), wpis w kalendarzu wraca na „zaplanowany” |
+| 15.8 | Zakończ trening, zmień datę urządzenia na następny dzień i otwórz go | Brak przycisku „Wznów trening”; trening zostaje w historii |
+| 15.9 | Zakończ trening, gdy istnieje inny aktywny trening | Wznowienie jest zablokowane (na ekranie nie ma przycisku) |
+| 15.10 | Kalendarz: wpis zaplanowany | Przy wpisie widać kosz (oprócz menu); dotknięcie pyta o potwierdzenie z nazwą |
+| 15.11 | Potwierdź usunięcie wpisu | Wpis znika, dzień pokazuje „Nic nie zaplanowano…”, a odbyty trening (jeśli był) zostaje w historii |
+| 15.12 | Statystyki ćwiczenia → „Najlepszy 1RM” | Pod wartością jest zdanie o wzorze Epleya i szacunku; powyżej 12 powtórzeń dodatkowa notka |
+| 15.13 | Szczegóły ćwiczenia → wykres | Pod legendą jest to samo krótkie wyjaśnienie 1RM |
+| 15.14 | Wykres ciężaru przy jednym ciężarze 40 kg | Etykiety osi Y wypadają na pełnych wartościach (np. 35/40/45), bez 32/42/52; liczby bez miejsc po przecinku |
+| 15.15 | Wykres przy zakresie 45–117 kg | Oś Y ma „ładne” etykiety (np. 40/60/80/100/120), a nie surowe minimum danych |
+| 15.16 | Jasny motyw aplikacji przy ciemnym motywie systemu | Etykiety osi wykresów są ciemne i czytelne na jasnej karcie (nie białe) |
+| 15.17 | Przejdź kalendarz, trening, ćwiczenia, historię i ustawienia | Spójna paleta (atrament, mech, porcelana, limonka), szeryfowe nagłówki, pływający dolny pasek; brak nakładania treści na pasek |
+| 15.18 | Motyw ciemny | Te same role kolorów; karty i tła bez białych „dziur”, limonka nadal czytelna |
+| 15.19 | TalkBack na kafelku ćwiczenia | Długie przytrzymanie (double-tap-and-hold) otwiera pytanie o usunięcie; nazwa i strzałka nadal otwierają szczegóły |

@@ -21,6 +21,7 @@ import com.gymtracker.timer.RestTimer
 import com.gymtracker.timer.WorkoutTimer
 import com.gymtracker.ui.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
@@ -60,6 +61,11 @@ data class SessionUiState(
      * poprawiać - treningu jeszcze nie ma albo wciąż trwa.
      */
     val dayEditRange: ClosedRange<LocalDate>? = null,
+    /**
+     * Można wrócić do właśnie zakończonego treningu. Tylko tego samego dnia
+     * i tylko wtedy, gdy nie trwa już inny trening.
+     */
+    val canResume: Boolean = false,
 ) {
     val isActive: Boolean get() = session?.status == SessionStatus.ACTIVE
 
@@ -125,6 +131,16 @@ class SessionViewModel @Inject constructor(
             dayEditRange = details?.session
                 ?.takeIf { session -> session.status == SessionStatus.FINISHED }
                 ?.dayEditRange(zone = ZoneId.systemDefault(), today = timeProvider.today()),
+            canResume = details?.session?.let { session ->
+                session.status == SessionStatus.FINISHED &&
+                    session.finishedAtEpochMs
+                        ?.let { finished ->
+                            Instant.ofEpochMilli(finished)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                        } == timeProvider.today() &&
+                    (tracked == null || tracked.sessionId == session.id)
+            } == true,
         )
     }.combine(restStats) { state, stats ->
         state.copy(restStats = stats)
@@ -211,10 +227,30 @@ class SessionViewModel @Inject constructor(
         viewModelScope.launch { restTimer.completeIfDue() }
     }
 
-    fun finishSession(onFinished: () -> Unit) {
+    /**
+     * Kończy trening, ale **nie wychodzi** z ekranu: pod przyciskami pojawia
+     * się „Wznów trening”, więc przypadkowe zakończenie da się cofnąć.
+     */
+    fun finishSession() {
+        viewModelScope.launch { sessions.finishSession(sessionId) }
+    }
+
+    /** Wraca do treningu zakończonego dzisiaj (o ile nie trwa już inny). */
+    fun resumeSession() {
+        viewModelScope.launch { sessions.resumeSession(sessionId) }
+    }
+
+    /** Usuwa ćwiczenie z trwającego treningu razem z jego seriami. */
+    fun removeExercise(sessionExerciseId: Long) {
         viewModelScope.launch {
-            sessions.finishSession(sessionId)
-            onFinished()
+            val state = uiState.value
+            val exercise = state.exercises.firstOrNull { it.id == sessionExerciseId }
+                ?: return@launch
+            // Przerwa po serii usuwanego ćwiczenia nie ma już czego mierzyć.
+            if (state.rest?.sessionId == sessionId && state.rest.exerciseId == exercise.exerciseId) {
+                restTimer.cancel()
+            }
+            sessions.removeExerciseFromSession(sessionId, sessionExerciseId)
         }
     }
 

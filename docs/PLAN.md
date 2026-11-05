@@ -2564,11 +2564,68 @@ repozytorium (ostatnie wykonanie, typy serii, statystyki z rampą i czasem).
 
 ---
 
+**M10i ✔ (siedem poprawek UX i nowa szata graficzna)** — baza **v11**, bez
+migracji. Runda zbiera to, co przeszkadzało w codziennym użyciu, i porządkuje
+wygląd, nie zmieniając modelu danych.
+
+* **Usuwanie ćwiczenia z trwającego treningu.** Przytrzymanie kafelka (także
+  nazwy) otwiera potwierdzenie z nazwą ćwiczenia. Po zgodzie znikają
+  `session_exercises`, jego `set_logs` (kaskada FK) i `rest_intervals` —
+  te ostatnie czyścimy **przed** kasowaniem serii, bo `set_log_id` ma
+  `ON DELETE SET NULL` i po kaskadzie nie dałoby się ich odnaleźć. Pozostałe
+  pozycje dostają numery `1..n`, żeby lista nie miała dziur. Operacja jest
+  możliwa tylko w aktywnej sesji; zakończony trening to historia.
+* **Zakończenie treningu z potwierdzeniem i wznowieniem.** „Zakończ trening”
+  pyta, czy na pewno, a po potwierdzeniu **nie wyrzuca** z ekranu: pokazuje
+  stan „Trening zakończony” i przycisk „Wznów trening” (do końca dnia).
+  Wznowienie ustawia status `active`, czyści `finished_at`, a czas między
+  zakończeniem i wznowieniem dolicza do `paused_total_ms`, więc zegar wraca
+  w to samo miejsce. Wpis w kalendarzu wraca z `done` na `planned`
+  (`CalendarDao.reopenForSession`), a drugi trwający trening blokuje
+  wznowienie. Po północy przycisk się nie pojawia.
+* **Usuwanie wpisu z kalendarza.** Kosz jest teraz widoczny przy każdym wpisie
+  (nie tylko w menu przepełnienia) i pyta o potwierdzenie. Usuwany jest wpis
+  planu; odbyty trening zostaje w historii.
+* **Szacowany 1RM wyjaśniony.** Pod rekordem w statystykach i pod wykresem
+  w szczegółach ćwiczenia jest jedno zdanie: to szacunek ciężaru na jedno
+  powtórzenie liczony z ciężaru i liczby powtórzeń (wzór Epleya). Informacja
+  o niepewności powyżej 12 powtórzeń zostaje.
+* **Oś Y wykresu bez „32, 42, 52”.** `ProgressCharts` liczy własny zakres
+  i krok (1/2/5 × potęga dziesiątki, minimum 5 kg dla ciężaru), wyrównuje
+  granice do pełnych wartości i podaje krok do `VerticalAxis.ItemPlacer.step`.
+  Przy 40 kg etykiety wypadają np. na 35/40/45, a nie na surowym minimum.
+  Formatter pokazuje liczby całkowite.
+* **Jasny motyw na ciemnym telefonie.** Wykresy są owinięte
+  `ProvideVicoTheme(rememberM3VicoTheme())`: Vico bierze kolory z
+  `MaterialTheme`, a nie z `isSystemInDarkTheme`. Etykiety osi jawnie dostają
+  `onSurfaceVariant` i styl `labelSmall`, więc nie robią się białe na jasnej
+  karcie.
+* **Nowa szata graficzna „Obsidian & Citrus”.** Atramentowa zieleń, głęboki
+  mech, porcelanowe tło i limonkowy akcent; szeryfowe nagłówki (systemowy
+  `FontFamily.Serif`), monospace tylko na zegarze i liczbach; większe
+  zaokrąglenia. Kalendarz dostał ciemny herb miesiąca z szeryfowym miesiącem
+  i przyciskiem „Dziś”, trening — ciemny panel zegara i limonkowy pasek
+  przerwy, a dolna nawigacja jest pływającym panelem. Karty sekcji mają
+  delikatną ramkę i wspólny nagłówek. Bez nowych fontów i assetów — wszystko
+  z systemu.
+
+Weryfikacja: `testDebugUnitTest` (**331 testów**, wszystkie zielone; nowe:
+wznowienie tego samego dnia i odmowa następnego, usunięcie ćwiczenia z serią
+i przerwą oraz przenumerowanie, brak usuwania w zakończonym treningu, plan osi
+Y przy 40 kg i przy zakresie 45–117 kg), `lintDebug`, `assembleDebug`,
+`bundleRelease`. Na emulatorze API 36 sprawdzone ręcznie: long-press
+i potwierdzenie usunięcia, zakończenie → „Wznów” → aktywny trening, kosz
+w kalendarzu z potwierdzeniem, ciemny herb i pływająca nawigacja, wykres
+z etykietami `40/60/80/100/120` i ciemnymi opisami osi w jasnym motywie
+(także przy ciemnym motywie systemu).
+
+---
+
 ## 9. Testy i jakość
 
 | Poziom | Co testujemy | Narzędzia |
 |---|---|---|
-| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9), znaczniki dnia w kalendarzu i okno poprawki dnia treningu (M10), typy zapisu serii i walidacja serii, zakres rampy i najdłuższa seria dnia w statystykach (M10h) | JUnit4 + `TimeProvider` wstrzykiwany |
+| Jednostkowe | logika bez Androida: formatowanie czasu, grupowanie alternatyw, przestawianie wierszy, walidacja linków YouTube, importer seedów i katalogu z pliku, kody odrzuceń i odcisk treści, `RecurrenceExpander` (M3), siatka miesiąca i formaty dat (M3), zegar treningu z pauzami (M4), statystyki i arytmetyka przerw (M5), statystyki ćwiczenia i lista historii (M6), kroki wykonania, rozpoznanie rodzaju pliku, dobór `inSampleSize` (M7), zakres i zmiany wskaźników karty postaci, seria pomiarów, kierunek zmian (M8), dobór kanału alarmu przerwy i parytet tekstów PL/EN (M9), znaczniki dnia w kalendarzu i okno poprawki dnia treningu (M10), typy zapisu serii i walidacja serii, zakres rampy i najdłuższa seria dnia w statystykach (M10h), usuwanie pozycji z sesji i wznowienie zakończonego treningu (M10i) | JUnit4 + `TimeProvider` wstrzykiwany |
 | Bazy | DAO, migracje (1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11), kaskady (także kasowanie z archiwum), unikalne indeksy, słowniki (powód przerwy, rodzaj załącznika, kierunek wskaźnika), FTS, dziennik importów | Room in-memory + `MigrationTestHelper` na Robolectric |
 | Repozytoria | mapowanie encja↔model, `Flow`, kolejność i superserie, harmonogram i wpisy kalendarza (M3), serie i pauza treningu (M4), przerwy między seriami (M5), historia i statystyki z SQL (M6), załączniki i miniatury (M7), wskaźniki i pomiary karty postaci (M8), kopia w obie strony i scalanie po kluczu naturalnym, archiwum z ceną opróżnienia (M9), zakres dni treningów i poprawka dnia z wpisem w kalendarzu (M10) | Room in-memory + `runTest` |
 | UI | ścieżki krytyczne: dodanie ćwiczenia, zbudowanie dnia, zaplanowanie treningów, start i koniec treningu, eksport i wczytanie kopii przez SAF, import katalogu z pliku — **dziś ręcznie**, wg scenariuszy `docs/QA.md`; automatycznie tylko czysta logika UI (formaty dat, grupowanie, znaczniki dnia) | JUnit4 + Robolectric na JVM; **bez testów Compose** (brak `androidTest`) |
@@ -2605,7 +2662,7 @@ i okna poprawki daty. `ExerciseStatsCalculatorTest` zmienił asercję: zakres
 i liczy się do `futurePoints`; `SessionSummaryCalculatorTest` dostaje „dziś”
 jawnie i sprawdza `isFuture` wiersza.
 
-Stan na M10h: **322 testy JVM**, wszystkie zielone. Nowe testy pilnują
+Stan na M10i: **331 testów JVM**, wszystkie zielone. Nowe testy pilnują
 zachowania, które wcześniej nie miało pokrycia: `ExerciseTrackingTest` —
 domyślny typ ze sprzętu, odczyt nieznanej wartości, pierwszeństwo jednostki
 planu i kompletność serii dla każdego typu; `SchemaMigrationTest` — cała droga
@@ -2616,6 +2673,12 @@ zakończony trening (bez bieżącej sesji, z pierwszą serią roboczą rampy);
 dnia (`topSetDurationS`), powtórzenia z najdłuższej serii przy `TIME_REPS`
 i powtórzenia przy ćwiczeniu bez ciężaru. Migracja `10 → 11` przechodzi przez
 ten sam test całej drogi, więc nie ma osobnego testu tylko ostatniego skoku.
+M10i dokłada cztery testy w `SessionRepositoryTest`: wznowienie zamyka lukę
+jako pauzę i wraca do aktywnego treningu, trening z innego dnia nie daje się
+wznowić, usunięcie ćwiczenia kasuje jego serie i przerwy oraz przenumerowuje
+listę, a zakończony trening odmawia usunięcia pozycji. `ProgressChartAxisTest`
+pilnuje planu osi Y: 40 kg daje 35/40/45, zakres 45–117 kg — 40/60/80/100/120,
+a dane zawsze mieszczą się w zakresie.
 
 Uwaga z M7 dla przyszłych testów: Robolectric uruchamia prawdziwą aplikację
 (`GymTrackerApplication` → Hilt → startowe sprzątanie `filesDir/thumbs`), więc
@@ -2857,7 +2920,7 @@ z optymalizatorem R8 z §6.13.
 
 ## 11. Roadmapa po 1.0
 
-1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), **przestawianie i usuwanie ćwiczeń w trwającym treningu** (odłożone z M10 — dziś dopisanie idzie na koniec, a pomyłkę trzeba przerwać albo dokończyć), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`), **podpisywanie wydania w CI** (dziś CI buduje bundle niesignowany jako kontrolę R8 — sekrety podpisu mają sens dopiero wtedy, gdy wydania staną się częste).
+1. **v1.1** — przypomnienia o treningu, eksport CSV (także pomiarów karty postaci), wykresy: heatmapa aktywności (streak), **widok tygodnia w kalendarzu** (przegląd dni z podsumowaniem, odłożony z M3/M6), **dodawanie własnych linków do ćwiczenia** (`kind = 'link'` czeka w słowniku `exercise_media`, ekran podglądu już go obsługuje), **przestawianie kolejności wskaźników** w karcie postaci, **jednostki kg/lb i format czasu** (odłożone z M9 — baza trzyma kilogramy i tak zostaje, przeliczanie należy do warstwy prezentacji), **baseline profile i makrobenchmark startu** (odłożone z M9 — na emulatorze liczby są niemiarodajne, a profil bez pomiaru na urządzeniu to plik bez pokrycia), **przestawianie kolejności ćwiczeń w trwającym treningu** (usuwanie doszło w M10i; dziś dopisanie idzie na koniec), miniatura YouTube — tylko jeśli pojawi się powód, żeby aplikacja sięgała do sieci (dziś brak `INTERNET`), **podpisywanie wydania w CI** (dziś CI buduje bundle niesignowany jako kontrolę R8 — sekrety podpisu mają sens dopiero wtedy, gdy wydania staną się częste).
 2. **v1.2** — superserie/giant sety z automatycznym timerem, RPE i autoregulacja ciężaru.
 3. **v1.3** — Health Connect (waga, trening), widget na ekran główny, skróty.
 4. **v1.4** — Wear OS: logowanie serii z zegarka.

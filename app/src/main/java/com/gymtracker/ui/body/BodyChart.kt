@@ -24,7 +24,9 @@ import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLa
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.Fill
+import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import com.patrykandpatrick.vico.compose.common.data.ExtraStore
+import com.patrykandpatrick.vico.compose.m3.common.rememberM3VicoTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
@@ -177,36 +179,40 @@ fun BodyProgressChart(
         }
     }
 
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberLineCartesianLayer(
-                LineCartesianLayer.LineProvider.series(
-                    listOfNotNull(
-                        LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(lineColor))),
-                        target?.let {
-                            LineCartesianLayer.Line(
-                                LineCartesianLayer.LineFill.single(Fill(targetColor)),
-                            )
-                        },
+    // Vico domyślnie dobiera jasny/ciemny motyw z systemu, a nie z aplikacji:
+    // przy wymuszonym jasnym widoku etykiety osi były białe na jasnym tle.
+    ProvideVicoTheme(theme = rememberM3VicoTheme()) {
+        CartesianChartHost(
+            chart = rememberCartesianChart(
+                rememberLineCartesianLayer(
+                    LineCartesianLayer.LineProvider.series(
+                        listOfNotNull(
+                            LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(lineColor))),
+                            target?.let {
+                                LineCartesianLayer.Line(
+                                    LineCartesianLayer.LineFill.single(Fill(targetColor)),
+                                )
+                            },
+                        ),
                     ),
+                    rangeProvider = BodyValueRangeProvider,
                 ),
-                rangeProvider = BodyValueRangeProvider,
+                startAxis = VerticalAxis.rememberStart(
+                    valueFormatter = VALUE_FORMATTER,
+                    itemPlacer = itemPlacer,
+                ),
+                bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = DateAxisFormatter),
             ),
-            startAxis = VerticalAxis.rememberStart(
-                valueFormatter = VALUE_FORMATTER,
-                itemPlacer = itemPlacer,
+            modelProducer = producer,
+            zoomState = rememberVicoZoomState(
+                zoomEnabled = false,
+                initialZoom = Zoom.Content,
+                minZoom = Zoom.Content,
+                maxZoom = Zoom.Content,
             ),
-            bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = DateAxisFormatter),
-        ),
-        modelProducer = producer,
-        zoomState = rememberVicoZoomState(
-            zoomEnabled = false,
-            initialZoom = Zoom.Content,
-            minZoom = Zoom.Content,
-            maxZoom = Zoom.Content,
-        ),
-        modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
-    )
+            modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
+        )
+    }
 }
 
 /** Wpina [bodyValueAxis] w Vico - zakres liczy się z pomiarów, nie od zera. */

@@ -1,6 +1,8 @@
 package com.gymtracker.ui.navigation
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -9,15 +11,22 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.gymtracker.ui.theme.GymHeroInk
+import com.gymtracker.ui.theme.GymLime
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -60,6 +69,7 @@ fun GymTrackerNavHost(
 
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (currentRoute != null && currentRoute in Routes.topLevel) {
                 GymTrackerNavigationBar(
@@ -261,16 +271,41 @@ private fun GymTrackerNavigationBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
-    NavigationBar {
-        BottomDestination.entries.forEach { destination ->
-            NavigationBarItem(
-                selected = currentRoute == destination.route,
-                onClick = { onNavigate(destination.route) },
-                icon = {
-                    Icon(imageVector = destination.icon, contentDescription = null)
-                },
-                label = { Text(text = stringResource(destination.labelRes)) },
-            )
+    // Pływający pasek zamiast przyklejonego do krawędzi: ekran dostaje oddech,
+    // a nawigacja wygląda jak element interfejsu, nie jak systemowy chrome.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shadowElevation = 14.dp,
+            tonalElevation = 0.dp,
+        ) {
+            NavigationBar(
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp,
+            ) {
+                BottomDestination.entries.forEach { destination ->
+                    NavigationBarItem(
+                        selected = currentRoute == destination.route,
+                        onClick = { onNavigate(destination.route) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = GymHeroInk,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            indicatorColor = GymLime,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                        icon = {
+                            Icon(imageVector = destination.icon, contentDescription = null)
+                        },
+                        label = { Text(text = stringResource(destination.labelRes)) },
+                    )
+                }
+            }
         }
     }
 }

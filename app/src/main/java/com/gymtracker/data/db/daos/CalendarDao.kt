@@ -92,6 +92,10 @@ interface CalendarDao {
     @Query("UPDATE scheduled_sessions SET status = 'done' WHERE session_id = :sessionId")
     suspend fun markDoneForSession(sessionId: Long)
 
+    /** Wznowiony trening cofa wpis do „zaplanowany”; powiązanie zostaje. */
+    @Query("UPDATE scheduled_sessions SET status = 'planned' WHERE session_id = :sessionId")
+    suspend fun reopenForSession(sessionId: Long)
+
     @Query("DELETE FROM scheduled_sessions WHERE id = :id")
     suspend fun deleteScheduled(id: Long)
 

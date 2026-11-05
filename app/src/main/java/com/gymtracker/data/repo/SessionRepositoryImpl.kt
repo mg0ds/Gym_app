@@ -267,6 +267,60 @@ class SessionRepositoryImpl @Inject constructor(
         closeSession(sessionId, SessionEntity.STATUS_CANCELLED)
     }
 
+    override suspend fun resumeSession(sessionId: Long): Boolean = database.withTransaction {
+        val session = sessionDao.getSession(sessionId) ?: return@withTransaction false
+        if (session.status != SessionEntity.STATUS_FINISHED) return@withTransaction false
+        val finishedAt = session.finishedAtEpochMs ?: return@withTransaction false
+        val finishedDay = Instant.ofEpochMilli(finishedAt).atZone(zone()).toLocalDate()
+        // Wznowienie ma sens tylko tego samego dnia - po północy to już historia.
+        if (finishedDay != timeProvider.today()) return@withTransaction false
+        // Jeden trening naraz: nie przykrywamy innego trwającego treningu.
+        if (sessionDao.getActiveSessions().any { active -> active.id != sessionId }) {
+            return@withTransaction false
+        }
+
+        val now = timeProvider.nowEpochMs()
+        sessionDao.updateSession(
+            session.copy(
+                status = SessionEntity.STATUS_ACTIVE,
+                finishedAtEpochMs = null,
+                // Czas po zakończeniu to pauza, a nie trening: bez tego zegar
+                // po wznowieniu skoczyłby o cały czas przerwy.
+                pausedTotalMs = session.pausedTotalMs + (now - finishedAt).coerceAtLeast(0L),
+                pausedAtEpochMs = null,
+            ),
+        )
+        calendarDao.reopenForSession(sessionId)
+        true
+    }
+
+    override suspend fun removeExerciseFromSession(
+        sessionId: Long,
+        sessionExerciseId: Long,
+    ): Boolean = database.withTransaction {
+        if (!isEditable(sessionId)) return@withTransaction false
+        val entry = sessionDao.getSessionExercise(sessionExerciseId)
+            ?: return@withTransaction false
+        if (entry.sessionId != sessionId) return@withTransaction false
+
+        // Najpierw przerwy: `set_log_id` ma SET NULL, więc po kaskadzie nie
+        // bylibyśmy ich w stanie odnaleźć.
+        database.restDao().deleteForSessionExercise(
+            sessionId = sessionId,
+            exerciseId = entry.exerciseId,
+            sessionExerciseId = sessionExerciseId,
+        )
+        sessionDao.deleteSessionExercise(sessionExerciseId)
+
+        // Lista ma być ciągła: „1, 2, 3”, a nie „1, 3” po skasowaniu środka.
+        sessionDao.getSessionExercises(sessionId).forEachIndexed { index, remaining ->
+            if (remaining.position != index + 1) {
+                sessionDao.setExercisePosition(remaining.id, index + 1)
+            }
+        }
+        true
+    }
+
     override suspend fun setNote(sessionId: Long, note: String?) {
         sessionDao.setNote(sessionId, note?.trim()?.takeIf { cleaned -> cleaned.isNotEmpty() })
     }

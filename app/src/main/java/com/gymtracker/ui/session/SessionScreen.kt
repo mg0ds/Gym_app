@@ -1,6 +1,9 @@
 package com.gymtracker.ui.session
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,9 +11,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,11 +51,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.gymtracker.R
@@ -68,6 +78,12 @@ import com.gymtracker.domain.timer.formatElapsed
 import com.gymtracker.ui.calendar.isoText
 import com.gymtracker.ui.components.DatePickerRangeDialog
 import com.gymtracker.ui.plans.targetText
+import com.gymtracker.ui.theme.GymHeroInk
+import com.gymtracker.ui.theme.GymHeroMoss
+import com.gymtracker.ui.theme.GymHeroNumberStyle
+import com.gymtracker.ui.theme.GymHeroText
+import com.gymtracker.ui.theme.GymLime
+import com.gymtracker.ui.theme.GymTimerStyle
 import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
@@ -107,9 +123,11 @@ fun SessionScreen(
         onShrinkRest = viewModel::shrinkRest,
         onSkipRest = viewModel::skipRest,
         onRestDue = viewModel::restDue,
-        onFinish = { viewModel.finishSession(onFinished) },
+        onFinish = viewModel::finishSession,
+        onResumeSession = viewModel::resumeSession,
         onCancel = { viewModel.cancelSession(onFinished) },
         onAddExercise = onAddExercise,
+        onRemoveExercise = viewModel::removeExercise,
         onChangeDate = viewModel::setDate,
     )
 }
@@ -132,11 +150,15 @@ private fun SessionContent(
     onSkipRest: () -> Unit,
     onRestDue: () -> Unit,
     onFinish: () -> Unit,
+    onResumeSession: () -> Unit,
     onCancel: () -> Unit,
     onAddExercise: () -> Unit,
+    onRemoveExercise: (Long) -> Unit,
     onChangeDate: (LocalDate) -> Unit,
 ) {
     var showCancelConfirm by remember { mutableStateOf(false) }
+    var showFinishConfirm by remember { mutableStateOf(false) }
+    var exerciseToRemove by remember { mutableStateOf<SessionExercise?>(null) }
     var showNoteDialog by remember { mutableStateOf(false) }
     var showDateDialog by remember { mutableStateOf(false) }
     var setDialog by remember { mutableStateOf<SetDialogTarget?>(null) }
@@ -153,6 +175,9 @@ private fun SessionContent(
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -176,29 +201,54 @@ private fun SessionContent(
             )
         },
         bottomBar = {
-            if (session != null && uiState.isActive) {
-                Column(
+            if (session != null && (uiState.isActive || uiState.canResume)) {
+                // Pływający panel akcji: nie zasłania treści i oddziela
+                // nieodwracalne „Zakończ” od zwykłego przewijania listy.
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = 12.dp,
+                    tonalElevation = 0.dp,
                 ) {
-                    Button(
-                        onClick = onFinish,
-                        modifier = Modifier.fillMaxWidth(),
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text(text = stringResource(R.string.session_finish))
-                    }
-                    // Porzucenie treningu nie zapisuje niczego, więc ma kolor
-                    // błędu - nie wygląda jak zwykłe, bezpieczne wyjście.
-                    TextButton(
-                        onClick = { showCancelConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                    ) {
-                        Text(text = stringResource(R.string.session_cancel))
+                        if (uiState.isActive) {
+                            Button(
+                                onClick = { showFinishConfirm = true },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(text = stringResource(R.string.session_finish))
+                            }
+                            // Porzucenie treningu nie zapisuje niczego, więc ma
+                            // kolor błędu - nie wygląda jak zwykłe wyjście.
+                            TextButton(
+                                onClick = { showCancelConfirm = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
+                            ) {
+                                Text(text = stringResource(R.string.session_cancel))
+                            }
+                        } else {
+                            // Zakończenie da się cofnąć do końca dnia. Ekran
+                            // zostaje na treningu, więc przypadkowe kliknięcie nie
+                            // wyrzuca z kontekstu.
+                            Button(
+                                onClick = onResumeSession,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                            ) {
+                                Text(text = stringResource(R.string.session_resume_finished))
+                            }
+                        }
                     }
                 }
             }
@@ -266,6 +316,7 @@ private fun SessionContent(
                             setDialog = SetDialogTarget(exercise = exercise, log = log)
                         },
                         onEditRest = { restDialog = exercise },
+                        onRequestRemove = { exerciseToRemove = exercise },
                     )
                 }
             }
@@ -358,6 +409,62 @@ private fun SessionContent(
         )
     }
 
+    if (showFinishConfirm) {
+        AlertDialog(
+            onDismissRequest = { showFinishConfirm = false },
+            title = { Text(text = stringResource(R.string.session_finish_confirm_title)) },
+            text = { Text(text = stringResource(R.string.session_finish_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFinishConfirm = false
+                        onFinish()
+                    },
+                ) {
+                    Text(text = stringResource(R.string.session_finish))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFinishConfirm = false }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
+    exerciseToRemove?.let { exercise ->
+        AlertDialog(
+            onDismissRequest = { exerciseToRemove = null },
+            title = { Text(text = stringResource(R.string.session_remove_exercise_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.session_remove_exercise_body,
+                        exercise.exerciseName,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        exerciseToRemove = null
+                        onRemoveExercise(exercise.id)
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text(text = stringResource(R.string.session_remove_exercise_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { exerciseToRemove = null }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
     if (showCancelConfirm) {
         AlertDialog(
             onDismissRequest = { showCancelConfirm = false },
@@ -406,15 +513,15 @@ private fun SessionTimerHeader(
     val elapsedMs = sessionElapsedMs(session, tracked, nowMs)
     val restTotalMs = rests.sumOf { interval -> interval.elapsedMs(nowMs) }
 
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(Brush.linearGradient(listOf(GymHeroInk, GymHeroMoss)))
+            .padding(20.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(
@@ -423,17 +530,28 @@ private fun SessionTimerHeader(
                             isPaused -> R.string.session_pause
                             else -> R.string.session_in_progress
                         },
-                    ),
-                    style = MaterialTheme.typography.titleMedium,
+                    ).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GymLime,
                     modifier = Modifier.weight(1f),
                 )
                 if (isActive) {
                     if (isPaused) {
-                        Button(onClick = onResume) {
+                        Button(
+                            onClick = onResume,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GymLime,
+                                contentColor = GymHeroInk,
+                            ),
+                        ) {
                             Text(text = stringResource(R.string.session_resume))
                         }
                     } else {
-                        OutlinedButton(onClick = onPause) {
+                        OutlinedButton(
+                            onClick = onPause,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GymHeroText),
+                            border = BorderStroke(1.dp, GymHeroText.copy(alpha = 0.35f)),
+                        ) {
                             Text(text = stringResource(R.string.session_pause))
                         }
                     }
@@ -441,7 +559,8 @@ private fun SessionTimerHeader(
             }
             Text(
                 text = formatElapsed(elapsedMs),
-                style = MaterialTheme.typography.headlineMedium,
+                style = GymTimerStyle,
+                color = GymHeroText,
             )
             // Druga liczba dopiero wtedy, gdy jest co pokazać: przerwy to część
             // treningu, ale nie każdy trening je ma.
@@ -452,32 +571,43 @@ private fun SessionTimerHeader(
                         formatElapsed((elapsedMs - restTotalMs).coerceAtLeast(0L)),
                         formatElapsed(restTotalMs),
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GymHeroText.copy(alpha = 0.72f),
                 )
             }
             if (isPaused) {
                 Text(
                     text = stringResource(R.string.session_paused_hint),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = GymLime.copy(alpha = 0.8f),
                 )
             }
+            if (!isActive) {
+                Text(
+                    text = stringResource(R.string.session_finished_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GymLime.copy(alpha = 0.8f),
+                )
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 6.dp),
+                color = GymHeroText.copy(alpha = 0.12f),
+            )
             Text(
                 text = stringResource(
                     R.string.session_day,
                     session.dateIn(ZoneId.systemDefault()).isoText(),
                 ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = GymHeroText.copy(alpha = 0.72f),
             )
             Text(
                 text = stringResource(
                     R.string.session_started_at,
                     formatTimeOfDay(session.startedAtEpochMs),
                 ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                color = GymHeroText.copy(alpha = 0.72f),
             )
         }
     }
@@ -508,21 +638,25 @@ private fun SessionRestBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            containerColor = GymLime,
+            contentColor = GymHeroInk,
         ),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = stringResource(R.string.session_rest_title, rest.exerciseName),
-                style = MaterialTheme.typography.titleSmall,
+                text = stringResource(R.string.session_rest_title, rest.exerciseName).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = GymHeroInk.copy(alpha = 0.72f),
             )
             Text(
                 text = formatElapsed(remainingMs),
-                style = MaterialTheme.typography.headlineMedium,
+                style = GymHeroNumberStyle,
+                color = GymHeroInk,
             )
             Text(
                 text = stringResource(
@@ -530,19 +664,30 @@ private fun SessionRestBar(
                     formatElapsed(rest.plannedSeconds * 1_000L),
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = GymHeroInk.copy(alpha = 0.72f),
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(onClick = onShrink) {
+                OutlinedButton(
+                    onClick = onShrink,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GymHeroInk),
+                    border = BorderStroke(1.dp, GymHeroInk.copy(alpha = 0.3f)),
+                ) {
                     Text(text = stringResource(R.string.session_rest_shrink))
                 }
-                OutlinedButton(onClick = onExtend) {
+                OutlinedButton(
+                    onClick = onExtend,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GymHeroInk),
+                    border = BorderStroke(1.dp, GymHeroInk.copy(alpha = 0.3f)),
+                ) {
                     Text(text = stringResource(R.string.session_rest_extend))
                 }
-                TextButton(onClick = onSkip) {
+                TextButton(
+                    onClick = onSkip,
+                    colors = ButtonDefaults.textButtonColors(contentColor = GymHeroInk),
+                ) {
                     Text(text = stringResource(R.string.session_rest_skip))
                 }
             }
@@ -683,6 +828,7 @@ private fun SessionNoteDialog(
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SessionExerciseCard(
     position: Int,
@@ -695,6 +841,7 @@ private fun SessionExerciseCard(
     onAddSet: () -> Unit,
     onEditSet: (SetLog) -> Unit,
     onEditRest: () -> Unit,
+    onRequestRemove: () -> Unit,
 ) {
     val target = targetText(exercise.targetSets, exercise.repsMin, exercise.repsMax, exercise.repsUnit)
     val restTarget = exercise.restTargetSeconds(defaultRestSeconds)
@@ -708,25 +855,76 @@ private fun SessionExerciseCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .then(
+                if (editable) {
+                    // Przytrzymanie kafelka to najkrótsza droga do usunięcia
+                    // pomyłkowo dodanego ćwiczenia; zwykły klik nadal otwiera
+                    // szczegóły (robi to nazwa w środku).
+                    Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = onRequestRemove,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (targetDone) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+            },
+        ),
         colors = if (targetDone) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         } else {
-            CardDefaults.cardColors()
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         },
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = position.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 12.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (targetDone) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = position.toString(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (targetDone) {
+                            MaterialTheme.colorScheme.onPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable(onClick = onOpenExercise),
+                        .then(
+                            if (editable) {
+                                // Długie przytrzymanie także na nazwie: to
+                                // najbardziej oczywiste miejsce na kafelku.
+                                Modifier.combinedClickable(
+                                    onClick = onOpenExercise,
+                                    onLongClick = onRequestRemove,
+                                )
+                            } else {
+                                Modifier.clickable(onClick = onOpenExercise)
+                            },
+                        ),
                 ) {
                     Text(
                         text = exercise.exerciseName,

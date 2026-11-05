@@ -24,6 +24,8 @@ import com.patrykandpatrick.vico.compose.cartesian.CartesianMeasuringContext
 import com.patrykandpatrick.vico.compose.cartesian.axis.Axis
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisGuidelineComponent
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberAxisLabelComponent
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
@@ -35,15 +37,22 @@ import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesian
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.common.Fill
+import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
 import com.patrykandpatrick.vico.compose.common.component.rememberShapeComponent
+import com.patrykandpatrick.vico.compose.m3.common.rememberM3VicoTheme
 import java.time.format.DateTimeFormatter
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
  * Wykresy postępu (Vico).
  *
- * Dwie decyzje, które łatwo pomylić z usterką:
+ * Trzy decyzje, które łatwo pomylić z usterką:
  *
  * 1. **Oś X to kolejne treningi, nie kalendarz.** Na wykresie postępu pytanie
  *    brzmi „czy rosnę z treningu na trening”; przy rzadkich treningach
@@ -51,6 +60,10 @@ import kotlin.math.roundToInt
  *    punktu widać pod wykresem, w tabeli wykonań.
  * 2. **Punkt bez ciężaru wypada z wykresu ciężaru**, a nie jest rysowany jako
  *    zero: zero znaczyłoby „podniosłem nic”, a to nieprawda.
+ * 3. **Oś Y ma „ładne” wartości.** Automatyczny zakres Vico zaczyna etykiety od
+ *    surowego minimum (np. 32) i dokłada krok 10, więc przy 40 kg na osi
+ *    pojawiało się 32, 42, 52… Tutaj zakres i krok liczymy sami, żeby etykiety
+ *    wypadały na pełnych kilogramach (30, 40, 50).
  *
  * Oba wykresy mają włączony zoom i przewijanie - `CartesianChartHost` domyślnie
  * podłącza `rememberDefaultVicoZoomState`, więc nie trzeba tego nigdzie ustawiać.
@@ -130,18 +143,39 @@ fun WeightProgressChart(
         }
     }
 
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberLineCartesianLayer(
-                lineProvider = LineCartesianLayer.LineProvider.series(lines),
-                rangeProvider = chartRange(weightPoints),
-            ),
-            startAxis = VerticalAxis.rememberStart(),
-            bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = DateAxisFormatter(weightPoints)),
-        ),
-        modelProducer = producer,
-        modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
+    val yAxis = yAxisPlan(
+        values = weightPoints.flatMap { point ->
+            listOfNotNull(point.topSetKg, point.minSetKg, point.estimatedOneRepMaxKg)
+        },
+        // Na siłowni ciężar zmienia się skokowo co 2,5-5 kg; oś co 2 kg
+        // wyglądałaby na przypadkową siatkę.
+        minStep = 5.0,
     )
+
+    ChartTheme {
+        CartesianChartHost(
+            chart = rememberCartesianChart(
+                rememberLineCartesianLayer(
+                    lineProvider = LineCartesianLayer.LineProvider.series(lines),
+                    rangeProvider = yAxis.rangeProvider(),
+                ),
+                startAxis = verticalAxis(yAxis, KILOGRAMS_FORMATTER),
+                bottomAxis = HorizontalAxis.rememberBottom(
+                    valueFormatter = DateAxisFormatter(weightPoints),
+                    label = rememberAxisLabelComponent(
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    ),
+                    guideline = rememberAxisGuidelineComponent(
+                        fill = Fill(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                    ),
+                ),
+            ),
+            modelProducer = producer,
+            modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
+        )
+    }
 }
 
 /** Znacznik punktu - bez niego pojedynczy trening jest niewidoczny. */
@@ -150,31 +184,6 @@ private fun marker(color: Color): LineCartesianLayer.Point = LineCartesianLayer.
     component = rememberShapeComponent(fill = Fill(color), shape = CircleShape),
     size = 6.dp,
 )
-
-/**
- * Zakres osi Y. Przy jednej wartości (jeden trening albo same równe ciężary)
- * auto-zakres miałby zerową wysokość - dodajemy margines, żeby punkt i linia
- * miały gdzie się narysować.
- */
-private fun chartRange(points: List<ExerciseStatsPoint>): CartesianLayerRangeProvider {
-    val values = points.flatMap { point ->
-        listOfNotNull(point.topSetKg, point.minSetKg, point.estimatedOneRepMaxKg)
-    }
-    if (values.distinct().size > 1) return CartesianLayerRangeProvider.auto()
-    val value = values.firstOrNull() ?: 0.0
-    val padding = maxOf(MIN_RANGE_PADDING_KG, value * RANGE_PADDING_FRACTION)
-    return CartesianLayerRangeProvider.fixed(
-        minY = (value - padding).coerceAtLeast(0.0),
-        maxY = value + padding,
-    )
-}
-
-/** Czy w zakresie jest rampa: najlżejsza seria lżejsza od najcięższej. */
-fun hasWeightRange(points: List<ExerciseStatsPoint>): Boolean = points.any { point ->
-    val lightest = point.minSetKg
-    val heaviest = point.topSetKg
-    lightest != null && heaviest != null && lightest < heaviest
-}
 
 /** Objętość dnia: Σ (ciężar × powtórzenia) serii roboczych. */
 @Composable
@@ -192,20 +201,65 @@ fun VolumeProgressChart(
         }
     }
 
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberColumnCartesianLayer(
-                ColumnCartesianLayer.ColumnProvider.series(
-                    rememberLineComponent(fill = Fill(columnColor), thickness = COLUMN_WIDTH),
+    val yAxis = yAxisPlan(points.map { point -> point.volumeKg })
+
+    ChartTheme {
+        CartesianChartHost(
+            chart = rememberCartesianChart(
+                rememberColumnCartesianLayer(
+                    ColumnCartesianLayer.ColumnProvider.series(
+                        rememberLineComponent(fill = Fill(columnColor), thickness = COLUMN_WIDTH),
+                    ),
+                ),
+                startAxis = verticalAxis(yAxis, KILOGRAMS_FORMATTER),
+                bottomAxis = HorizontalAxis.rememberBottom(
+                    valueFormatter = DateAxisFormatter(points),
+                    label = rememberAxisLabelComponent(
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    ),
+                    guideline = rememberAxisGuidelineComponent(
+                        fill = Fill(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                    ),
                 ),
             ),
-            startAxis = VerticalAxis.rememberStart(valueFormatter = KILOGRAMS_FORMATTER),
-            bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = DateAxisFormatter(points)),
-        ),
-        modelProducer = producer,
-        modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
-    )
+            modelProducer = producer,
+            modifier = modifier.fillMaxWidth().height(CHART_HEIGHT),
+        )
+    }
 }
+
+/**
+ * Motyw Vico zsynchronizowany z motywem aplikacji.
+ *
+ * Domyślnie Vico bierze jasny/ciemny wariant z **motywu systemu**, nie z
+ * `GymTrackerTheme`. Przy wymuszonym jasnym widoku i ciemnym telefonie etykiety
+ * osi robiły się białe na jasnym tle. `rememberM3VicoTheme` czyta wprost
+ * `MaterialTheme.colorScheme` (m.in. `onBackground`).
+ */
+@Composable
+private fun ChartTheme(content: @Composable () -> Unit) {
+    ProvideVicoTheme(theme = rememberM3VicoTheme(), content = content)
+}
+
+/** Oś Y: pełne wartości, delikatna siatka i wspólny formatter. */
+@Composable
+private fun verticalAxis(
+    plan: YAxisPlan,
+    formatter: CartesianValueFormatter,
+): VerticalAxis<Axis.Position.Vertical.Start> = VerticalAxis.rememberStart(
+    valueFormatter = formatter,
+    itemPlacer = remember(plan.step) { VerticalAxis.ItemPlacer.step({ plan.step }) },
+    label = rememberAxisLabelComponent(
+        style = MaterialTheme.typography.labelSmall.copy(
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ),
+    guideline = rememberAxisGuidelineComponent(
+        fill = Fill(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+    ),
+)
 
 /** Legenda pod wykresem: kropka w kolorze linii i nazwa serii. */
 @Composable
@@ -259,11 +313,59 @@ private class DateAxisFormatter(
     }
 }
 
-private val COLUMN_WIDTH = 14.dp
+/**
+ * Zakres i krok osi Y policzone razem, żeby etykiety nie wypadały „obok”
+ * danych. `step` jest wielokrotnością 1, 2, 2,5 albo 5 razy potęga dziesiątki.
+ */
+internal data class YAxisPlan(
+    val minY: Double,
+    val maxY: Double,
+    val step: Double,
+) {
+    fun rangeProvider(): CartesianLayerRangeProvider =
+        CartesianLayerRangeProvider.fixed(minY = minY, maxY = maxY)
+}
 
-/** Margines osi Y przy jednej wartości: co najmniej 2,5 kg albo 5% ciężaru. */
-private const val MIN_RANGE_PADDING_KG = 2.5
-private const val RANGE_PADDING_FRACTION = 0.05
+internal fun yAxisPlan(values: List<Double>, minStep: Double = 0.0): YAxisPlan {
+    val finite = values.filter { value -> value.isFinite() }
+    val dataMin = finite.minOrNull() ?: 0.0
+    val dataMax = finite.maxOrNull() ?: 1.0
+    val span = (dataMax - dataMin).coerceAtLeast(max(dataMax * 0.1, 1.0))
+    // Oddech nad danymi ma być mały: przy 8% i kroku 20 kg oś schodziła
+    // o dwa „oczka” poniżej najlżejszej serii (20 zamiast 40).
+    val padding = max(span * 0.04, if (dataMax <= 50) 1.0 else 0.0)
+    // Celujemy w ~5 przedziałów: przy czterech zbyt łatwo wypada krok 50,
+    // który przy danych 45–117 kg daje niepotrzebne 0 na dole osi.
+    val rawStep = (span + padding * 2) / 5
+    val step = max(niceStep(rawStep), minStep)
+    var low = floor((dataMin - padding) / step) * step
+    var high = ceil((dataMax + padding) / step) * step
+    if (low < 0.0 && dataMin >= 0.0) low = 0.0
+    if (high <= low) high = low + step
+    return YAxisPlan(minY = low, maxY = high, step = step)
+}
+
+private fun niceStep(raw: Double): Double {
+    if (raw <= 0.0 || !raw.isFinite()) return 1.0
+    val magnitude = 10.0.pow(floor(log10(raw)))
+    val normalized = raw / magnitude
+    val nice = when {
+        normalized <= 1.0 -> 1.0
+        normalized <= 2.0 -> 2.0
+        normalized <= 5.0 -> 5.0
+        else -> 10.0
+    }
+    return nice * magnitude
+}
+
+/** Czy w zakresie jest rampa: najlżejsza seria lżejsza od najcięższej. */
+fun hasWeightRange(points: List<ExerciseStatsPoint>): Boolean = points.any { point ->
+    val lightest = point.minSetKg
+    val heaviest = point.topSetKg
+    lightest != null && heaviest != null && lightest < heaviest
+}
+
+private val COLUMN_WIDTH = 14.dp
 
 private val KILOGRAMS_FORMATTER = CartesianValueFormatter.decimal(
     decimalCount = 0,

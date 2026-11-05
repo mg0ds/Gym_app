@@ -310,6 +310,11 @@ private fun ExerciseDetails(
                 if (stats.hasWeightData) {
                     ChartLegend(entries = weightLegend(showLightest = hasWeightRange(stats.points)))
                     WeightProgressChart(points = stats.points)
+                    Text(
+                        text = stringResource(R.string.exercise_stats_one_rep_max_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 TextButton(onClick = onOpenStats) {
                     Text(stringResource(R.string.exercise_stats_open))

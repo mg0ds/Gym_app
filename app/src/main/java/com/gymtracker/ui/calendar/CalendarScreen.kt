@@ -1,8 +1,10 @@
 package com.gymtracker.ui.calendar
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +24,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -34,13 +39,14 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
@@ -69,6 +76,10 @@ import com.gymtracker.domain.model.ScheduledWorkout
 import com.gymtracker.domain.model.SessionDetails
 import com.gymtracker.ui.components.DatePickerRangeDialog
 import com.gymtracker.ui.components.StartAnotherWorkoutDialog
+import com.gymtracker.ui.theme.GymHeroInk
+import com.gymtracker.ui.theme.GymHeroMoss
+import com.gymtracker.ui.theme.GymHeroText
+import com.gymtracker.ui.theme.GymLime
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
@@ -128,6 +139,7 @@ internal fun CalendarContent(
     onOpenSession: (Long) -> Unit,
 ) {
     var entryToMove by remember { mutableStateOf<ScheduledWorkout?>(null) }
+    var entryToRemove by remember { mutableStateOf<ScheduledWorkout?>(null) }
     var startForDate by remember { mutableStateOf<LocalDate?>(null) }
     // Start drugiego treningu przerwie trwający (tak działa repozytorium:
     // „jeden trening naraz”), więc pytamy, zanim to zrobimy po cichu.
@@ -138,22 +150,12 @@ internal fun CalendarContent(
     }
     val locale = LocalConfiguration.current.locales[0]
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(text = stringResource(R.string.calendar_title)) },
-                actions = {
-                    TextButton(onClick = onToday) {
-                        Text(text = stringResource(R.string.calendar_today))
-                    }
-                },
-            )
-        },
-    ) { innerPadding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -167,6 +169,7 @@ internal fun CalendarContent(
                 locale = locale,
                 onPreviousMonth = onPreviousMonth,
                 onNextMonth = onNextMonth,
+                onToday = onToday,
             )
 
             WeekdayHeader(locale = locale)
@@ -188,7 +191,7 @@ internal fun CalendarContent(
                     onStartForDay = { startForDate = uiState.selectedDate },
                     onStatus = onStatus,
                     onMoveClick = { entry -> entryToMove = entry },
-                    onRemove = onRemove,
+                    onRemoveClick = { entry -> entryToRemove = entry },
                     onOpenPlans = onOpenPlans,
                     onOpenSession = onOpenSession,
                 )
@@ -208,6 +211,39 @@ internal fun CalendarContent(
             onConfirm = { date ->
                 entryToMove = null
                 onMove(entry.id, date)
+            },
+        )
+    }
+
+    entryToRemove?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { entryToRemove = null },
+            title = { Text(text = stringResource(R.string.calendar_remove_confirm_title)) },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.calendar_remove_confirm_body,
+                        entry.title,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        entryToRemove = null
+                        onRemove(entry.id)
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    Text(text = stringResource(R.string.schedule_remove))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { entryToRemove = null }) {
+                    Text(text = stringResource(R.string.action_cancel))
+                }
             },
         )
     }
@@ -245,51 +281,142 @@ internal fun CalendarContent(
 private fun ActiveSessionCard(session: SessionDetails, onOpen: (Long) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = GymLime),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.calendar_active_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(text = session.session.name, style = MaterialTheme.typography.bodyLarge)
-            Button(onClick = { onOpen(session.session.id) }) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.calendar_active_title).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = GymHeroInk.copy(alpha = 0.7f),
+                )
+                Text(
+                    text = session.session.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = GymHeroInk,
+                )
+                Text(
+                    text = stringResource(R.string.calendar_active_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GymHeroInk.copy(alpha = 0.7f),
+                )
+            }
+            Button(
+                onClick = { onOpen(session.session.id) },
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GymHeroInk,
+                    contentColor = GymHeroText,
+                ),
+            ) {
                 Text(text = stringResource(R.string.calendar_active_resume))
             }
         }
     }
 }
 
+/**
+ * Herb miesiąca: ciemna karta z szeryfowym miesiącem, nawigacją i skrótem do
+ * „dziś”. To pierwszy element, który ustawia charakter całego ekranu.
+ */
 @Composable
 private fun MonthHeader(
     uiState: CalendarUiState,
     locale: Locale,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
+    onToday: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onPreviousMonth) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = stringResource(R.string.calendar_previous_month),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(GymHeroInk, GymHeroMoss),
+                ),
             )
-        }
-        Text(
-            text = uiState.month.headerText(locale),
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = onNextMonth, enabled = uiState.canGoForward) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = stringResource(R.string.calendar_next_month),
-            )
+            .padding(20.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.calendar_title).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = GymLime,
+                    )
+                    Text(
+                        text = uiState.month.headerText(locale),
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = GymHeroText,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(
+                        onClick = onPreviousMonth,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = GymHeroText,
+                            containerColor = Color.White.copy(alpha = 0.08f),
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = stringResource(R.string.calendar_previous_month),
+                        )
+                    }
+                    IconButton(
+                        onClick = onNextMonth,
+                        enabled = uiState.canGoForward,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = GymHeroText,
+                            disabledContentColor = GymHeroText.copy(alpha = 0.3f),
+                            containerColor = Color.White.copy(alpha = 0.08f),
+                            disabledContainerColor = Color.White.copy(alpha = 0.04f),
+                        ),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.calendar_next_month),
+                        )
+                    }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(
+                        R.string.calendar_hero_today,
+                        uiState.today.weekdayText(locale),
+                        uiState.today.dayMonthText(locale),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = GymHeroText.copy(alpha = 0.68f),
+                    modifier = Modifier.weight(1f),
+                )
+                Surface(
+                    shape = CircleShape,
+                    color = GymLime,
+                    contentColor = GymHeroInk,
+                ) {
+                    TextButton(onClick = onToday) {
+                        Text(
+                            text = stringResource(R.string.calendar_today),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -354,13 +481,13 @@ private fun RowScope.DayCell(
     val frameStatus = dayFrameStatus(marks)
     val frameColor = frameStatus?.let { status -> statusFrameColor(status) }
     val background = when {
-        isSelected -> MaterialTheme.colorScheme.primaryContainer
+        isSelected -> MaterialTheme.colorScheme.primary
         isToday -> MaterialTheme.colorScheme.surfaceContainerHigh
         else -> Color.Transparent
     }
     val digitColor = when {
         !cell.inMonth -> MaterialTheme.colorScheme.outline
-        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+        isSelected -> MaterialTheme.colorScheme.onPrimary
         else -> MaterialTheme.colorScheme.onSurface
     }
     val statuses = marks.map { mark -> stringResource(statusLabelRes(mark)) }
@@ -379,14 +506,16 @@ private fun RowScope.DayCell(
             .clip(CELL_SHAPE)
             .background(background)
             .then(
-                if (frameColor == null) {
-                    Modifier
-                } else {
-                    Modifier.border(
-                        width = if (isSelected) FRAME_WIDTH_SELECTED else FRAME_WIDTH,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else frameColor,
-                        shape = CELL_SHAPE,
+                when {
+                    isSelected -> Modifier.border(FRAME_WIDTH_SELECTED, GymLime, CELL_SHAPE)
+                    isToday && frameColor == null -> Modifier.border(
+                        FRAME_WIDTH,
+                        MaterialTheme.colorScheme.tertiary,
+                        CELL_SHAPE,
                     )
+
+                    frameColor != null -> Modifier.border(FRAME_WIDTH, frameColor, CELL_SHAPE)
+                    else -> Modifier
                 },
             )
             .clickable(onClick = onClick)
@@ -500,7 +629,7 @@ private fun SelectedDaySection(
     onStartForDay: () -> Unit,
     onStatus: (Long, ScheduleStatus) -> Unit,
     onMoveClick: (ScheduledWorkout) -> Unit,
-    onRemove: (Long) -> Unit,
+    onRemoveClick: (ScheduledWorkout) -> Unit,
     onOpenPlans: () -> Unit,
     onOpenSession: (Long) -> Unit,
 ) {
@@ -513,15 +642,21 @@ private fun SelectedDaySection(
                     date.weekdayText(locale),
                     date.dayMonthText(locale),
                 ),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.headlineSmall,
             )
             if (date == uiState.today) {
-                Text(
-                    text = stringResource(R.string.calendar_today),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(start = 8.dp),
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.calendar_today),
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
             }
         }
 
@@ -529,7 +664,10 @@ private fun SelectedDaySection(
         // pustego: wybrany dzień to dzień treningu, a nie dzień kliknięcia.
         Button(
             onClick = onStartForDay,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = MaterialTheme.shapes.large,
         ) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
@@ -556,7 +694,7 @@ private fun SelectedDaySection(
                     onStart = { onStart(entry.id) },
                     onStatus = { status -> onStatus(entry.id, status) },
                     onMoveClick = { onMoveClick(entry) },
-                    onRemove = { onRemove(entry.id) },
+                    onRemoveRequest = { onRemoveClick(entry) },
                     onOpenSession = onOpenSession,
                 )
             }
@@ -580,9 +718,17 @@ private fun WorkoutCard(workout: DayWorkout, onOpen: (Long) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onOpen(workout.sessionId) },
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+        ),
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
@@ -719,14 +865,24 @@ private fun EntryCard(
     onStart: () -> Unit,
     onStatus: (ScheduleStatus) -> Unit,
     onMoveClick: () -> Unit,
-    onRemove: () -> Unit,
+    onRemoveRequest: () -> Unit,
     onOpenSession: (Long) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+        ),
+    ) {
         Row(
-            modifier = Modifier.padding(start = 12.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
@@ -775,6 +931,15 @@ private fun EntryCard(
                 }
             }
 
+            // Usuwanie nie może być schowane wyłącznie w menu: to najczęściej
+            // szukana akcja, gdy wpis dodano przez pomyłkę.
+            IconButton(onClick = onRemoveRequest) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.schedule_remove),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             IconButton(onClick = { menuOpen = true }) {
                 Icon(
                     imageVector = Icons.Filled.MoreVert,
@@ -830,10 +995,15 @@ private fun EntryCard(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text(text = stringResource(R.string.schedule_remove)) },
+                    text = {
+                        Text(
+                            text = stringResource(R.string.schedule_remove),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    },
                     onClick = {
                         menuOpen = false
-                        onRemove()
+                        onRemoveRequest()
                     },
                 )
             }

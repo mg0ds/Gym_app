@@ -11,6 +11,8 @@
     <!-- Workout in progress (card on the calendar) -->
     <string name="calendar_active_title">You have a workout in progress</string>
     <string name="calendar_active_resume">Continue workout</string>
+    <string name="calendar_active_hint">The clock is running — come back when you are ready.</string>
+    <string name="calendar_hero_today">Today, %1$s, %2$s</string>
     <string name="calendar_confirm_new_title">Another workout is in progress</string>
     <string name="calendar_confirm_new_message">Starting a new workout will mark \"%1$s\" as cancelled. Continue?</string>
     <string name="calendar_confirm_new_start">Start new</string>
@@ -342,6 +344,8 @@
     <string name="calendar_day_empty">Nothing planned for this day.</string>
     <string name="calendar_plan_workout">Plan a workout</string>
     <string name="calendar_entry_actions">Actions for this day</string>
+    <string name="calendar_remove_confirm_title">Remove this calendar entry?</string>
+    <string name="calendar_remove_confirm_body">“%1$s” will disappear from the calendar. A completed workout, if one exists, stays in history.</string>
     <string name="calendar_start_workout">Start workout</string>
     <string name="calendar_start_for">Workout on %1$s</string>
     <string name="calendar_start_date_hint">%1$s - the workout is saved under this date.</string>
@@ -402,6 +406,12 @@
 
     <!-- Workout -->
     <string name="session_finish">Finish workout</string>
+    <string name="session_finish_confirm_title">Finish this workout?</string>
+    <string name="session_finish_confirm_body">The workout will be saved to history. If you tapped by accident, you can resume it until the end of the day.</string>
+    <string name="session_resume_finished">Resume workout</string>
+    <string name="session_remove_exercise_title">Remove this exercise?</string>
+    <string name="session_remove_exercise_body">“%1$s” will be removed from this workout along with its logged sets. This cannot be undone.</string>
+    <string name="session_remove_exercise_action">Remove exercise</string>
     <string name="session_cancel">Discard workout</string>
     <string name="session_no_exercises">This workout has no exercises yet.</string>
     <string name="session_add_exercise">Add exercise</string>
@@ -411,6 +421,7 @@
     <string name="session_cancel_confirm_body">The workout will not be saved as completed.</string>
     <string name="session_in_progress">Workout in progress</string>
     <string name="session_finished">Workout finished</string>
+    <string name="session_finished_hint">Saved to history. You can resume it until the end of the day.</string>
     <string name="session_started_at">Started at %1$s</string>
     <string name="session_day">Workout day: %1$s</string>
     <string name="session_change_date">Change workout day</string>
@@ -574,6 +585,7 @@
     <string name="exercise_stats_volume_with_date">%1$s kg • %2$s</string>
     <string name="exercise_stats_one_rep_max_value">%1$s kg</string>
     <string name="exercise_stats_one_rep_max_approximate">~%1$s kg</string>
+    <string name="exercise_stats_one_rep_max_hint">Estimated one-rep max, calculated from weight and reps (Epley formula).</string>
     <string name="exercise_stats_one_rep_max_note">Above 12 reps this formula is only an estimate.</string>
     <string name="exercise_stats_range_sessions">Workouts in range</string>
     <string name="exercise_stats_range_sets">Sets in range</string>

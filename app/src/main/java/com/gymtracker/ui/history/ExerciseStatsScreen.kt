@@ -141,6 +141,13 @@ private fun RecordsCard(stats: ExerciseStats) {
                 label = stringResource(R.string.exercise_stats_record_one_rep_max),
                 value = oneRepMaxText(record),
             )
+            // „1RM” bywa skrótem niezrozumiałym poza siłownią - jedno zdanie
+            // wyjaśnia, skąd bierze się liczba i że to szacunek.
+            Text(
+                text = stringResource(R.string.exercise_stats_one_rep_max_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (record.approximate) {
                 Text(
                     text = stringResource(R.string.exercise_stats_one_rep_max_note),

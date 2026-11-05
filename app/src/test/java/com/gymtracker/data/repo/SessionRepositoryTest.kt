@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.gymtracker.data.db.AppDatabase
 import com.gymtracker.data.db.entities.ExerciseEntity
+import com.gymtracker.data.db.entities.RestIntervalEntity
 import com.gymtracker.data.db.entities.ScheduledSessionEntity
 import com.gymtracker.domain.model.PlanDayDraft
 import com.gymtracker.domain.model.PlanDraft
@@ -136,6 +137,84 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `wznowienie zamyka luke jako pauze i wraca do aktywnego treningu`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+
+        currentTime = 10_000L + 10 * 60_000L
+        sessions.finishSession(sessionId)
+        val finished = requireNotNull(sessions.observeSession(sessionId).first()).session
+        assertEquals(10 * 60_000L, finished.durationMs)
+
+        // Przerwa między zakończeniem a wznowieniem nie może wliczyć się do treningu.
+        currentTime += 2 * 60_000L
+        assertTrue(sessions.resumeSession(sessionId))
+
+        val resumed = requireNotNull(sessions.observeSession(sessionId).first()).session
+        assertEquals(SessionStatus.ACTIVE, resumed.status)
+        assertNull(resumed.finishedAtEpochMs)
+        assertEquals(2 * 60_000L, resumed.pausedTotalMs)
+        assertEquals(
+            "zegar wraca w to samo miejsce",
+            10 * 60_000L,
+            currentTime - resumed.startedAtEpochMs - resumed.pausedTotalMs,
+        )
+    }
+
+    @Test
+    fun `nie wznawia treningu z innego dnia`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+
+        currentTime = 10_000L + 60_000L
+        sessions.finishSession(sessionId)
+
+        currentTime += 24 * 60 * 60_000L
+        assertFalse(sessions.resumeSession(sessionId))
+        assertEquals(
+            SessionStatus.FINISHED,
+            requireNotNull(sessions.observeSession(sessionId).first()).session.status,
+        )
+    }
+
+    @Test
+    fun `usuniecie cwiczenia kasuje jego serie i przenumerowuje liste`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+        val before = requireNotNull(sessions.observeSession(sessionId).first())
+        val squat = before.exercises.first { it.exerciseName == "Barbell Back Squat" }
+        val setLogId = requireNotNull(sessions.addSet(squat.id, SetLogDraft(weightKg = 100.0, reps = 5)))
+        assertTrue(database.setLogDao().getSetsFrom(squat.id, 0).isNotEmpty())
+        database.restDao().insert(
+            RestIntervalEntity(
+                exerciseId = squat.exerciseId,
+                sessionId = sessionId,
+                setLogId = setLogId,
+                startedAtEpochMs = currentTime,
+            ),
+        )
+        assertFalse(database.restDao().observeSessionRests(sessionId).first().isEmpty())
+
+        assertTrue(sessions.removeExerciseFromSession(sessionId, squat.id))
+
+        val after = requireNotNull(sessions.observeSession(sessionId).first())
+        assertEquals(listOf("Barbell Bench Press"), after.exercises.map { it.exerciseName })
+        assertEquals("lista bez dziury po usuniętym ćwiczeniu", listOf(1), after.exercises.map { it.position })
+        assertTrue(database.setLogDao().getSetsFrom(squat.id, 0).isEmpty())
+        assertTrue(database.restDao().observeSessionRests(sessionId).first().isEmpty())
+    }
+
+    @Test
+    fun `usuniecie cwiczenia nie dziala w zakonczonym treningu`() = runTest {
+        val sessionId = requireNotNull(sessions.startFromPlanDay(seedDay()))
+        val squat = requireNotNull(sessions.observeSession(sessionId).first()).exercises.first()
+        sessions.finishSession(sessionId)
+
+        assertFalse(sessions.removeExerciseFromSession(sessionId, squat.id))
+        assertEquals(
+            2,
+            requireNotNull(sessions.observeSession(sessionId).first()).exercises.size,
+        )
+    }
+
+    @Test
     fun `usuniecie planu nie kasuje historii treningu`() = runTest {
         val (planId, dayId) = seedPlanAndDay()
         val sessionId = requireNotNull(sessions.startFromPlanDay(dayId))
@@ -176,6 +255,13 @@ class SessionRepositoryTest {
         sessions.finishSession(sessionId)
         assertEquals(
             ScheduledSessionEntity.STATUS_DONE,
+            requireNotNull(database.calendarDao().getScheduled(scheduledId)).status,
+        )
+
+        // Wznowienie cofa wpis do „zaplanowany” - trening znów trwa.
+        assertTrue(sessions.resumeSession(sessionId))
+        assertEquals(
+            ScheduledSessionEntity.STATUS_PLANNED,
             requireNotNull(database.calendarDao().getScheduled(scheduledId)).status,
         )
     }

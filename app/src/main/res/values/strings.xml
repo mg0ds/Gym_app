@@ -11,6 +11,8 @@
     <!-- Trwający trening (karta na kalendarzu) -->
     <string name="calendar_active_title">Masz rozpoczęty trening</string>
     <string name="calendar_active_resume">Kontynuuj trening</string>
+    <string name="calendar_active_hint">Zegar działa — wróć, kiedy będziesz gotowy.</string>
+    <string name="calendar_hero_today">Dziś, %1$s, %2$s</string>
     <string name="calendar_confirm_new_title">Trwa inny trening</string>
     <string name="calendar_confirm_new_message">Rozpoczęcie nowego treningu zakończy „%1$s” jako przerwany. Kontynuować?</string>
     <string name="calendar_confirm_new_start">Zacznij nowy</string>
@@ -354,6 +356,8 @@
     <string name="calendar_day_empty">Nic nie zaplanowano na ten dzień.</string>
     <string name="calendar_plan_workout">Zaplanuj trening</string>
     <string name="calendar_entry_actions">Działania dla tego dnia</string>
+    <string name="calendar_remove_confirm_title">Usunąć wpis z kalendarza?</string>
+    <string name="calendar_remove_confirm_body">„%1$s” zniknie z kalendarza. Odbyty trening, jeśli już istnieje, zostaje w historii.</string>
     <string name="calendar_start_workout">Rozpocznij trening</string>
     <string name="calendar_start_for">Trening na %1$s</string>
     <string name="calendar_start_date_hint">%1$s - trening zapisze się pod tą datą.</string>
@@ -416,6 +420,12 @@
 
     <!-- Trening -->
     <string name="session_finish">Zakończ trening</string>
+    <string name="session_finish_confirm_title">Zakończyć trening?</string>
+    <string name="session_finish_confirm_body">Trening trafi do historii. Jeśli kliknąłeś przypadkiem, możesz go wznowić do końca dnia.</string>
+    <string name="session_resume_finished">Wznów trening</string>
+    <string name="session_remove_exercise_title">Usunąć ćwiczenie?</string>
+    <string name="session_remove_exercise_body">„%1$s” zniknie z tego treningu razem z zapisanymi seriami. Tej operacji nie można cofnąć.</string>
+    <string name="session_remove_exercise_action">Usuń ćwiczenie</string>
     <string name="session_cancel">Przerwij trening</string>
     <string name="session_no_exercises">Ten trening nie ma jeszcze ćwiczeń.</string>
     <string name="session_add_exercise">Dodaj ćwiczenie</string>
@@ -425,6 +435,7 @@
     <string name="session_cancel_confirm_body">Trening nie zostanie zapisany jako odbyty.</string>
     <string name="session_in_progress">Trening w toku</string>
     <string name="session_finished">Trening zakończony</string>
+    <string name="session_finished_hint">Zapisany w historii. Możesz go wznowić do końca dnia.</string>
     <string name="session_started_at">Start o %1$s</string>
     <string name="session_day">Dzień treningu: %1$s</string>
     <string name="session_change_date">Zmień dzień treningu</string>
@@ -604,6 +615,7 @@
     <string name="exercise_stats_volume_with_date">%1$s kg • %2$s</string>
     <string name="exercise_stats_one_rep_max_value">%1$s kg</string>
     <string name="exercise_stats_one_rep_max_approximate">~%1$s kg</string>
+    <string name="exercise_stats_one_rep_max_hint">Szacowany ciężar na jedno powtórzenie, liczony z ciężaru i liczby powtórzeń (wzór Epleya).</string>
     <string name="exercise_stats_one_rep_max_note">Powyżej 12 powtórzeń ten wzór to już tylko szacunek.</string>
     <string name="exercise_stats_range_sessions">Treningi w zakresie</string>
     <string name="exercise_stats_range_sets">Serie w zakresie</string>

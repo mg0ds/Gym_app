@@ -1,5 +1,28 @@
 # Stan prac
 
+## 05.11.2026 — po M10i
+
+Runda siedmiu poprawek UX i nowa szata graficzna. Baza w wersji **11**, bez
+migracji.
+
+- usuwanie ćwiczenia z trwającego treningu (long-press + potwierdzenie; kasuje
+  serie i przerwy, przenumerowuje pozycje),
+- potwierdzenie zakończenia treningu i „Wznów trening” do końca dnia
+  (czas przerwy doliczony do pauz, wpis w kalendarzu wraca na „zaplanowany”),
+- widoczny kosz przy wpisie w kalendarzu z potwierdzeniem,
+- wyjaśnienie szacowanego 1RM w statystykach i szczegółach ćwiczenia,
+- „ładna” oś Y wykresów (pełne wartości i krok, bez 32/42/52),
+- etykiety osi z motywu aplikacji (koniec białych napisów w jasnym motywie
+  przy ciemnym telefonie),
+- redesign „Obsidian & Citrus”: atramentowa zieleń, mech, porcelana, limonka,
+  szeryfowe nagłówki, pływająca dolna nawigacja, ciemny herb kalendarza,
+  ciemny panel zegara i limonkowy pasek przerwy.
+
+Weryfikacja: **331 testów JVM** (0 błędów), `lintDebug`, `assembleDebug`,
+`bundleRelease`; ręcznie na emulatorze API 36: long-press i potwierdzenie,
+zakończenie → wznowienie, kosz w kalendarzu, wykres z etykietami
+`40/60/80/100/120` i ciemnymi opisami osi.
+
 ## 27.10.2026 — po M10h
 
 Zrobione i wypchnięte: commit `aa990af` (M10h) na `main`, CI zielone

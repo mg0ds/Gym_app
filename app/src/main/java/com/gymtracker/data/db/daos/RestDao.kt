@@ -75,4 +75,24 @@ interface RestDao {
     /** Wszystkie przerwy treningu (także pominięte) - podsumowanie na ekranie. */
     @Query("SELECT * FROM rest_intervals WHERE session_id = :sessionId ORDER BY started_at")
     fun observeSessionRests(sessionId: Long): Flow<List<RestIntervalEntity>>
+
+    /**
+     * Przerwy przypisane do serii usuwanego ćwiczenia.
+     *
+     * `rest_intervals.set_log_id` ma `ON DELETE SET NULL`, więc sama kaskada
+     * set_logów zostawiłaby przerwy bez serii - a te nadal liczyłyby się do
+     * „czasu pod sztangą” i średniej przerwy tego ćwiczenia.
+     */
+    @Query(
+        """
+        DELETE FROM rest_intervals
+        WHERE set_log_id IN (SELECT id FROM set_logs WHERE session_exercise_id = :sessionExerciseId)
+           OR (session_id = :sessionId AND exercise_id = :exerciseId)
+        """,
+    )
+    suspend fun deleteForSessionExercise(
+        sessionId: Long,
+        exerciseId: Long,
+        sessionExerciseId: Long,
+    )
 }

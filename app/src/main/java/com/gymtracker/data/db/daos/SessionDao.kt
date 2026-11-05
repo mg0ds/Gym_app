@@ -90,6 +90,14 @@ interface SessionDao {
     @Query("SELECT * FROM session_exercises WHERE id = :id")
     suspend fun getSessionExercise(id: Long): SessionExerciseEntity?
 
+    /** Usuwa ćwiczenie z treningu; serie znikają kaskadą (FK `ON DELETE CASCADE`). */
+    @Query("DELETE FROM session_exercises WHERE id = :id")
+    suspend fun deleteSessionExercise(id: Long)
+
+    /** Po usunięciu pozycji domykamy dziury w numeracji listy ćwiczeń. */
+    @Query("UPDATE session_exercises SET position = :position WHERE id = :id")
+    suspend fun setExercisePosition(id: Long, position: Int)
+
     @Query("UPDATE sessions SET note = :note WHERE id = :sessionId")
     suspend fun setNote(sessionId: Long, note: String?)
 
