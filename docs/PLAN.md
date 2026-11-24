@@ -2617,7 +2617,10 @@ Y przy 40 kg i przy zakresie 45–117 kg), `lintDebug`, `assembleDebug`,
 i potwierdzenie usunięcia, zakończenie → „Wznów” → aktywny trening, kosz
 w kalendarzu z potwierdzeniem, ciemny herb i pływająca nawigacja, wykres
 z etykietami `40/60/80/100/120` i ciemnymi opisami osi w jasnym motywie
-(także przy ciemnym motywie systemu).
+(także przy ciemnym motywie systemu). Wdrożenie na telefonie: 07.11.2026,
+Samsung SM-S928B (Android 17, API 37) — APK release `0.1.0` z tym samym
+podpisem `CN=GymTracker` wszedł przez `adb install -r` w miejscu, bez utraty
+danych; aplikacja startuje bez wyjątków, historia i plany zostały na miejscu.
 
 ---
 

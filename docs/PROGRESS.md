@@ -1,5 +1,17 @@
 # Stan prac
 
+## 07.11.2026 — M10i na telefonie
+
+Wydanie M10i (commit `4ad2a60`) wdrożone na telefonie **Samsung SM-S928B**
+(Android 17, API 37) — aktualizacja w miejscu, bez utraty danych.
+
+- zainstalowany APK release `0.1.0` z podpisem `CN=GymTracker` — ten sam
+  certyfikat co poprzednia wersja, więc `adb install -r` przyjął aktualizację
+  bez odinstalowywania,
+- aplikacja startuje bez `FATAL EXCEPTION`,
+- historia i plany zostały na miejscu (m.in. treningi z 1.11 i 4.11.2026),
+- CI po commicie `4ad2a60`: zielone (run `41945274912`).
+
 ## 05.11.2026 — po M10i
 
 Runda siedmiu poprawek UX i nowa szata graficzna. Baza w wersji **11**, bez
